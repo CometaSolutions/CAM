@@ -38,7 +38,7 @@ using System.Text;
 using CommonUtils;
 using CILAssemblyManipulator.Physical.PDB;
 using TStreamInfo = System.Tuple<System.Int32, System.Int32[]>;
-using TSourceHeaderInfo = System.Tuple<System.Int32, System.Int32, System.Int32>;
+using TSourceHeaderInfo = System.Tuple<System.Int32, System.Int32, System.Int32, CILAssemblyManipulator.Physical.PDB.PDBSource>;
 
 #pragma warning disable 1591
 public static partial class E_CILPhysical
@@ -105,7 +105,10 @@ public static partial class E_CILPhysical
       var state = new PDBWritingState( instance, new StreamHelper( stream ), 0x200 );
 
       // Start by writing sources
+      var sourceInfo = state.WritePDBSources();
 
+      // Then write header-block
+      state.WriteSourceHeaderBlock( sourceInfo );
    }
 
    private const Int32 GUID_SIZE = 16;
@@ -139,14 +142,14 @@ public static partial class E_CILPhysical
          );
    }
 
-   private static void WriteSourceHeaderBlock( this PDBWritingState state, IEnumerable<PDBSource> sourcesEnumerable )
+   private static void WriteSourceHeaderBlock( this PDBWritingState state, IDictionary<PDBSource, Int32> sources, Int32 streamIndex = 7 )
    {
-      // Emit src/headerblock
-      var sources = sourcesEnumerable.ToArray();
+      // Compute the hashes
+      var hashKeyExtractor = new Func<TSourceHeaderInfo, Int32>( info => info.Item1 );
       var hashFunction = new Func<TSourceHeaderInfo[], TSourceHeaderInfo, Int32?>( ( sourceInfos, curSource ) =>
       {
          var len = sourceInfos.Length;
-         var hIdx = curSource.Item1 % len;
+         var hIdx = hashKeyExtractor( curSource ) % len;
          while ( hIdx < len && sourceInfos[hIdx] != null )
          {
             ++hIdx;
@@ -155,14 +158,15 @@ public static partial class E_CILPhysical
       } );
 
       const Int32 BUCKETS_INCREASE = 10;
-      var srcHash = new TSourceHeaderInfo[BinaryUtils.AmountOfPagesTaken( sources.Length, BUCKETS_INCREASE ) * BUCKETS_INCREASE];
+      var srcHash = new TSourceHeaderInfo[BinaryUtils.AmountOfPagesTaken( sources.Count, BUCKETS_INCREASE ) * BUCKETS_INCREASE];
 
-      foreach ( var src in sources )
+      foreach ( var src in sources.Keys )
       {
          var srcInfo = Tuple.Create(
             state.GetNameIndex( src.Name.ToLowerInvariant() ),
             state.GetNameIndex( "" ),
-            state.GetNameIndex( src.Name )
+            state.GetNameIndex( src.Name ),
+            src
             );
          var hashBucketCount = srcHash.Length;
          var hIdx = hashFunction( srcHash, srcInfo );
@@ -200,64 +204,68 @@ public static partial class E_CILPhysical
          }
       }
 
-      // Write order: Item3, Item2, Item1
+      // Write the source header block
+      const Int32 SRC_HEADER_BLOCK_ENTRY_SIZE = 0x2C;
+      var srcHashSize = srcHash.Length;
+      var srcCount = sources.Count;
+      var streamSize = 0x50 // Header size + magic int size
+         + BinaryUtils.AmountOfPagesTaken( srcHashSize, 32 ) * sizeof( Int32 ) // Amount of integers for present bit vector
+         + SRC_HEADER_BLOCK_ENTRY_SIZE * srcCount;
+      state.AddNewIndexedStream(
+         streamIndex,
+         streamSize,
+         ( array, idx ) =>
+         {
+            const Int32 SRC_HEADER_VERSION = 19980827;
+            array
+               .WriteInt32LEToBytes( ref idx, SRC_HEADER_VERSION ) // Signature
+               .WriteInt32LEToBytes( ref idx, streamSize ) // Stream size
+               .WriteInt64LEToBytes( ref idx, DateTime.Now.Ticks ) // Timestamp ticks
+               .WriteUInt32LEToBytes( ref idx, state.PDB.Age ) // PDB age
+               .ZeroOut( ref idx, 44 ) // 44 bytes of zero padding
+               .WriteInt32LEToBytes( ref idx, srcCount ) // Amount of sources
+               .WriteInt32LEToBytes( ref idx, srcHashSize ); // Amount of hash buckets
 
-      //var nIdx = state.GetNameIndex( src.Name );
-      //var dummy = state.GetNameIndex( "" );
-      //var sIdx = state.GetNameIndex( src.Name.ToLowerInvariant() );
-      //srcInfos[i] = Tuple.Create( sIdx, nIdx );
-      //      array = NewArrayIfNeeded( array, SRC_HEADER_FIXED_SIZE + AmountOfPagesTaken( hashBucketCount, 32 ) * INT_SIZE + SRC_HEADER_BLOCK_ENTRY_SIZE * sources.Length, out idx, out arrayLen );
-      //      array
-      //         .WriteUInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_SIG ) // Starting signature
-      //         .WriteInt32LEToBytes( ref idx, arrayLen ) // Stream size
-      //         .ZeroesInt32( ref idx, 14 ) // The following 14 ints are ignored on read
-      //         .WriteInt32LEToBytes( ref idx, sources.Length ) // Amount of entries
-      //         .WriteInt32LEToBytes( ref idx, hashBucketCount ) // Amount of hash buckets
-      //         .WriteInt32LEToBytes( ref idx, AmountOfPagesTaken( hashBucketCount, 32 ) ); // How many int32's hash bucket present bitset takes
-      //                                                                                     // Write hash bucket present set
-      //      tmpUInt32 = 0u;
-      //      for ( var i = 0; i < hashBucketCount; ++i )
-      //      {
-      //         if ( srcHash[i] != null )
-      //         {
-      //            tmpUInt32 |= ( 1u << ( i % 32 ) );
-      //         }
-      //         if ( i + 1 == hashBucketCount || ( i != 0 && i % 32 == 0 ) )
-      //         {
-      //            // Write UInt32
-      //            array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
-      //         }
-      //      }
-      //      // Magic zero
-      //      array.ZeroesInt32( ref idx, 1 );
-      //      // Write entries
-      //      foreach ( var srcInfo in srcHash )
-      //      {
-      //         if ( srcInfo != null )
-      //         {
-      //            array
-      //               .WriteInt32LEToBytes( ref idx, srcInfo.Item1 ) // Search term name index - MSVS seems to want the lowercase version
-      //               .WriteInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_ENTRY_SIZE - INT_SIZE ) // The size of the entry
-      //               .WriteUInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_SIG ) // Signature, ignored on read
-      //               .ZeroesInt32( ref idx, 1 ) // Checksum (?), ignored on read
-      //               .WriteUInt32LEToBytes( ref idx, SRC_HEADER_SRC_TYPE ) // Source data format (?)
-      //               .WriteInt32LEToBytes( ref idx, srcInfo.Item2 ) // File name index, ignored on read
-      //               .ZeroesInt32( ref idx, 1 ) // Seems to be always name index to empty string, ignored on read
-      //               .WriteInt32LEToBytes( ref idx, srcInfo.Item2 ) // Stream suffix name index
-      //               .WriteUInt32LEToBytes( ref idx, SRC_HEADER_OTHER_TYPE ) // Some other format?
-      //               .ZeroesInt32( ref idx, 2 );
-      //         }
-      //      }
-      //#if DEBUG
-      //      if ( idx != arrayLen )
-      //      {
-      //         throw new PDBException( "Debyyg" );
-      //      }
-      //#endif
-      //      // Write to stream
-      //      startPage = stream.GetCurrentPage( pageSize );
-      //      stream.stream.Write( array, arrayLen );
-      //      dataStreams[7] = Tuple.Create( arrayLen, stream.PagesFromContinuousStream( pageSize, startPage, zeroesPageArray ) );
+            // Present hashes bit vector
+            var tmpUInt32 = 0u;
+            for ( var i = 0; i < srcHashSize; ++i )
+            {
+               if ( srcHash[i] != null )
+               {
+                  tmpUInt32 |= ( 1u << ( i % 32 ) );
+               }
+               if ( i + 1 == srcHashSize || ( i != 0 && i % 32 == 0 ) )
+               {
+                  // Write UInt32
+                  array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+               }
+            }
+
+            // Magic zero
+            array.WriteInt32LEToBytes( ref idx, 0 );
+
+            // Write hash info
+            foreach ( var hashInfo in srcHash )
+            {
+
+               array
+                  .WriteInt32LEToBytes( ref idx, hashKeyExtractor( hashInfo ) ) // Hash key (lower-case string)
+                  .WriteInt32LEToBytes( ref idx, SRC_HEADER_BLOCK_ENTRY_SIZE - sizeof( Int32 ) ) // The size of the rest of the record
+                  .WriteInt32LEToBytes( ref idx, SRC_HEADER_VERSION ) // Version
+                  .WriteInt32LEToBytes( ref idx, 0 ) // CRC of the data
+                  .WriteInt32LEToBytes( ref idx, state.DataStreams[sources[hashInfo.Item4]].Item1 ) // Source stream byte count
+                  .WriteInt32LEToBytes( ref idx, hashInfo.Item3 ) // source file name index
+                  .WriteInt32LEToBytes( ref idx, hashInfo.Item2 ) // object file name index
+                  .WriteInt32LEToBytes( ref idx, hashInfo.Item1 ) // virtual file name index
+                  .WriteByteToBytes( ref idx, 0x65 ) // Compression algorithm
+                  .WriteByteToBytes( ref idx, 0x00 ) // grFlags (1 if virtual)
+                  .WriteInt16LEToBytes( ref idx, 0 ) // Pad to 4-byte size
+                  .WriteInt64LEToBytes( ref idx, 0 ); // Reserved
+            }
+
+         },
+         "/src/headerblock"
+         );
 
    }
 
@@ -313,21 +321,12 @@ public static partial class E_CILPhysical
 
    private static Int32 AddNewNamedStream( this PDBWritingState state, String streamName, Int32 streamSize, Action<Byte[], Int32> write )
    {
-      var startPage = state.GetCurrentPage();
-      var array = state.Stream.Buffer.SetCapacityAndReturnArray( streamSize );
-
-      write( array, 0 );
-      state.Stream.Stream.Write( array, streamSize );
-
-      var dataStreams = state.DataStreams;
-      var retVal = dataStreams.Count;
-      state.DataStreamNames.Add( streamName, retVal );
-      dataStreams.Add( Tuple.Create( streamSize, state.PagesFromContinuousStream( startPage ) ) );
-
+      var retVal = state.DataStreams.Count;
+      state.AddNewIndexedStream( retVal, streamSize, write, streamName );
       return retVal;
    }
 
-   private static void AddNewIndexedStream( this PDBWritingState state, Int32 streamIndex, Int32 streamSize, Action<Byte[], Int32> write )
+   private static void AddNewIndexedStream( this PDBWritingState state, Int32 streamIndex, Int32 streamSize, Action<Byte[], Int32> write, String streamName = null )
    {
       var startPage = state.GetCurrentPage();
       var array = state.Stream.Buffer.SetCapacityAndReturnArray( streamSize );
@@ -349,6 +348,11 @@ public static partial class E_CILPhysical
             dataStreams.AddRange( Enumerable.Repeat<TStreamInfo>( null, count - streamIndex ) );
          }
          dataStreams.Add( streamInfo );
+      }
+
+      if ( streamName != null )
+      {
+         state.DataStreamNames[streamName] = streamIndex;
       }
    }
 
