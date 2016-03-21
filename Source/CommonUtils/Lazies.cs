@@ -211,8 +211,6 @@ namespace CommonUtils
       internal ReadOnlyLazy( Func<T> factory, LazyThreadSafetyMode threadSafety )
       {
          this._lazy = new Lazy<T>( factory, threadSafety );
-         IWriteableLazy<T> dfdf = null;
-         var kek = dfdf.Value;
       }
 
       /// <inheritdoc />
