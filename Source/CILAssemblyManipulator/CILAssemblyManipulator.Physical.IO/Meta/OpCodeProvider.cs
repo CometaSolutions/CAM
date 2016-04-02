@@ -56,32 +56,6 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="info">This parameter will have the <see cref="OpCodeProviderInfo"/> of the op code serialized at given index in given byte array.</param>
       /// <returns><c>true</c> if this <see cref="OpCodeProvider"/> knew how to deserialize the op code; <c>false</c> otherwise.</returns>
       Boolean TryReadOpCode( Byte[] array, Int32 index, out OpCodeProviderInfo info );
-
-
-      ///// <summary>
-      ///// Tries to get an actual <see cref="OpCode"/> based on its <see cref="OpCodeID"/>.
-      ///// </summary>
-      ///// <param name="codeID">The <see cref="OpCodeID"/>.</param>
-      ///// <param name="opCode">This parameter will contain the actual <see cref="OpCode"/> data structure if any is found for given <see cref="OpCodeID"/>.</param>
-      ///// <returns><c>true</c> if this <see cref="OpCodeProvider"/> had a <see cref="OpCode"/> for given <paramref name="codeID"/>; <c>false</c> otherwise.</returns>
-      //Boolean TryGetCodeFor( OpCodeID codeID, out OpCode opCode );
-
-      ///// <summary>
-      ///// Tries to get the byte size of the given op code, without operand.
-      ///// </summary>
-      ///// <param name="codeID">The <see cref="OpCodeID"/> of the op code.</param>
-      ///// <param name="size">This parameter will have the byte size of the given op code, without operand.</param>
-      ///// <returns><c>true</c> if this <see cref="OpCodeProvider"/> had information about the size for given <paramref name="codeID"/>; <c>false</c> otherwise.</returns>
-      //Boolean TryGetOpCodeSize( OpCodeID codeID, out Int32 size );
-
-      ///// <summary>
-      ///// Tries to write the serialized value of given op code ID to given byte array.
-      ///// </summary>
-      ///// <param name="codeID">The <see cref="OpCodeID"/> of the op code.</param>
-      ///// <param name="array">The byte array to write to.</param>
-      ///// <param name="index">The index in <paramref name="array"/>.</param>
-      ///// <returns><c>true</c> if this <see cref="OpCodeProvider"/> knew how to serialize op code of given <paramref name="codeID"/>; <c>false</c> otherwise.</returns>
-      //Boolean TryWriteOpCode( OpCodeID codeID, Byte[] array, Int32 index );
    }
 
    /// <summary>
@@ -177,12 +151,6 @@ namespace CILAssemblyManipulator.Physical.Meta
             .ToDictionary_Overwrite( kvp => kvp.Key, kvp => new OpCodeInfoWithNoOperand( kvp.Key ) );
       }
 
-      ///// <inheritdoc />
-      //public Boolean TryGetCodeFor( OpCodeID codeID, out OpCode opCode )
-      //{
-      //   return this._codes.TryGetValue( codeID, out opCode );
-      //}
-
       /// <inheritdoc />
       public OpCodeInfoWithNoOperand GetOperandlessInfoOrNull( OpCodeID codeID )
       {
@@ -195,15 +163,6 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          return this._infos.TryGetValue( codeID, out info );
       }
-
-      ///// <inheritdoc />
-      //public Boolean TryGetOpCodeSize( OpCodeID codeID, out Int32 size )
-      //{
-      //   OpCodeProviderInfo info;
-      //   var retVal = this._infos.TryGetValue( codeID, out info );
-      //   size = retVal ? info.Size : -1;
-      //   return retVal;
-      //}
 
       /// <inheritdoc />
       public void WriteOpCode( OpCodeProviderInfo info, Byte[] array, Int32 index )
@@ -516,63 +475,6 @@ public static partial class E_CILPhysical
       }
       return info;
    }
-
-   ///// <summary>
-   ///// Gets the byte size, without operands, for given <see cref="OpCodeID"/> or throws if this <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/> does not know the size.
-   ///// </summary>
-   ///// <param name="opCodeProvider">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/>.</param>
-   ///// <param name="codeID">The <see cref="OpCodeID"/>.</param>
-   ///// <returns></returns>
-   ///// <exception cref="NullReferenceException">If this <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/> is <c>null</c>.</exception>
-   ///// <exception cref="ArgumentException">If <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider.TryGetOpCodeSize"/> returns <c>false</c>.</exception>
-   //public static Int32 GetOpCodeSize( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCodeID codeID )
-   //{
-   //   Int32 retVal;
-   //   if ( !( (CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryGetOpCodeSize( codeID, out retVal ) )
-   //   {
-   //      throw new ArgumentException( "Op code " + codeID + " is not operandless opcode." );
-   //   }
-   //   return retVal;
-   //}
-
-   ///// <summary>
-   ///// Reads the serialized <see cref="OpCodeID"/> from given byte array at given index.
-   ///// </summary>
-   ///// <param name="opCodeProvider">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/>.</param>
-   ///// <param name="array">The byte array.</param>
-   ///// <param name="index">The index in the <paramref name="array"/>.</param>
-   ///// <returns>The deserialized <see cref="OpCodeID"/>.</returns>
-   ///// <exception cref="NullReferenceException">If this <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/> is <c>null</c>.</exception>
-   ///// <exception cref="ArgumentException">If <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider.TryReadOpCode"/> returns <c>false</c>.</exception>
-
-   //public static CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo ReadOpCode( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, Byte[] array, ref Int32 index )
-   //{
-   //   CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo info;
-   //   if ( !( (CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryReadOpCode( array, index, out info ) )
-   //   {
-   //      throw new ArgumentException( "No op code recognized in byte array at given index." );
-   //   }
-   //   index += info.Size;
-   //   return info;
-   //}
-
-
-   ///// <summary>
-   ///// Calculates the total fixed byte count for a specific <see cref="OpCode"/>.
-   ///// This is the sum of <see cref="GetOpCodeSize"/> and <see cref="OpCode.OperandSize"/>.
-   ///// </summary>
-   ///// <param name="opCodeProvider">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/>.</param>
-   ///// <param name="code">The <see cref="OpCode"/>.</param>
-   ///// <returns>The total fixed byte count for a specific <see cref="OpCode"/>.</returns>
-   ///// <exception cref="NullReferenceException">If </exception>
-   ///// <remarks>
-   ///// One should use <see cref="GetTotalByteCount"/> extension method when calculating byte sizes when writing or reading IL bytecode.
-   ///// This is because switch instruction (<see cref="OpCodeID.Switch"/>) has additional offset array, the length of which is determined by the fixed operand of switch instruction.
-   ///// </remarks>
-   //public static Int32 GetFixedByteCount( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCode code )
-   //{
-   //   return opCodeProvider.GetOpCodeSize( code.OpCodeID ) + code.OperandSize;
-   //}
 
    /// <summary>
    /// Calculates the total fixed byte count for a specific <see cref="OpCodeID"/>.
