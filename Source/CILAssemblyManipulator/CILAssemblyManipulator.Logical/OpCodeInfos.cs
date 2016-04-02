@@ -623,10 +623,10 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="code">The code to use.</param>
       /// <param name="str">The string to use.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="str"/> is <c>null</c>.</exception>
-      /// <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> for <paramref name="code"/> is not <see cref="OperandType.InlineString"/>.</exception>
       public LogicalOpCodeInfoWithFixedSizeOperandString( OpCodeID code, String str )
          : base( code, str ) //, TOKEN_SIZE )
       {
+         // <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> for <paramref name="code"/> is not <see cref="OperandType.InlineString"/>.</exception>
          //if ( code.OperandType != OperandType.InlineString )
          //{
          //   throw new ArgumentException( "The operand type of opcode is " + code.OperandType + " instead of string." );

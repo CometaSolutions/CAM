@@ -203,7 +203,7 @@ public static partial class E_CILPhysical
       ArgumentValidator.ValidateNotNullReference( opCodeProvider );
       ArgumentValidator.ValidateNotNull( "Byte array", bytes );
 
-      CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo ocpInfo;
+      CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo ocpInfo;
       OpCodeInfo info;
       if ( ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryReadOpCode( bytes, idx, out ocpInfo ) )
       {

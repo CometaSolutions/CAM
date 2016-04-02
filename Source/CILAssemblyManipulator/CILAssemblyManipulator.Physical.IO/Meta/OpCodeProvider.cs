@@ -33,44 +33,44 @@ namespace CILAssemblyManipulator.Physical.Meta
 #pragma warning restore 1591
    {
       /// <summary>
-      /// Tries to get <see cref="OpCodeProviderInfo" /> for given <see cref="OpCodeID"/>.
+      /// Tries to get <see cref="OpCodeSerializationInfo" /> for given <see cref="OpCodeID"/>.
       /// </summary>
       /// <param name="codeID">The <see cref="OpCodeID"/>.</param>
-      /// <param name="info">This parameter will contain <see cref="OpCodeProviderInfo"/>, if the <paramref name="codeID"/> was recognized by this <see cref="OpCodeProvider"/>.</param>
-      /// <returns><c>true</c> if this <see cref="OpCodeProvider"/> had a <see cref="OpCodeProviderInfo"/> for given <paramref name="codeID"/>; <c>false</c> otherwise.</returns>
-      Boolean TryGetInfoFor( OpCodeID codeID, out OpCodeProviderInfo info );
+      /// <param name="info">This parameter will contain <see cref="OpCodeSerializationInfo"/>, if the <paramref name="codeID"/> was recognized by this <see cref="OpCodeProvider"/>.</param>
+      /// <returns><c>true</c> if this <see cref="OpCodeProvider"/> had a <see cref="OpCodeSerializationInfo"/> for given <paramref name="codeID"/>; <c>false</c> otherwise.</returns>
+      Boolean TryGetInfoFor( OpCodeID codeID, out OpCodeSerializationInfo info );
 
       /// <summary>
       /// Writes the op code (but not the operand) to the given array at given index.
       /// </summary>
-      /// <param name="info">The <see cref="OpCodeProviderInfo"/> about the op code to write.</param>
+      /// <param name="info">The <see cref="OpCodeSerializationInfo"/> about the op code to write.</param>
       /// <param name="array">The byte array to write op code info to.</param>
       /// <param name="index">The index in <paramref name="array"/>.</param>
-      void WriteOpCode( OpCodeProviderInfo info, Byte[] array, Int32 index );
+      void WriteOpCode( OpCodeSerializationInfo info, Byte[] array, Int32 index );
 
       /// <summary>
       /// Tries to read <see cref="OpCodeID"/> from serialized form in given byte array.
       /// </summary>
       /// <param name="array">The byte array read from.</param>
       /// <param name="index">The index in <paramref name="array"/>.</param>
-      /// <param name="info">This parameter will have the <see cref="OpCodeProviderInfo"/> of the op code serialized at given index in given byte array.</param>
+      /// <param name="info">This parameter will have the <see cref="OpCodeSerializationInfo"/> of the op code serialized at given index in given byte array.</param>
       /// <returns><c>true</c> if this <see cref="OpCodeProvider"/> knew how to deserialize the op code; <c>false</c> otherwise.</returns>
-      Boolean TryReadOpCode( Byte[] array, Int32 index, out OpCodeProviderInfo info );
+      Boolean TryReadOpCode( Byte[] array, Int32 index, out OpCodeSerializationInfo info );
    }
 
    /// <summary>
    /// This class encapsulates required information about single <see cref="OpCodeID"/> for the <see cref="DefaultOpCodeProvider"/>.
    /// </summary>
-   public class OpCodeProviderInfo
+   public class OpCodeSerializationInfo
    {
 
       /// <summary>
-      /// Creates new instance of <see cref="OpCodeProviderInfo"/> with given parameters.
+      /// Creates new instance of <see cref="OpCodeSerializationInfo"/> with given parameters.
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="size">The size of the code, in bytes.</param>
       /// <param name="serializedValue">The serialized value of the code, as short.</param>
-      public OpCodeProviderInfo( OpCode code, Byte size, Int16 serializedValue )
+      public OpCodeSerializationInfo( OpCode code, Byte size, Int16 serializedValue )
       {
          this.Code = code;
          //this.OpCodeID = code.OpCodeID;
@@ -129,16 +129,16 @@ namespace CILAssemblyManipulator.Physical.Meta
          DefaultInstance = new DefaultOpCodeProvider();
       }
 
-      private readonly IDictionary<OpCodeID, OpCodeProviderInfo> _infos;
-      private readonly IDictionary<Int16, OpCodeProviderInfo> _infosBySerializedValue;
+      private readonly IDictionary<OpCodeID, OpCodeSerializationInfo> _infos;
+      private readonly IDictionary<Int16, OpCodeSerializationInfo> _infosBySerializedValue;
       //private readonly IDictionary<OpCodeID, OpCode> _codes;
       private readonly IDictionary<OpCodeID, OpCodeInfoWithNoOperand> _operandless;
 
       /// <summary>
       /// Creates a new instance of <see cref="DefaultOpCodeProvider"/> with support for given op code set.
       /// </summary>
-      /// <param name="codes">The <see cref="OpCodeProviderInfo"/>s to support. If <c>null</c>, the return value of <see cref="GetDefaultOpCodes"/> will be used.</param>
-      public DefaultOpCodeProvider( IEnumerable<OpCodeProviderInfo> codes = null )
+      /// <param name="codes">The <see cref="OpCodeSerializationInfo"/>s to support. If <c>null</c>, the return value of <see cref="GetDefaultOpCodes"/> will be used.</param>
+      public DefaultOpCodeProvider( IEnumerable<OpCodeSerializationInfo> codes = null )
       {
          // TODO ugly exception if two statements below fail
          this._infos = ( codes ?? GetDefaultOpCodes() ).ToDictionary( i => i.Code.OpCodeID, i => i );
@@ -159,13 +159,13 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
 
       /// <inheritdoc />
-      public Boolean TryGetInfoFor( OpCodeID codeID, out OpCodeProviderInfo info )
+      public Boolean TryGetInfoFor( OpCodeID codeID, out OpCodeSerializationInfo info )
       {
          return this._infos.TryGetValue( codeID, out info );
       }
 
       /// <inheritdoc />
-      public void WriteOpCode( OpCodeProviderInfo info, Byte[] array, Int32 index )
+      public void WriteOpCode( OpCodeSerializationInfo info, Byte[] array, Int32 index )
       {
          if ( info.Size == 1 )
          {
@@ -179,7 +179,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
 
       /// <inheritdoc />
-      public Boolean TryReadOpCode( Byte[] array, Int32 index, out OpCodeProviderInfo info )
+      public Boolean TryReadOpCode( Byte[] array, Int32 index, out OpCodeSerializationInfo info )
       {
          var startIdx = index;
          var b = array[index++];
@@ -195,7 +195,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Gets all of the op codes in <see cref="OpCodes"/> class.
       /// </summary>
       /// <returns>An enumerable to iterate all codes in <see cref="OpCodes"/> class.</returns>
-      public static IEnumerable<OpCodeProviderInfo> GetDefaultOpCodes()
+      public static IEnumerable<OpCodeSerializationInfo> GetDefaultOpCodes()
       {
          yield return NewProviderInfo( OpCodes.Nop, 0x0000 );
          yield return NewProviderInfo( OpCodes.Break, 0x0001 );
@@ -429,13 +429,13 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
 
       /// <summary>
-      /// Creates new instance of <see cref="OpCodeProviderInfo"/> with given parameters, calculating size automatically.
+      /// Creates new instance of <see cref="OpCodeSerializationInfo"/> with given parameters, calculating size automatically.
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="serializedValue">The serialized value of the code, as short.</param>
-      protected static OpCodeProviderInfo NewProviderInfo( OpCode code, Int32 serializedValue )
+      protected static OpCodeSerializationInfo NewProviderInfo( OpCode code, Int32 serializedValue )
       {
-         return new OpCodeProviderInfo( code, (Byte) ( ( (UInt32) serializedValue ) > MAX_ONE_BYTE_INSTRUCTION ? 2 : 1 ), (Int16) serializedValue );
+         return new OpCodeSerializationInfo( code, (Byte) ( ( (UInt32) serializedValue ) > MAX_ONE_BYTE_INSTRUCTION ? 2 : 1 ), (Int16) serializedValue );
       }
    }
 }
@@ -459,16 +459,16 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
-   /// Gets the <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo"/> for given <see cref="OpCodeID"/>, or throws an exception if no info found.
+   /// Gets the <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo"/> for given <see cref="OpCodeID"/>, or throws an exception if no info found.
    /// </summary>
    /// <param name="opCodeProvider">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/>.</param>
    /// <param name="codeID">The <see cref="OpCodeID"/></param>
-   /// <returns>The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo"/> for given <paramref name="codeID"/></returns>
+   /// <returns>The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo"/> for given <paramref name="codeID"/></returns>
    /// <exception cref="NullReferenceException">If this <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentException">If no suitable <see cref="OpCode"/> is found.</exception>
-   public static CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo GetInfoFor( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCodeID codeID )
+   public static CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo GetInfoFor( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCodeID codeID )
    {
-      CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo info;
+      CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo info;
       if ( !( (CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryGetInfoFor( codeID, out info ) )
       {
          throw new ArgumentException( "Op code " + codeID + " is invalid or not supported by this op code provider." );
@@ -478,7 +478,7 @@ public static partial class E_CILPhysical
 
    /// <summary>
    /// Calculates the total fixed byte count for a specific <see cref="OpCodeID"/>.
-   /// This is the sum of <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo.Size"/> and <see cref="OpCode.OperandSize"/>.
+   /// This is the sum of <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo.Size"/> and <see cref="OpCode.OperandSize"/>.
    /// </summary>
    /// <param name="opCodeProvider">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/>.</param>
    /// <param name="codeID">The <see cref="OpCodeID"/>.</param>

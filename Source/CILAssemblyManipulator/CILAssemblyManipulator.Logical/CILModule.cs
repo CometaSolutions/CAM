@@ -78,7 +78,7 @@ namespace CILAssemblyManipulator.Logical
       IDictionary<String, AbstractLogicalManifestResource> ManifestResources { get; }
 
       /// <summary>
-      /// Gets cached <see cref="LogicalOpCodeInfoWithNoOperand"/> for given <see cref="OpCode"/>.
+      /// Gets cached <see cref="LogicalOpCodeInfoWithNoOperand"/> for given <see cref="OpCodeID"/>.
       /// </summary>
       /// <param name="code">The <see cref="OpCodeID"/>.</param>
       /// <returns>Cached <see cref="LogicalOpCodeInfoWithNoOperand"/> for given <paramref name="code"/>.</returns>

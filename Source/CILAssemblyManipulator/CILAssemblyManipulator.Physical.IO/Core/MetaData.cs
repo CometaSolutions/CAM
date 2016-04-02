@@ -71,9 +71,10 @@ public static partial class E_CILPhysical
    {
       private Int32 _maxStack;
 
-      internal StackCalculationState( CILMetaData md, Int32 ilByteCount )
+      internal StackCalculationState( CILMetaData md, MethodDefinition method, Int32 ilByteCount )
       {
          this.MD = md;
+         this.Method = method;
          this.StackSizes = new Int32[ilByteCount];
          this._maxStack = 0;
       }
@@ -90,6 +91,8 @@ public static partial class E_CILPhysical
       }
 
       public CILMetaData MD { get; }
+
+      public MethodDefinition Method { get; }
 
       public Int32[] StackSizes { get; }
 
@@ -120,7 +123,7 @@ public static partial class E_CILPhysical
          {
 
             var ocp = md.OpCodeProvider;
-            var state = new StackCalculationState( md, ocp.GetILByteCount( il.OpCodes ) );
+            var state = new StackCalculationState( md, mDef, ocp.GetILByteCount( il.OpCodes ) );
 
             // Setup exception block stack sizes
             foreach ( var block in il.ExceptionBlocks )
@@ -158,17 +161,10 @@ public static partial class E_CILPhysical
       OpCodeInfo codeInfo
       )
    {
-      var codeID = codeInfo.OpCodeID;
-      var code = state.MD.OpCodeProvider.GetCodeFor( codeInfo.OpCodeID );
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
-      if ( FlowControl.Call == code.FlowControl )
-      {
-         curStacksize = UpdateStackSizeForMethod( state, codeID, ( (OpCodeInfoWithTableIndex) codeInfo ).Operand, curStacksize );
-      }
-      else
-      {
-         curStacksize += code.StackChange;
-      }
+      var code = state.MD.OpCodeProvider.GetCodeFor( codeInfo.OpCodeID );
+      // Calling GetStackChange will take care of calculating stack change even for Ret/Call/Callvirt/Calli/Newobj codes.
+      curStacksize += code.GetStackChange( state.MD, state.Method, codeInfo );
 
       // Save max stack here
       state.UpdateMaxStack( curStacksize );
@@ -202,80 +198,6 @@ public static partial class E_CILPhysical
 
       // Save current size for next iteration
       state.CurrentStack = curStacksize;
-   }
-
-   private static Int32 UpdateStackSizeForMethod(
-      StackCalculationState state,
-      OpCodeID code,
-      TableIndex method,
-      Int32 curStacksize
-      )
-   {
-      var sig = ResolveSignatureFromTableIndex( state, method );
-
-      if ( sig != null )
-      {
-         var isNewObj = code == OpCodeID.Newobj;
-         if ( sig.MethodSignatureInformation.IsHasThis() && !isNewObj )
-         {
-            // Pop 'this'
-            --curStacksize;
-         }
-
-         // Pop parameters
-         curStacksize -= sig.Parameters.Count;
-         var refSig = sig as MethodReferenceSignature;
-         if ( refSig != null )
-         {
-            curStacksize -= refSig.VarArgsParameters.Count;
-         }
-
-         if ( code == OpCodeID.Calli )
-         {
-            // Pop function pointer
-            --curStacksize;
-         }
-
-         var rType = sig.ReturnType.Type;
-
-         // TODO we could check here for stack underflow!
-
-         if ( isNewObj
-            || rType.TypeSignatureKind != TypeSignatureKind.Simple
-            || ( (SimpleTypeSignature) rType ).SimpleType != SimpleTypeSignatureKind.Void
-            )
-         {
-            // Push return value
-            ++curStacksize;
-         }
-      }
-
-      return curStacksize;
-   }
-
-   private static AbstractMethodSignature ResolveSignatureFromTableIndex(
-   StackCalculationState state,
-   TableIndex method
-   )
-   {
-      var mIdx = method.Index;
-      switch ( method.Table )
-      {
-         case Tables.MethodDef:
-            var mDef = state.MD.MethodDefinitions.GetOrNull( mIdx );
-            return mDef == null ? null : mDef.Signature;
-         case Tables.MemberRef:
-            var mRef = state.MD.MemberReferences.GetOrNull( mIdx );
-            return mRef == null ? null : mRef.Signature as AbstractMethodSignature;
-         case Tables.StandaloneSignature:
-            var sig = state.MD.StandaloneSignatures.GetOrNull( mIdx );
-            return sig == null ? null : sig.Signature as AbstractMethodSignature;
-         case Tables.MethodSpec:
-            var mSpec = state.MD.MethodSpecifications.GetOrNull( mIdx );
-            return mSpec == null ? null : ResolveSignatureFromTableIndex( state, mSpec.Method );
-         default:
-            return null;
-      }
    }
 
    private static void UpdateStackSizeAtBranchTarget(
