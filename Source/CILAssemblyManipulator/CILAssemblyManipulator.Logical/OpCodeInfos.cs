@@ -796,13 +796,13 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the version of the <see cref="OpCode"/> that uses short operand.
       /// </summary>
       /// <value>The version of the <see cref="OpCode"/> that uses short operand.</value>
-      public abstract OpCode ShortForm { get; }
+      public abstract OpCodeID ShortForm { get; }
 
       /// <summary>
       /// Gets the version of the <see cref="OpCode"/> that uses long operand.
       /// </summary>
       /// <value>The version of the <see cref="OpCode"/> that uses long operand.</value>
-      public abstract OpCode LongForm { get; }
+      public abstract OpCodeID LongForm { get; }
 
       /// <summary>
       /// Gets the target <see cref="ILLabel"/> for this <see cref="LogicalOpCodeInfoForBranchingControlFlow"/>.
@@ -821,44 +821,44 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class LogicalOpCodeInfoForBranch : LogicalOpCodeInfoForBranchingControlFlow
    {
-      private static readonly IDictionary<BranchType, OpCode> LONG_BRANCH_OPCODES;
-      private static readonly IDictionary<BranchType, OpCode> SHORT_BRANCH_OPCODES;
-      private static readonly IDictionary<OpCode, BranchType> LONG_BRANCH_TYPES;
-      private static readonly IDictionary<OpCode, BranchType> SHORT_BRANCH_TYPES;
+      private static readonly IDictionary<BranchType, OpCodeID> LONG_BRANCH_OPCODES;
+      private static readonly IDictionary<BranchType, OpCodeID> SHORT_BRANCH_OPCODES;
+      private static readonly IDictionary<OpCodeID, BranchType> LONG_BRANCH_TYPES;
+      private static readonly IDictionary<OpCodeID, BranchType> SHORT_BRANCH_TYPES;
 
       static LogicalOpCodeInfoForBranch()
       {
-         LONG_BRANCH_OPCODES = new Dictionary<BranchType, OpCode>();
-         LONG_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodes.Br );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodes.Beq );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodes.Brfalse );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Bge );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Bge_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodes.Bgt );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodes.Bgt_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Ble );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Ble_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodes.Blt );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodes.Blt_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodes.Bne_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodes.Brtrue );
+         LONG_BRANCH_OPCODES = new Dictionary<BranchType, OpCodeID>();
+         LONG_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodeID.Br );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodeID.Beq );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodeID.Brfalse );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Bge );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Bge_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodeID.Bgt );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodeID.Bgt_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Ble );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Ble_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodeID.Blt );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodeID.Blt_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodeID.Bne_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodeID.Brtrue );
 
-         SHORT_BRANCH_OPCODES = new Dictionary<BranchType, OpCode>();
-         SHORT_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodes.Br_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodes.Beq_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodes.Brfalse_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Bge_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Bge_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodes.Bgt_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodes.Bgt_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Ble_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Ble_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodes.Blt_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodes.Blt_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodes.Bne_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodes.Brtrue_S );
+         SHORT_BRANCH_OPCODES = new Dictionary<BranchType, OpCodeID>();
+         SHORT_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodeID.Br_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodeID.Beq_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodeID.Brfalse_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Bge_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Bge_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodeID.Bgt_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodeID.Bgt_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Ble_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Ble_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodeID.Blt_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodeID.Blt_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodeID.Bne_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodeID.Brtrue_S );
 
-         LONG_BRANCH_TYPES = new Dictionary<OpCode, BranchType>();
+         LONG_BRANCH_TYPES = new Dictionary<OpCodeID, BranchType>();
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.ALWAYS], BranchType.ALWAYS );
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_BOTH_EQUAL], BranchType.IF_BOTH_EQUAL );
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_FALSE], BranchType.IF_FALSE );
@@ -873,7 +873,7 @@ namespace CILAssemblyManipulator.Logical
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_NOT_EQUAL_UNORDERED], BranchType.IF_NOT_EQUAL_UNORDERED );
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_TRUE], BranchType.IF_TRUE );
 
-         SHORT_BRANCH_TYPES = new Dictionary<OpCode, BranchType>();
+         SHORT_BRANCH_TYPES = new Dictionary<OpCodeID, BranchType>();
          SHORT_BRANCH_TYPES.Add( SHORT_BRANCH_OPCODES[BranchType.ALWAYS], BranchType.ALWAYS );
          SHORT_BRANCH_TYPES.Add( SHORT_BRANCH_OPCODES[BranchType.IF_BOTH_EQUAL], BranchType.IF_BOTH_EQUAL );
          SHORT_BRANCH_TYPES.Add( SHORT_BRANCH_OPCODES[BranchType.IF_FALSE], BranchType.IF_FALSE );
@@ -902,13 +902,13 @@ namespace CILAssemblyManipulator.Logical
          this._bType = bType;
       }
 
-      internal LogicalOpCodeInfoForBranch( OpCode code, Boolean isShort, ILLabel targetLabel )
+      internal LogicalOpCodeInfoForBranch( OpCodeID code, Boolean isShort, ILLabel targetLabel )
          : this( isShort ? SHORT_BRANCH_TYPES[code] : LONG_BRANCH_TYPES[code], targetLabel )
       {
       }
 
       /// <inheritdoc />
-      public override OpCode ShortForm
+      public override OpCodeID ShortForm
       {
          get
          {
@@ -917,7 +917,7 @@ namespace CILAssemblyManipulator.Logical
       }
 
       /// <inheritdoc />
-      public override OpCode LongForm
+      public override OpCodeID LongForm
       {
          get
          {
@@ -1015,20 +1015,20 @@ namespace CILAssemblyManipulator.Logical
       }
 
       /// <inheritdoc />
-      public override OpCode ShortForm
+      public override OpCodeID ShortForm
       {
          get
          {
-            return OpCodes.Leave_S;
+            return OpCodeID.Leave_S;
          }
       }
 
       /// <inheritdoc />
-      public override OpCode LongForm
+      public override OpCodeID LongForm
       {
          get
          {
-            return OpCodes.Leave;
+            return OpCodeID.Leave;
          }
       }
 

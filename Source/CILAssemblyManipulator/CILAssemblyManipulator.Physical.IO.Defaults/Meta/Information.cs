@@ -28,6 +28,7 @@ using CAMPhysicalR::CILAssemblyManipulator.Physical.Meta;
 
 using CAMPhysicalIO;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta;
 
 using CollectionsWithRoles.API;
 using CollectionsWithRoles.Implementation;
@@ -54,7 +55,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          var retVal = new MetaDataTableInformationProviderWithArray( tableInfos, CAMCoreInternals.AMOUNT_OF_TABLES );
 
-         retVal.RegisterFunctionality<OpCodeProvider>( () => DefaultOpCodeProvider.DefaultInstance );
+         retVal.RegisterFunctionality<CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider>( () => DefaultOpCodeProvider.DefaultInstance );
          retVal.RegisterFunctionality<SignatureProvider>( () => DefaultSignatureProvider.DefaultInstance );
          retVal.RegisterFunctionality<ResolvingProviderProvider>( () => new ResolvingProviderProvider( md => new DefaultResolvingProvider(
             md,

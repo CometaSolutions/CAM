@@ -20,6 +20,7 @@ extern alias CAMPhysicalIO;
 extern alias CAMPhysicalIOD;
 
 using CAMPhysicalIO;
+using CAMPhysicalIOD;
 #endif
 
 using CILAssemblyManipulator.Logical;
@@ -1038,7 +1039,7 @@ public static partial class E_CILLogical
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.Branch:
                var bl = (LogicalOpCodeInfoForBranch) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm.OpCodeID, logicalIL.GetLabelOffset( bl.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
@@ -1051,7 +1052,7 @@ public static partial class E_CILLogical
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.Leave:
                var ll = (LogicalOpCodeInfoForLeave) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm.OpCodeID, logicalIL.GetLabelOffset( ll.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
@@ -1075,16 +1076,16 @@ public static partial class E_CILLogical
       {
          var opCodeOffset = dynamicBranchInfos[i];
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[opCodeOffset];
-         var pCode = ocp.GetCodeFor( codeInfo.OpCodeID );
-         var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, pCode.GetFixedByteCount(), codeInfo.Operand );
+         var pCode = codeInfo.OpCodeID;
+         var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, ocp.GetFixedByteCount( pCode ), codeInfo.Operand );
          if ( !physicalOffset.IsShortJump() )
          {
             // Have to use long form
             var newForm = ( (LogicalOpCodeInfoForBranchingControlFlow) logicalIL.GetOpCodeInfo( opCodeOffset ) ).LongForm;
-            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm.OpCodeID, codeInfo.Operand );
+            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
 
             // Fix byte offsets and recursively check all previous jumps that jump over this
-            ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, newForm.GetFixedByteCount() - pCode.GetFixedByteCount() );
+            ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, ocp.GetFixedByteCount( newForm ) - ocp.GetFixedByteCount( pCode ) );
             ilState.AfterDynamicChangedToLongForm( i );
          }
       }
@@ -1106,9 +1107,9 @@ public static partial class E_CILLogical
          else
          {
             var codeInfoBranch = (OpCodeInfoWithInt32) codeInfo;
-            var pCodeInfo = ocp.GetCodeFor( codeInfo.OpCodeID );
+            var pCodeInfo = codeInfo.OpCodeID;
             var pCodeBranchInfo = ocp.GetCodeFor( codeInfoBranch.OpCodeID );
-            var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, pCodeInfo.GetFixedByteCount(), codeInfoBranch.Operand );
+            var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, ocp.GetFixedByteCount( pCodeInfo ), codeInfoBranch.Operand );
 
             if ( pCodeBranchInfo.OperandType == OperandType.ShortInlineBrTarget
                && !physicalOffset.IsShortJump()
@@ -1166,18 +1167,18 @@ public static partial class E_CILLogical
          var currentDynamicIndex = dynIndices[idx];
          var dynamicJump = (LogicalOpCodeInfoForBranchingControlFlow) state.LogicalIL.GetOpCodeInfo( currentDynamicIndex );
          var codeInfo = (OpCodeInfoWithInt32) pOpCodes[currentDynamicIndex];
-         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm.OpCodeID == codeInfo.OpCodeID )
+         if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm == codeInfo.OpCodeID )
          {
             // Short jump over the changed offset, see if we need to change this as well
-            var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, ocp.GetCodeFor( codeInfo.OpCodeID ).GetFixedByteCount(), codeInfo.Operand );
+            var physicalOffset = state.TransformLogicalOffsetToPhysicalOffset( currentDynamicIndex, ocp.GetFixedByteCount( codeInfo.OpCodeID ), codeInfo.Operand );
 
             if ( !physicalOffset.IsShortJump() )
             {
                // Have to use long form
                var newForm = dynamicJump.LongForm;
-               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm.OpCodeID, codeInfo.Operand );
+               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
                // Modify all byte offsets following this.
-               state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, newForm.GetFixedByteCount() - dynamicJump.ShortForm.GetFixedByteCount() );
+               state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, ocp.GetFixedByteCount( newForm ) - ocp.GetFixedByteCount( dynamicJump.ShortForm ) );
                // Re-check dynamic jumps between start and this.
                state.AfterDynamicChangedToLongForm( idx );
             }

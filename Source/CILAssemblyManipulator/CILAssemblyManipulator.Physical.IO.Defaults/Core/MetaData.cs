@@ -17,9 +17,13 @@
 */
 extern alias CAMPhysical;
 extern alias CAMPhysicalR;
+extern alias CAMPhysicalIO;
+
 using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
+
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta;
 
 using CAMPhysicalR;
 
@@ -192,7 +196,7 @@ namespace CILAssemblyManipulator.Physical
       public MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 #pragma warning restore 618
 
-      public OpCodeProvider OpCodeProvider { get; }
+      public CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider OpCodeProvider { get; }
 
       public SignatureProvider SignatureProvider { get; }
 
@@ -497,4 +501,3 @@ namespace CILAssemblyManipulator.Physical
       }
    }
 }
-

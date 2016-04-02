@@ -72,7 +72,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var labelsDic = new Dictionary<Int32, ILLabel>();
          var codeInfoILOffsets = new Dictionary<Int32, Int32>();
          Func<Int32, ILLabel> ilLabelDefiner = i => this.DefineLabel();
-         var ocp = CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.DefaultInstance;
+         var ocp = CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.DefaultInstance;
          while ( ilOffset < il.Length )
          {
             codeInfoILOffsets.Add( ilOffset, this._opCodes.Count );
@@ -85,7 +85,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             switch ( code.OperandType )
             {
                case OperandType.InlineNone:
-                  logical = this._module.GetOperandlessOpCode( code.OpCodeID );
+                  logical = this._module.GetOperandlessOpCode( codeID );
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:

@@ -1595,18 +1595,12 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       )
       {
          const Int32 USER_STRING_MASK = 0x70 << 24;
-         var code = this._md.OpCodeProvider.GetCodeFor( codeInfo.OpCodeID );
-
-         if ( code.Size == 1 )
-         {
-            array.WriteByteToBytes( ref idx, (Byte) code.OpCodeID );
-         }
-         else
-         {
-            // N.B.! Big-endian! Everywhere else everything is little-endian.
-            array.WriteUInt16BEToBytes( ref idx, (UInt16) code.OpCodeID );
-         }
-
+         var codeID = codeInfo.OpCodeID;
+         var ocp = this._md.OpCodeProvider;
+         var ocpInfo = ocp.GetInfoFor( codeID );
+         ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) ocp ).WriteOpCode( ocpInfo, array, idx );
+         idx += ocpInfo.Size;
+         var code = ocpInfo.Code;
          var operandType = code.OperandType;
          if ( operandType != OperandType.InlineNone )
          {

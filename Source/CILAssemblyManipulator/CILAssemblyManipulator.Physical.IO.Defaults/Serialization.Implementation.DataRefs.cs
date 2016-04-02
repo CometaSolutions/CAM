@@ -203,57 +203,54 @@ public static partial class E_CILPhysical
       ArgumentValidator.ValidateNotNullReference( opCodeProvider );
       ArgumentValidator.ValidateNotNull( "Byte array", bytes );
 
+      CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProviderInfo ocpInfo;
       OpCodeInfo info;
-      var b = bytes[idx++];
-      var encoding = (OpCodeID) ( b == OpCode.MAX_ONE_BYTE_INSTRUCTION ?
-         ( ( b << 8 ) | bytes[idx++] ) :
-         b );
-
-      OpCode code;
-      if ( opCodeProvider.TryGetCodeFor( encoding, out code ) )
+      if ( ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryReadOpCode( bytes, idx, out ocpInfo ) )
       {
-         switch ( code.OperandType )
+         idx += ocpInfo.Size;
+         var codeID = ocpInfo.Code.OpCodeID;
+         switch ( ocpInfo.Code.OperandType )
          {
             case OperandType.InlineNone:
-               info = opCodeProvider.GetOperandlessInfoFor( encoding );
+               info = opCodeProvider.GetOperandlessInfoFor( codeID );
                break;
             case OperandType.ShortInlineBrTarget:
             case OperandType.ShortInlineI:
-               info = new OpCodeInfoWithInt32( encoding, (Int32) ( bytes.ReadSByteFromBytes( ref idx ) ) );
+               info = new OpCodeInfoWithInt32( codeID, (Int32) ( bytes.ReadSByteFromBytes( ref idx ) ) );
                break;
             case OperandType.ShortInlineVar:
-               info = new OpCodeInfoWithInt32( encoding, bytes.ReadByteFromBytes( ref idx ) );
+               info = new OpCodeInfoWithInt32( codeID, bytes.ReadByteFromBytes( ref idx ) );
                break;
             case OperandType.ShortInlineR:
-               info = new OpCodeInfoWithSingle( encoding, bytes.ReadSingleLEFromBytes( ref idx ) );
+               info = new OpCodeInfoWithSingle( codeID, bytes.ReadSingleLEFromBytes( ref idx ) );
                break;
             case OperandType.InlineBrTarget:
             case OperandType.InlineI:
-               info = new OpCodeInfoWithInt32( encoding, bytes.ReadInt32LEFromBytes( ref idx ) );
+               info = new OpCodeInfoWithInt32( codeID, bytes.ReadInt32LEFromBytes( ref idx ) );
                break;
             case OperandType.InlineVar:
-               info = new OpCodeInfoWithInt32( encoding, bytes.ReadUInt16LEFromBytes( ref idx ) );
+               info = new OpCodeInfoWithInt32( codeID, bytes.ReadUInt16LEFromBytes( ref idx ) );
                break;
             case OperandType.InlineR:
-               info = new OpCodeInfoWithDouble( encoding, bytes.ReadDoubleLEFromBytes( ref idx ) );
+               info = new OpCodeInfoWithDouble( codeID, bytes.ReadDoubleLEFromBytes( ref idx ) );
                break;
             case OperandType.InlineI8:
-               info = new OpCodeInfoWithInt64( encoding, bytes.ReadInt64LEFromBytes( ref idx ) );
+               info = new OpCodeInfoWithInt64( codeID, bytes.ReadInt64LEFromBytes( ref idx ) );
                break;
             case OperandType.InlineString:
                ArgumentValidator.ValidateNotNull( "String getter", stringGetter );
-               info = new OpCodeInfoWithString( encoding, stringGetter( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+               info = new OpCodeInfoWithString( codeID, stringGetter( bytes.ReadInt32LEFromBytes( ref idx ) ) );
                break;
             case OperandType.InlineField:
             case OperandType.InlineMethod:
             case OperandType.InlineType:
             case OperandType.InlineToken:
             case OperandType.InlineSignature:
-               info = new OpCodeInfoWithTableIndex( encoding, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+               info = new OpCodeInfoWithTableIndex( codeID, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
                break;
             case OperandType.InlineSwitch:
                var count = bytes.ReadInt32LEFromBytes( ref idx );
-               var sInfo = new OpCodeInfoWithIntegers( encoding, count );
+               var sInfo = new OpCodeInfoWithIntegers( codeID, count );
                for ( var i = 0; i < count; ++i )
                {
                   sInfo.Operand.Add( bytes.ReadInt32LEFromBytes( ref idx ) );

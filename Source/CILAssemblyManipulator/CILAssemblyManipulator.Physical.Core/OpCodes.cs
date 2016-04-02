@@ -1131,16 +1131,10 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public struct OpCode
    {
-      /// <summary>
-      /// Contains the maximum value for <see cref="Physical.OpCodeID"/> which would fit into one byte.
-      /// </summary>
-      /// <remarks>This value is <c>0xFE</c>.</remarks>
-      public const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
-
       private static class NameCache
       {
-         // Reserve enough space for all possible op codes useable with 2 bytes by current encoding
-         internal static readonly String[] Cache = new String[Byte.MaxValue * 2 + 2];
+         // Currently 219 op codes.
+         internal static readonly String[] Cache = new String[219];
       }
 
       private const UInt64 STACK_POP_MASK = 0x1FU;
@@ -1180,8 +1174,8 @@ namespace CILAssemblyManipulator.Physical
       // Bits 9-13 (5 bits): OperandType
       // Bits 14-16 (3 bits): OpCodeType
       // Bits 17-20 (4 bits): FlowControl
-      // Bit 21: Size (0 = 1, 1 = 2)
-      // Bits 22-37 (16 bits): Bytes 1 & 2
+      // Bit 21: Size (0 = 1, 1 = 2) // TODO <- obsolete!
+      // Bits 22-37 (16 bits): Bytes 1 & 2 // TODO <- can fit in one byte now that OpCodeID does not directly tell the serialized form!
       // Bits 38-40 (3 bits): Stack change (0 = -3, 1 = -2, etc)
       // Bit 41: Unconditionally ends bulk of code (1 = true, 0 = false)
       // Bits 42-45 (4bits): Operand size in bytes
@@ -1189,20 +1183,20 @@ namespace CILAssemblyManipulator.Physical
       private readonly UInt64 _state;
 
       internal OpCode(
-         OpCodeID encoded,
+         OpCodeID codeID,
          StackBehaviourPop stackPop,
          StackBehaviourPush stackPush,
          OperandType operand,
          OpCodeType type,
          FlowControl flowControl,
          Boolean unconditionallyEndsBulkOfCode
-         ) : this( encoded, stackPop, stackPush, operand, type, flowControl, unconditionallyEndsBulkOfCode, 0 )
+         ) : this( codeID, stackPop, stackPush, operand, type, flowControl, unconditionallyEndsBulkOfCode, 0 )
       {
 
       }
 
       internal OpCode(
-         OpCodeID encoded,
+         OpCodeID codeID,
          StackBehaviourPop stackPop,
          StackBehaviourPush stackPush,
          OperandType operand,
@@ -1261,9 +1255,6 @@ namespace CILAssemblyManipulator.Physical
                break;
          }
 
-         var size = ( (Int32) encoded ) > MAX_ONE_BYTE_INSTRUCTION ? 1 : 0;
-         //var byte1 = (Byte) ( ( (Int32) encoded ) >> 8 );
-         //var byte2 = (Byte) encoded;
          UInt64 operandSize;
          switch ( operand )
          {
@@ -1302,8 +1293,8 @@ namespace CILAssemblyManipulator.Physical
              | ( ( (UInt64) operand ) << OPERAND_TYPE_SHIFT )
              | ( ( (UInt64) type ) << OPCODE_TYPE_SHIFT )
              | ( ( (UInt64) flowControl ) << FLOW_CONTROL_SHIFT )
-             | ( ( (UInt64) size ) << SIZE_SHIFT )
-             | ( ( ( (UInt64) encoded ) << VALUE_SHIFT ) )
+             //| ( ( (UInt64) size ) << SIZE_SHIFT )
+             | ( ( ( (UInt64) codeID ) << VALUE_SHIFT ) )
              //| ( ( (UInt64) byte1 ) << BYTE_1_SHIFT )
              //| ( ( (UInt64) byte2 ) << BYTE_2_SHIFT )
              | ( ( (UInt64) stackChange + 3 ) << STACK_CHANGE_SHIFT )
@@ -1312,17 +1303,17 @@ namespace CILAssemblyManipulator.Physical
              | ( ( (UInt64) otherForm ) << OTHER_FORM_SHIFT )
              ;
 #if DEBUG
-         System.Diagnostics.Debug.Assert( this.OpCodeID == encoded );
+         System.Diagnostics.Debug.Assert( this.OpCodeID == codeID );
          System.Diagnostics.Debug.Assert( this.StackPop == stackPop );
          System.Diagnostics.Debug.Assert( this.StackPush == stackPush );
          System.Diagnostics.Debug.Assert( this.OpCodeType == type );
-         System.Diagnostics.Debug.Assert( this.Size == size + 1 );
          System.Diagnostics.Debug.Assert( this.FlowControl == flowControl );
          System.Diagnostics.Debug.Assert( this.OperandType == operand );
          System.Diagnostics.Debug.Assert( this.UnconditionallyEndsBulkOfCode == unconditionallyEndsBulkOfCode );
          System.Diagnostics.Debug.Assert( this.StackChange == stackChange );
          System.Diagnostics.Debug.Assert( (UInt64) this.OperandSize == operandSize );
          System.Diagnostics.Debug.Assert( this.OtherForm == otherForm );
+         System.Diagnostics.Debug.Assert( this.ToString().Equals( codeID.ToString( "g" ).ToLowerInvariant().Replace( '_', '.' ) ) );
 #endif
       }
 
@@ -1337,10 +1328,10 @@ namespace CILAssemblyManipulator.Physical
             var id = this.OpCodeID;
             var cacheIdx = (Int32) id;
             var cache = NameCache.Cache;
-            if ( cacheIdx > MAX_ONE_BYTE_INSTRUCTION )
-            {
-               cacheIdx = Byte.MaxValue + 1 + ( cacheIdx - ( MAX_ONE_BYTE_INSTRUCTION << 8 ) );
-            }
+            //if ( cacheIdx > MAX_ONE_BYTE_INSTRUCTION )
+            //{
+            //   cacheIdx = Byte.MaxValue + 1 + ( cacheIdx - ( MAX_ONE_BYTE_INSTRUCTION << 8 ) );
+            //}
             var retVal = cache[cacheIdx];
             if ( retVal == null )
             {
@@ -1348,18 +1339,6 @@ namespace CILAssemblyManipulator.Physical
                cache[cacheIdx] = retVal;
             }
             return retVal;
-         }
-      }
-
-      /// <summary>
-      /// Gets the size of this <see cref="OpCode"/> in bytes.
-      /// </summary>
-      /// <value>The size of this <see cref="OpCode"/> in bytes.</value>
-      public Int32 Size
-      {
-         get
-         {
-            return (Int32) ( ( this._state & SIZE_MASK ) >> SIZE_SHIFT ) + 1;
          }
       }
 
@@ -1471,7 +1450,14 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      internal Boolean UnconditionallyEndsBulkOfCode
+      /// <summary>
+      /// Gets the value indicating whether this op code ends bulk of code unconditionally.
+      /// </summary>
+      /// <value>The value indicating whether this op code ends bulk of code unconditionally.</value>
+      /// <remarks>
+      /// One such code is <see cref="Physical.OpCodeID.Ret"/>.
+      /// </remarks>
+      public Boolean UnconditionallyEndsBulkOfCode
       {
          get
          {
@@ -1682,7 +1668,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Dup"/>
       /// </summary>
-      Dup = 0x25,
+      Dup,
       /// <summary>
       /// <see cref="OpCodes.Pop"/>
       /// </summary>
@@ -2010,7 +1996,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Unbox"/>
       /// </summary>
-      Unbox = 0x79,
+      Unbox,
       /// <summary>
       /// <see cref="OpCodes.Throw"/>
       /// </summary>
@@ -2190,7 +2176,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Conv_Ovf_I1"/>
       /// </summary>
-      Conv_Ovf_I1 = 0xB3,
+      Conv_Ovf_I1,
       /// <summary>
       /// <see cref="OpCodes.Conv_Ovf_U1"/>
       /// </summary>
@@ -2222,7 +2208,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Refanyval"/>
       /// </summary>
-      Refanyval = 0xC2,
+      Refanyval,
       /// <summary>
       /// <see cref="OpCodes.Ckfinite"/>
       /// </summary>
@@ -2230,11 +2216,11 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Mkrefany"/>
       /// </summary>
-      Mkrefany = 0xC6,
+      Mkrefany,
       /// <summary>
       /// <see cref="OpCodes.Ldtoken"/>
       /// </summary>
-      Ldtoken = 0xD0,
+      Ldtoken,
       /// <summary>
       /// <see cref="OpCodes.Conv_U2"/>
       /// </summary>
@@ -2302,7 +2288,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Arglist"/>
       /// </summary>
-      Arglist = 0xFE00,
+      Arglist,
       /// <summary>
       /// <see cref="OpCodes.Ceq"/>
       /// </summary>
@@ -2334,7 +2320,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Ldarg"/>
       /// </summary>
-      Ldarg = 0xFE09,
+      Ldarg,
       /// <summary>
       /// <see cref="OpCodes.Ldarga"/>
       /// </summary>
@@ -2362,7 +2348,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Endfilter"/>
       /// </summary>
-      Endfilter = 0xFE11,
+      Endfilter,
       /// <summary>
       /// <see cref="OpCodes.Unaligned_"/>
       /// </summary>
@@ -2394,11 +2380,11 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// <see cref="OpCodes.Rethrow"/>
       /// </summary>
-      Rethrow = 0xFE1A,
+      Rethrow,
       /// <summary>
       /// <see cref="OpCodes.Sizeof"/>
       /// </summary>
-      Sizeof = 0xFE1C,
+      Sizeof,
       /// <summary>
       /// <see cref="OpCodes.Refanytype"/>
       /// </summary>
@@ -2578,26 +2564,4 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>Pops a reference off the stack for the first operand, a value off the stack for the second operand, and a 32-bit integer off the stack for the third operand.</summary>
       Popref_popi_pop1
    }
-}
-
-public static partial class E_CILPhysical
-{
-   /// <summary>
-   /// Calculates the total fixed byte count for a specific <see cref="OpCode"/>.
-   /// This is the sum of <see cref="OpCode.Size"/> and <see cref="OpCode.OperandSize"/>.
-   /// </summary>
-   /// <param name="code">The <see cref="OpCode"/>.</param>
-   /// <returns>The total fixed byte count for a specific <see cref="OpCode"/>.</returns>
-   /// <remarks>
-   /// One should use <see cref="GetTotalByteCount"/> extension method when calculating byte sizes when writing or reading IL bytecode.
-   /// This is because switch instruction (<see cref="OpCodeID.Switch"/>) has additional offset array, the length of which is determined by the fixed operand of switch instruction.
-   /// </remarks>
-   public static Int32 GetFixedByteCount( this OpCode code )
-   {
-      return code.Size + code.OperandSize;
-   }
-
-
-   private const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
-
 }

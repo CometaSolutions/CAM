@@ -474,7 +474,7 @@ namespace CILAssemblyManipulator.Physical
       }
 
       /// <inheritdoc />
-      public override bool HasOperand
+      public override Boolean HasOperand
       {
          get
          {
