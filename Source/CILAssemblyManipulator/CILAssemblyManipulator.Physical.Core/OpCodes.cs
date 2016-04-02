@@ -1124,40 +1124,6 @@ namespace CILAssemblyManipulator.Physical
          Readonly_ = new OpCode( OpCodeID.Readonly_, StackBehaviourPop.Pop0, StackBehaviourPush.Push0, OperandType.InlineNone, OpCodeType.Prefix, FlowControl.Meta, false );
 
       }
-
-      //public static Boolean TryGetCodeFor( OpCodeEncoding codeEnum, out OpCode opCode )
-      //{
-      //   return Codes.TryGetValue( codeEnum, out opCode );
-      //}
-
-      //public static OpCode GetCodeFor( OpCodeEncoding codeEnum )
-      //{
-      //   OpCode retVal;
-      //   if ( TryGetCodeFor( codeEnum, out retVal ) )
-      //   {
-      //      return retVal;
-      //   }
-      //   else
-      //   {
-      //      throw new ArgumentException( "Opcode " + codeEnum + " is invalid or not supported by this framework." );
-      //   }
-      //}
-
-      //public static IEnumerable<OpCodeEncoding> AllOpCodesEncoded
-      //{
-      //   get
-      //   {
-      //      return Codes.Keys;
-      //   }
-      //}
-
-      //public static IEnumerable<OpCode> AllOpCodes
-      //{
-      //   get
-      //   {
-      //      return Codes.Values;
-      //   }
-      //}
    }
 
    /// <summary>
@@ -1165,14 +1131,17 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public struct OpCode
    {
-
-
       /// <summary>
       /// Contains the maximum value for <see cref="Physical.OpCodeID"/> which would fit into one byte.
       /// </summary>
       /// <remarks>This value is <c>0xFE</c>.</remarks>
       public const Int32 MAX_ONE_BYTE_INSTRUCTION = 0xFE;
 
+      private static class NameCache
+      {
+         // Reserve enough space for all possible op codes useable with 2 bytes by current encoding
+         internal static readonly String[] Cache = new String[Byte.MaxValue * 2 + 2];
+      }
 
       private const UInt64 STACK_POP_MASK = 0x1FU;
 
@@ -1339,7 +1308,7 @@ namespace CILAssemblyManipulator.Physical
              //| ( ( (UInt64) byte2 ) << BYTE_2_SHIFT )
              | ( ( (UInt64) stackChange + 3 ) << STACK_CHANGE_SHIFT )
              | ( ( unconditionallyEndsBulkOfCode ? 1UL : 0UL ) << ENDS_BLK_CODE_SHIFT )
-             | ( ( (UInt64) operandSize ) << OPERAND_SIZE_SHIFT )
+             | ( ( operandSize ) << OPERAND_SIZE_SHIFT )
              | ( ( (UInt64) otherForm ) << OTHER_FORM_SHIFT )
              ;
 #if DEBUG
@@ -1365,7 +1334,20 @@ namespace CILAssemblyManipulator.Physical
       {
          get
          {
-            return this.OpCodeID.ToString( "g" ).ToLowerInvariant().Replace( "_", "." );
+            var id = this.OpCodeID;
+            var cacheIdx = (Int32) id;
+            var cache = NameCache.Cache;
+            if ( cacheIdx > MAX_ONE_BYTE_INSTRUCTION )
+            {
+               cacheIdx = Byte.MaxValue + 1 + ( cacheIdx - ( MAX_ONE_BYTE_INSTRUCTION << 8 ) );
+            }
+            var retVal = cache[cacheIdx];
+            if ( retVal == null )
+            {
+               retVal = this.OpCodeID.ToString( "g" ).ToLowerInvariant().Replace( "_", "." );
+               cache[cacheIdx] = retVal;
+            }
+            return retVal;
          }
       }
 

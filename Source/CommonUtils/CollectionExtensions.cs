@@ -1060,24 +1060,9 @@ public static partial class E_CommonUtils
    /// <returns>The newly created array, containing same elements as section of the given array.</returns>
    public static T[] CreateArrayCopy<T>( this T[] array, Int32 offset, Int32 count )
    {
-      return array.CreateArrayCopy( ref offset, count );
-   }
-
-   /// <summary>
-   /// Creates a copy of section of given array, starting at given offset and copying given amount of elements.
-   /// </summary>
-   /// <typeparam name="T">The type of elements in the array.</typeparam>
-   /// <param name="array">The array.</param>
-   /// <param name="offset">The offset in <paramref name="array" /> where to start copying elements. This will be incremented by <paramref name="count"/>.</param>
-   /// <param name="count">The amount of elements to copy.</param>
-   /// <returns>The newly created array, containing same elements as section of the given array.</returns>
-   public static T[] CreateArrayCopy<T>( this T[] array, ref Int32 offset, Int32 count )
-   {
       array.CheckArrayArguments( offset, count );
-
       var retVal = new T[count];
       Array.Copy( array, offset, retVal, 0, count );
-      offset += count;
       return retVal;
    }
 
@@ -1256,5 +1241,32 @@ public static partial class E_CommonUtils
       {
          yield return item;
       }
+   }
+
+   /// <summary>
+   /// This method behaves the same way as <see cref="Enumerable.All{TSource}(IEnumerable{TSource}, Func{TSource, bool})"/>, but the predicate callback also accepts index parameter.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <param name="enumerable">The enumerable.</param>
+   /// <param name="predicate">The callback to execute.</param>
+   /// <returns><c>true</c> if <paramref name="enumerable"/> is empty or if given <paramref name="predicate"/> returns <c>true</c> for all its items; <c>false</c> otherwise.</returns>
+   /// <exception cref="ArgumentNullException">If either of <paramref name="enumerable"/> or <paramref name="predicate"/> is <c>null</c>.</exception>
+   public static Boolean All<T>( this IEnumerable<T> enumerable, Func<T, Int32, Boolean> predicate )
+   {
+      ArgumentValidator.ValidateNotNull( "Enumerable", enumerable );
+      ArgumentValidator.ValidateNotNull( "Predicate", predicate );
+
+      var idx = 0;
+      foreach ( var item in enumerable )
+      {
+         if ( !predicate( item, idx ) )
+         {
+            return false;
+         }
+
+         ++idx;
+      }
+
+      return true;
    }
 }

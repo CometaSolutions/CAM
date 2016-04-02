@@ -984,7 +984,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
                         )
                   ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
-                  () => null
+                  () => null,
+                  LazyFactory.NewWriteableLazy<PlatformInvokeInfo>( () => null, lazyThreadSafety )
                   )
             );
             yield return (CILMethod) cache._methodContainer.AcquireNew( curMID => new CILMethodImpl(
@@ -1000,7 +1001,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   new SettableValueForClasses<String>( "Address" ),
                   () => valueParamFunc( curMID, E_CILLogical.RETURN_PARAMETER_POSITION, true ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
-                  () => null
+                  () => null,
+                  LazyFactory.NewWriteableLazy<PlatformInvokeInfo>( () => null, lazyThreadSafety )
                   )
             );
 
@@ -1017,7 +1019,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   new SettableValueForClasses<String>( "Get" ),
                   () => valueParamFunc( curMID, E_CILLogical.RETURN_PARAMETER_POSITION, false ),
                   () => cache._ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
-                  () => null
+                  () => null,
+                  LazyFactory.NewWriteableLazy<PlatformInvokeInfo>( () => null, lazyThreadSafety )
                   )
             );
 
@@ -1784,7 +1787,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   ( (CILMethodInternal) gDef ).NameInternal,
                   () => newParamFunc( id, gDef.ReturnParameter ),
                   () => this._ctx.CollectionsFactory.NewListProxy<CILTypeBase>( gArgs.ToList() ),
-                  () => gDef
+                  () => gDef,
+                  ( (CILMethodInternal) gDef ).PlatformInvokeInfoInternal
                   ) );
          }
          return result;
@@ -1933,7 +1937,8 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   ( (CILMethodInternal) method ).NameInternal,
                   () => newParamFunc( id, gDefMethodAsMethod.ReturnParameter ),
                   () => ( (CILElementWithGenericArgs) gDefMethodAsMethod ).InternalGenericArguments,
-                  () => gDefMethodAsMethod.IsGenericMethodDefinition() ? (CILMethod) this.ResolveMethodBaseID( id ) : null
+                  () => gDefMethodAsMethod.IsGenericMethodDefinition() ? (CILMethod) this.ResolveMethodBaseID( id ) : null,
+                  ( (CILMethodInternal) method ).PlatformInvokeInfoInternal
                   );
             }
          } );

@@ -17,6 +17,7 @@
  */
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -375,5 +376,37 @@ public static partial class E_CILPhysical
    public static OpCodeProvider CreateOpCodeProvider( this MetaDataTableInformationProvider provider )
    {
       return provider.GetFunctionality<OpCodeProvider>();
+   }
+
+   /// <summary>
+   /// Gets the total byte count that a single <see cref="OpCodeInfo"/> takes.
+   /// </summary>
+   /// <param name="opCodeProvider">The <see cref="OpCodeProvider"/> to use.</param>
+   /// <param name="info">The single <see cref="OpCodeInfo"/>.</param>
+   /// <returns>The total byte count of a single <see cref="OpCodeInfo"/>.</returns>
+   /// <remarks>
+   /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="OpCodeInfo.DynamicOperandByteSize"/>.
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="info"/> is <c>null</c>.</exception>
+   public static Int32 GetTotalByteCount( this OpCodeProvider opCodeProvider, OpCodeInfo info )
+   {
+      // First call DynamicOperandByteSize so we would get NullReferenceException *before* ArgumentNullException
+      return opCodeProvider.GetCodeFor( ArgumentValidator.ValidateNotNull( "Op code info", info ).OpCodeID ).GetFixedByteCount() + info.DynamicOperandByteSize;
+   }
+
+   /// <summary>
+   /// Calculates the total byte count for IL of given op codes.
+   /// </summary>
+   /// <param name="ocp">The <see cref="OpCodeProvider" />.</param>
+   /// <param name="opCodes">The op codes.</param>
+   /// <returns>The total byte count for IL of given op codes.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="ocp"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="opCodes"/> is <c>null</c>.</exception>
+   public static Int32 GetILByteCount( this OpCodeProvider ocp, IEnumerable<OpCodeInfo> opCodes )
+   {
+      ArgumentValidator.ValidateNotNullReference( ocp );
+
+      return ArgumentValidator.ValidateNotNull( "Op codes", opCodes ).Sum( oci => ocp.GetTotalByteCount( oci ) );
    }
 }

@@ -1236,7 +1236,7 @@ namespace CILAssemblyManipulator.Physical
                   ElementType = arraySubType,
                   SizeParameterIndex = sizeParameterIndex,
                   Size = sizeConst,
-                  Flags = -1
+                  SizeParameterMultiplier = -1
                };
                break;
             case UnmanagedType.CustomMarshaler:
@@ -1543,10 +1543,10 @@ namespace CILAssemblyManipulator.Physical
       public Int32 Size { get; set; }
 
       /// <summary>
-      /// Gets or sets flags for this marshaling info.
+      /// Gets or sets the size parameter multiplier for this marshaling info.
       /// </summary>
-      /// <value>The flags for this marshaling info.</value>
-      public Int32 Flags { get; set; }
+      /// <value>The the size parameter multiplier for this marshaling info.</value>
+      public Int32 SizeParameterMultiplier { get; set; }
    }
 
    /// <summary>
@@ -2778,7 +2778,7 @@ public static partial class E_CILPhysical
                ElementType = array.ElementType,
                SizeParameterIndex = array.SizeParameterIndex,
                Size = array.Size,
-               Flags = array.Flags
+               SizeParameterMultiplier = array.SizeParameterMultiplier
             };
             break;
          case MarshalingInfoKind.Interface:

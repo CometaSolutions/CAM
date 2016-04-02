@@ -918,7 +918,7 @@ namespace CILAssemblyManipulator.Structural
          return x.ElementType == y.ElementType
             && x.SizeParameterIndex == y.SizeParameterIndex
             && x.Size == y.Size
-            && x.Flags == y.Flags;
+            && x.SizeParameterMultiplier == y.SizeParameterMultiplier;
       }
 
       private Boolean Equivalence_MarshalingInfo_Interface( InterfaceMarshalingInfo x, InterfaceMarshalingInfo y )

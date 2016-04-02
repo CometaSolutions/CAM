@@ -323,6 +323,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          var givenResources = resources.ToDictionary( tuple => tuple.Item1, tuple => tuple.Item3 );
          var deserializedResources = deserializedInfos.ToDictionary( resx => resx.Name, resx => resx.CreateEntry( fullResourceData ) );
+
          Assert.IsTrue( DictionaryEqualityComparer<String, ResourceManagerEntry>.NewDictionaryEqualityComparer( CAMPhysicalM::CILAssemblyManipulator.Physical.Comparers.ResourceManagerEntryEqualityComparer )
             .Equals( givenResources, deserializedResources ) );
       }

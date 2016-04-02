@@ -970,7 +970,7 @@ public static partial class E_CILPhysical
       if ( ( rawDateTime & 0x8000000000000000uL ) != 0uL )
       {
          // This is local date-time, do UTC offset tick adjustment
-         rawDateTime += (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
+         rawDateTime += (UInt64) TimeZoneInfo.Local.GetUtcOffset( dt ).Ticks;
       }
       state.EnsureCapacity( state.idx + 8 );
       state.array.WriteUInt64LEToBytes( ref state.idx, rawDateTime );

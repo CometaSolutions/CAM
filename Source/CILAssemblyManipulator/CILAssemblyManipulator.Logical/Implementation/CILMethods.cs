@@ -555,9 +555,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
       private readonly Lazy<CILParameter> returnParameter;
       private readonly Lazy<ListProxy<CILTypeBase>> gArgs;
       private readonly WriteableLazy<CILMethod> gDef;
-      private readonly SettableValueForEnums<PInvokeAttributes> pInvokeAttributes;
-      private readonly SettableValueForClasses<String> pInvokeName;
-      private readonly SettableValueForClasses<String> pInvokeModule;
+      private readonly WriteableLazy<PlatformInvokeInfo> pInvoke;
 
       internal CILMethodImpl(
          CILReflectionContextImpl ctx,
@@ -579,34 +577,34 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.returnParameter,
             ref this.gArgs,
             ref this.gDef,
-            ref this.pInvokeAttributes,
-            ref this.pInvokeName,
-            ref this.pInvokeModule,
+            ref this.pInvoke,
             new SettableValueForClasses<String>( method.Name ),
             () => ctx.Cache.GetOrAdd( method.ReturnParameter ),
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>( method.GetGenericArguments().Select( gArg => ctx.Cache.GetOrAdd( gArg ) ).ToList() ),
             () => ctx.Cache.GetOrAdd( nGDef ),
-            new SettableValueForEnums<PInvokeAttributes>(
+            LazyFactory.NewWriteableLazy( () => new PlatformInvokeInfo()
+            {
+               Attributes =
 #if CAM_LOGICAL_IS_SL
                (PInvokeAttributes) 0
 #else
  dllImportAttr == null ? (PInvokeAttributes) 0 : dllImportAttr.GetCorrespondingPInvokeAttributes()
 #endif
- ),
-            new SettableValueForClasses<String>(
+,
+               PlatformInvokeName =
 #if CAM_LOGICAL_IS_SL
                null
 #else
  dllImportAttr == null ? null : dllImportAttr.EntryPoint
 #endif
- ),
-            new SettableValueForClasses<String>(
+,
+               PlatformInvokeModuleName =
 #if CAM_LOGICAL_IS_SL
                null
 #else
  dllImportAttr == null ? null : dllImportAttr.Value
 #endif
- ),
+            }, ctx.LazyThreadSafetyMode ),
             true
             );
       }
@@ -627,9 +625,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
             () => ctx.Cache.NewBlankParameter( ctx.Cache.ResolveMethodBaseID( anID ), E_CILLogical.RETURN_PARAMETER_POSITION, null, ParameterAttributes.None, null ),
             () => ctx.CollectionsFactory.NewListProxy<CILTypeBase>(),
             () => null,
-            null,
-            null,
-            null,
+            LazyFactory.NewWriteableLazy<PlatformInvokeInfo>( () => null, ctx.LazyThreadSafetyMode ),
             true )
       {
 
@@ -649,9 +645,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILParameter> returnParameterFunc,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILMethod> gDefFunc,
+         WriteableLazy<PlatformInvokeInfo> aPInvoke,
          Boolean resettablesAreSettable = false
          )
-         : this( ctx, anID, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, null, aMethodImplementationAttributes, aLogicalSecurityInformation, aName, returnParameterFunc, gArgsFunc, gDefFunc, null, null, null, resettablesAreSettable )
+         : this( ctx, anID, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, null, aMethodImplementationAttributes, aLogicalSecurityInformation, aName, returnParameterFunc, gArgsFunc, gDefFunc, aPInvoke, resettablesAreSettable )
       {
 
       }
@@ -671,9 +668,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          Func<CILParameter> returnParameterFunc,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILMethod> gDefFunc,
-         SettableValueForEnums<PInvokeAttributes> aPInvokeAttributes,
-         SettableValueForClasses<String> aPInvokeName,
-         SettableValueForClasses<String> aPInvokeModuleName,
+         WriteableLazy<PlatformInvokeInfo> aPInvoke,
          Boolean resettablesAreSettable
          )
          : base( ctx, anID, false, cAttrDataFunc, aCallingConvention, aMethodAttributes, declaringTypeFunc, parametersFunc, methodIL, aMethodImplementationAttributes, aLogicalSecurityInformation, resettablesAreSettable )
@@ -684,16 +679,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
             ref this.returnParameter,
             ref this.gArgs,
             ref this.gDef,
-            ref this.pInvokeAttributes,
-            ref this.pInvokeName,
-            ref this.pInvokeModule,
+            ref this.pInvoke,
             aName,
             returnParameterFunc,
             gArgsFunc,
             gDefFunc,
-            aPInvokeAttributes,
-            aPInvokeName,
-            aPInvokeModuleName,
+            aPInvoke,
             resettablesAreSettable
             );
       }
@@ -704,16 +695,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
          ref Lazy<CILParameter> returnParameter,
          ref Lazy<ListProxy<CILTypeBase>> gArgs,
          ref WriteableLazy<CILMethod> gDef,
-         ref SettableValueForEnums<PInvokeAttributes> pInvokeAttributes,
-         ref SettableValueForClasses<String> pInvokeName,
-         ref SettableValueForClasses<String> pInvokeModule,
+         ref WriteableLazy<PlatformInvokeInfo> pInvoke,
          SettableValueForClasses<String> aName,
          Func<CILParameter> returnParameterFunc,
          Func<ListProxy<CILTypeBase>> gArgsFunc,
          Func<CILMethod> gDefFunc,
-         SettableValueForEnums<PInvokeAttributes> aPInvokeAttributes,
-         SettableValueForClasses<String> aPInvokeName,
-         SettableValueForClasses<String> aPInvokeModule,
+         WriteableLazy<PlatformInvokeInfo> aPInvoke,
          Boolean resettablesAreSettable
          )
       {
@@ -722,9 +709,10 @@ namespace CILAssemblyManipulator.Logical.Implementation
          returnParameter = new Lazy<CILParameter>( returnParameterFunc, lazyThreadSafety );
          gArgs = new Lazy<ListProxy<CILTypeBase>>( gArgsFunc, lazyThreadSafety );
          gDef = LazyFactory.NewWriteableLazy<CILMethod>( gDefFunc, lazyThreadSafety );
-         pInvokeAttributes = aPInvokeAttributes ?? new SettableValueForEnums<PInvokeAttributes>( (PInvokeAttributes) 0 );
-         pInvokeName = aPInvokeName ?? new SettableValueForClasses<String>( null );
-         pInvokeModule = aPInvokeModule ?? new SettableValueForClasses<String>( null );
+         pInvoke = aPInvoke;
+         //pInvokeAttributes = aPInvokeAttributes ?? new SettableValueForEnums<PInvokeAttributes>( (PInvokeAttributes) 0 );
+         //pInvokeName = aPInvokeName ?? new SettableValueForClasses<String>( null );
+         //pInvokeModule = aPInvokeModule ?? new SettableValueForClasses<String>( null );
       }
 
       public override String ToString()
@@ -797,39 +785,15 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       #region CILMethod Members
 
-      public PInvokeAttributes PlatformInvokeAttributes
+      public PlatformInvokeInfo PlatformInvokeInfo
       {
          get
          {
-            return this.pInvokeAttributes.Value;
+            return this.pInvoke.Value;
          }
          set
          {
-            this.pInvokeAttributes.Value = value;
-         }
-      }
-
-      public String PlatformInvokeName
-      {
-         get
-         {
-            return this.pInvokeName.Value;
-         }
-         set
-         {
-            this.pInvokeName.Value = value;
-         }
-      }
-
-      public String PlatformInvokeModuleName
-      {
-         get
-         {
-            return this.pInvokeModule.Value;
-         }
-         set
-         {
-            this.pInvokeModule.Value = value;
+            this.pInvoke.Value = value;
          }
       }
 
@@ -931,5 +895,13 @@ namespace CILAssemblyManipulator.Logical.Implementation
       }
 
       #endregion
+
+      public WriteableLazy<PlatformInvokeInfo> PlatformInvokeInfoInternal
+      {
+         get
+         {
+            return this.pInvoke;
+         }
+      }
    }
 }

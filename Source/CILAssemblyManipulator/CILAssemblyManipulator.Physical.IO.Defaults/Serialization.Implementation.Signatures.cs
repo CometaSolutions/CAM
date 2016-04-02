@@ -699,7 +699,7 @@ public static partial class E_CILPhysical
                ElementType = (UnmanagedType) array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
                SizeParameterIndex = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
                Size = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX ),
-               Flags = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX )
+               SizeParameterMultiplier = array.DecompressUInt32OrDefault( ref idx, max, NO_INDEX )
             };
             break;
          case UnmanagedType.CustomMarshaler:
@@ -780,8 +780,9 @@ public static partial class E_CILPhysical
             {
                SecurityAttributeType = secType,
                ArgumentCount = argCount,
-               Bytes = array.CreateArrayCopy( ref idx, bytesToCopy )
+               Bytes = array.CreateArrayCopy( idx, bytesToCopy )
             };
+            idx += bytesToCopy;
             secInfos.Add( secInfo );
          }
 
@@ -1787,7 +1788,7 @@ public static partial class E_CILPhysical
                {
                   info.AddCompressedUInt32( ref idx, tmp );
                }
-               if ( CanWriteNextMarshalElement( ( tmp = array.Flags ) >= 0, ref canWrite ) )
+               if ( CanWriteNextMarshalElement( ( tmp = array.SizeParameterMultiplier ) >= 0, ref canWrite ) )
                {
                   info.AddCompressedUInt32( ref idx, tmp );
                }

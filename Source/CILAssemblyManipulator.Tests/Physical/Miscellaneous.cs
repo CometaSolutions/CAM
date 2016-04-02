@@ -409,5 +409,89 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.IsTrue( cilTypes.SetEquals( srTypes ) );
 
       }
+
+      [Test]
+      public void TestAssemblyQualifiedTypeStrings()
+      {
+         PerformAssemblyQualifiedTypeStringTest( typeof( Object ) );
+         PerformAssemblyQualifiedTypeStringTest( typeof( IList<Object> ) );
+         PerformAssemblyQualifiedTypeStringTest( typeof( IDictionary<String, MiscellaneousTest> ) );
+         PerformAssemblyQualifiedTypeStringTest( typeof( TestInterface<,> ) );
+         PerformAssemblyQualifiedTypeStringTest( typeof( TestInterface<String, Object> ) );
+         PerformAssemblyQualifiedTypeStringTest( typeof( TestInterface<String, IList<Object>> ) );
+      }
+
+      private interface TestInterface<T, U>
+      {
+
+      }
+
+      private static void PerformAssemblyQualifiedTypeStringTest( Type type )
+      {
+         String aq;
+         var typeInfo = BuildParseInfo( type, out aq );
+         PerformAssemblyQualifiedTypeStringTest( aq, typeInfo );
+      }
+
+      private static TypeParseInfo BuildParseInfo( Type type, out String aq )
+      {
+         aq = type.AssemblyQualifiedName;
+         var an = type.Assembly.ToString();
+         var retVal = new TypeParseInfo()
+         {
+            TypeStringRange = new ParseRange() { StartIndex = 0, CharacterCount = type.GetGenericDefinitionIfGenericType().FullName.Length },
+            AssemblyStringRange = new ParseRange() { StartIndex = aq.Length - an.Length, CharacterCount = an.Length }
+         };
+
+         PopulateParseInfo( type, retVal.GenericParameters, aq );
+         return retVal;
+      }
+
+      private static void PopulateParseInfo( Type type, List<TypeParseInfo> parseParams, String aq )
+      {
+         if ( !type.IsGenericTypeDefinition )
+         {
+            var gParams = type.GetGenericArguments();
+            if ( !gParams.IsNullOrEmpty() )
+            {
+               foreach ( var gParam in gParams )
+               {
+                  var typeForName = gParam.GetGenericDefinitionIfGenericType();
+                  var gFN = typeForName.FullName ?? typeForName.Name;
+                  var gAQ = gParam.AssemblyQualifiedName;
+                  var an = gParam.Assembly.ToString();
+                  var parseParam = new TypeParseInfo()
+                  {
+                     TypeStringRange = new ParseRange() { StartIndex = aq.IndexOf( gFN ), CharacterCount = gFN.Length },
+                     AssemblyStringRange = gAQ == null ? null : new ParseRange() { StartIndex = aq.IndexOf( gAQ ) + gAQ.Length - an.Length, CharacterCount = an.Length }
+                  };
+                  PopulateParseInfo( gParam, parseParam.GenericParameters, aq );
+                  parseParams.Add( parseParam );
+               }
+            }
+         }
+      }
+
+      private static void PerformAssemblyQualifiedTypeStringTest( String str, TypeParseInfo expectedParseInfo )
+      {
+         var parseInfo = str.ParseAssemblyQualifiedTypeString();
+         Assert.IsTrue( Equality_GParam( expectedParseInfo, parseInfo ), "Parsing tests failed for type string: " + str + "." );
+      }
+
+      private static Boolean Equality_GParam( TypeParseInfo x, TypeParseInfo y )
+      {
+         return Equality_Range( x.TypeStringRange, y.TypeStringRange )
+            && Equality_Range( x.AssemblyStringRange, y.AssemblyStringRange )
+            && ListEqualityComparer<List<TypeParseInfo>, TypeParseInfo>.ListEquality( x.GenericParameters, y.GenericParameters, Equality_GParam );
+      }
+
+      private static Boolean Equality_Range( ParseRange x, ParseRange y )
+      {
+         return ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.StartIndex == y.StartIndex
+            && y.CharacterCount == y.CharacterCount
+            );
+      }
    }
 }

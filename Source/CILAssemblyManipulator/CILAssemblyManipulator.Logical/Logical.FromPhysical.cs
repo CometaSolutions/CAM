@@ -2016,9 +2016,12 @@ public static partial class E_CILLogical
 
          if ( method != null )
          {
-            method.PlatformInvokeAttributes = impl.Attributes;
-            method.PlatformInvokeName = impl.ImportName;
-            method.PlatformInvokeModuleName = md.ModuleReferences.TableContents[impl.ImportScope.Index].ModuleName;
+            method.PlatformInvokeInfo = new PlatformInvokeInfo()
+            {
+               Attributes = impl.Attributes,
+               PlatformInvokeName = impl.ImportName,
+               PlatformInvokeModuleName = md.ModuleReferences.TableContents[impl.ImportScope.Index].ModuleName
+            };
          }
       }
 
@@ -2332,7 +2335,7 @@ public static partial class E_CILLogical
          {
             var code = physOpCodes[codeIdx];
             logicalByteOffsets.Add( curByteOffset, codeIdx );
-            curByteOffset += code.GetTotalByteCount( ocp );
+            curByteOffset += ocp.GetTotalByteCount( code );
             var physOpCodeID = code.OpCodeID;
             var physOpCode = ocp.GetCodeFor( physOpCodeID );
             LogicalOpCodeInfo logicalCode;

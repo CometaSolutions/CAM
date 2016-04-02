@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CollectionsWithRoles.API;
@@ -22,107 +23,105 @@ using CommonUtils;
 
 namespace CollectionsWithRoles.Implementation
 {
-   internal class SetWithRolesImpl<TValue, TValueQuery, TValueImmutable> : CollectionWithRolesImpl<SetQueryOfMutables<TValue, TValueQuery, TValueImmutable>, SetQueryOfQueries<TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetWithRoles<TValue, TValueQuery, TValueImmutable>
+   internal class SetWithRolesImpl<TValue, TValueQuery, TValueImmutable> : CollectionWithRolesImpl<ISet<TValue>, SetQueryOfMutables<TValue, TValueQuery, TValueImmutable>, SetQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable>, SetQueryOfQueries<TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetWithRoles<TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
 
-      private readonly SetState<TValue> _state;
-
-      internal SetWithRolesImpl( SetQueryOfMutables<TValue, TValueQuery, TValueImmutable> queryOfMutables, SetState<TValue> state )
-         : base( queryOfMutables, state )
+      internal SetWithRolesImpl( SetQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable> queryOfMutables )
+         : base( queryOfMutables )
       {
-         this._state = state;
       }
 
       #region SetMutable<TValue,SetQueryOfMutables<TValue,TValueQuery,TValueImmutable>> Members
 
-      public new bool Add( TValue item )
+      public override void Add( TValue item )
       {
-         return this._state.set.Add( item );
+         this.CQImpl.Collection.Add( item );
+      }
+
+      Boolean SetMutable<TValue, SetQueryOfMutables<TValue, TValueQuery, TValueImmutable>>.Add( TValue item )
+      {
+         return this.CQImpl.Collection.Add( item );
       }
 
       public void UnionWith( IEnumerable<TValue> other )
       {
-         this._state.set.UnionWith( other );
+         this.CQImpl.Collection.UnionWith( other );
       }
 
       public void IntersectWith( IEnumerable<TValue> other )
       {
-         this._state.set.IntersectWith( other );
+         this.CQImpl.Collection.IntersectWith( other );
       }
 
       public void ExceptWith( IEnumerable<TValue> other )
       {
-         this._state.set.ExceptWith( other );
+         this.CQImpl.Collection.ExceptWith( other );
       }
 
       public void SymmetricExceptWith( IEnumerable<TValue> other )
       {
-         this._state.set.SymmetricExceptWith( other );
+         this.CQImpl.Collection.SymmetricExceptWith( other );
       }
 
       #endregion
    }
 
-   internal class SetQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfMutablesImpl<SetQueryOfQueries<TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetQueryOfMutables<TValue, TValueQuery, TValueImmutable>
+   internal class SetQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfMutablesImpl<ISet<TValue>, SetQueryOfQueries<TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>, SetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetQueryOfMutables<TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly SetState<TValue> _state;
 
-      internal SetQueryOfMutablesImpl( SetQuery<TValueImmutable> immutableQuery, SetQueryOfQueries<TValueQuery, TValueImmutable> cmq, SetState<TValue> state )
-         : base( immutableQuery, cmq, state )
+      internal SetQueryOfMutablesImpl( SetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> immutableQuery, SetQueryOfQueries<TValueQuery, TValueImmutable> cmq )
+         : base( immutableQuery, cmq )
       {
-         this._state = state;
       }
 
       #region SetQuery<TValue> Members
 
       public bool IsSubsetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsSubsetOf( other );
+         return this.Collection.IsSubsetOf( other );
       }
 
       public bool IsSupersetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsSupersetOf( other );
+         return this.Collection.IsSupersetOf( other );
       }
 
       public bool IsProperSupersetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsProperSupersetOf( other );
+         return this.Collection.IsProperSupersetOf( other );
       }
 
       public bool IsProperSubsetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsProperSubsetOf( other );
+         return this.Collection.IsProperSubsetOf( other );
       }
 
       public bool Overlaps( IEnumerable<TValue> other )
       {
-         return this._state.set.Overlaps( other );
+         return this.Collection.Overlaps( other );
       }
 
       public bool SetEquals( IEnumerable<TValue> other )
       {
-         return this._state.set.SetEquals( other );
+         return this.Collection.SetEquals( other );
       }
 
       #endregion
    }
 
    // TODO the following two classes (SetQueryOfQueriesImpl and SetImmutableQueryImpl) consume as little memory as normal collections, but are quite slow. Provide alternative classes, which consume more memory but provide fast operations.
-   internal class SetQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfQueriesImpl<SetQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetQueryOfQueries<TValueQuery, TValueImmutable>
+   internal class SetQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfQueriesImpl<ISet<TValue>, SetQuery<TValueImmutable>, SetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetQueryOfQueries<TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly SetState<TValue> _state;
 
-      internal SetQueryOfQueriesImpl( SetQuery<TValueImmutable> iq, SetState<TValue> state )
-         : base( iq, state )
+      internal SetQueryOfQueriesImpl( SetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> iq )
+         : base( iq )
       {
-         this._state = state;
       }
 
       #region SetQuery<TValueQuery> Members
@@ -130,186 +129,174 @@ namespace CollectionsWithRoles.Implementation
       public bool IsSubsetOf( IEnumerable<TValueQuery> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Select( item => item == null ? default( TValueQuery ) : item.MQ ).Intersect( other ).Count() == this._state.set.Count;
+         return this._collection.Select( item => item == null ? default( TValueQuery ) : item.MQ ).Intersect( other ).Count() == this._collection.Count;
       }
 
       public bool IsSupersetOf( IEnumerable<TValueQuery> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Select( item => item == null ? default( TValueQuery ) : item.MQ ).Intersect( other ).Count() == other.Count();
+         return this._collection.Select( item => item == null ? default( TValueQuery ) : item.MQ ).Intersect( other ).Count() == other.Count();
       }
 
       public bool IsProperSupersetOf( IEnumerable<TValueQuery> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Count > other.Count() && this.IsSupersetOf( other );
+         return this._collection.Count > other.Count() && this.IsSupersetOf( other );
       }
 
       public bool IsProperSubsetOf( IEnumerable<TValueQuery> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Count < other.Count() && this.IsSubsetOf( other );
+         return this._collection.Count < other.Count() && this.IsSubsetOf( other );
       }
 
       public bool Overlaps( IEnumerable<TValueQuery> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Select( item => item == null ? default( TValueQuery ) : item.MQ ).Intersect( other ).Any();
+         return this._collection.Select( item => item == null ? default( TValueQuery ) : item.MQ ).Intersect( other ).Any();
       }
 
       public bool SetEquals( IEnumerable<TValueQuery> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Count == other.Count() && this.IsSubsetOf( other );
+         return this._collection.Count == other.Count() && this.IsSubsetOf( other );
       }
 
       #endregion
    }
 
-   internal class SetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> : CollectionImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>
+   internal class SetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> : CollectionImmutableQueryImpl<ISet<TValue>, TValue, TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly SetState<TValue> _state;
 
-      internal SetImmutableQueryImpl( SetState<TValue> state )
-         : base( state )
+      internal SetImmutableQueryImpl( ISet<TValue> collection )
+         : base( collection )
       {
-         this._state = state;
       }
 
       #region SetQuery<TValueImmutable> Members
 
-      public bool IsSubsetOf( IEnumerable<TValueImmutable> other )
+      public virtual bool IsSubsetOf( IEnumerable<TValueImmutable> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).Intersect( other ).Count() == this._state.set.Count;
+         return this.Collection.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).Intersect( other ).Count() == this.Collection.Count;
       }
 
-      public bool IsSupersetOf( IEnumerable<TValueImmutable> other )
+      public virtual bool IsSupersetOf( IEnumerable<TValueImmutable> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).Intersect( other ).Count() == other.Count();
+         return this.Collection.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).Intersect( other ).Count() == other.Count();
       }
 
-      public bool IsProperSupersetOf( IEnumerable<TValueImmutable> other )
+      public virtual bool IsProperSupersetOf( IEnumerable<TValueImmutable> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Count > other.Count() && this.IsSupersetOf( other );
+         return this.Collection.Count > other.Count() && this.IsSupersetOf( other );
       }
 
-      public bool IsProperSubsetOf( IEnumerable<TValueImmutable> other )
+      public virtual bool IsProperSubsetOf( IEnumerable<TValueImmutable> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Count < other.Count() && this.IsSubsetOf( other );
+         return this.Collection.Count < other.Count() && this.IsSubsetOf( other );
       }
 
-      public bool Overlaps( IEnumerable<TValueImmutable> other )
+      public virtual bool Overlaps( IEnumerable<TValueImmutable> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).Intersect( other ).Any();
+         return this.Collection.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).Intersect( other ).Any();
       }
 
-      public bool SetEquals( IEnumerable<TValueImmutable> other )
+      public virtual bool SetEquals( IEnumerable<TValueImmutable> other )
       {
          ArgumentValidator.ValidateNotNull( "Other", other );
-         return this._state.set.Count == other.Count() && this.IsSubsetOf( other );
+         return this.Collection.Count == other.Count() && this.IsSubsetOf( other );
       }
 
       #endregion
    }
 
-   internal class SetState<TValue> : CollectionState<TValue>
+   internal class SetQueryImpl<TValue> : CollectionQueryImpl<ISet<TValue>, TValue>, SetQuery<TValue>
    {
-      public readonly ISet<TValue> set;
 
-      internal SetState( ISet<TValue> setToUse )
-         : base( setToUse )
+      internal SetQueryImpl( ISet<TValue> collection )
+         : base( collection )
       {
-         this.set = setToUse;
-      }
-   }
-
-   internal class SetQueryImpl<TValue> : CollectionQueryImpl<TValue>, SetQuery<TValue>
-   {
-      private readonly SetState<TValue> _state;
-
-      internal SetQueryImpl( SetState<TValue> state )
-         : base( state )
-      {
-         this._state = state;
       }
 
       #region SetQuery<TValue> Members
 
       public bool IsSubsetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsSubsetOf( other );
+         return this.Collection.IsSubsetOf( other );
       }
 
       public bool IsSupersetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsSupersetOf( other );
+         return this.Collection.IsSupersetOf( other );
       }
 
       public bool IsProperSupersetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsProperSupersetOf( other );
+         return this.Collection.IsProperSupersetOf( other );
       }
 
       public bool IsProperSubsetOf( IEnumerable<TValue> other )
       {
-         return this._state.set.IsProperSubsetOf( other );
+         return this.Collection.IsProperSubsetOf( other );
       }
 
       public bool Overlaps( IEnumerable<TValue> other )
       {
-         return this._state.set.Overlaps( other );
+         return this.Collection.Overlaps( other );
       }
 
       public bool SetEquals( IEnumerable<TValue> other )
       {
-         return this._state.set.SetEquals( other );
+         return this.Collection.SetEquals( other );
       }
 
       #endregion
    }
 
-   internal class SetProxyImpl<TValue> : CollectionMutableImpl<TValue, SetQuery<TValue>>, SetProxy<TValue>
+   internal class SetProxyImpl<TValue> : CollectionMutableImpl<ISet<TValue>, TValue, SetQuery<TValue>, SetProxyQueryImpl<TValue>>, SetProxy<TValue>
    {
-      private readonly SetState<TValue> _state;
-
-      internal SetProxyImpl( SetProxyQuery<TValue> cq, SetState<TValue> state )
-         : base( cq, state )
+      internal SetProxyImpl( SetProxyQueryImpl<TValue> cq )
+         : base( cq )
       {
-         this._state = state;
       }
 
       #region SetMutable<TValue,SetQuery<TValue>> Members
 
-      public new bool Add( TValue item )
+      public override void Add( TValue item )
       {
-         return this._state.set.Add( item );
+         this.CQImpl.Collection.Add( item );
       }
+
+      Boolean SetMutable<TValue, SetQuery<TValue>>.Add( TValue item )
+      {
+         return this.CQImpl.Collection.Add( item );
+      }
+
 
       public void UnionWith( IEnumerable<TValue> other )
       {
-         this._state.set.UnionWith( other );
+         this.CQImpl.Collection.UnionWith( other );
       }
 
       public void IntersectWith( IEnumerable<TValue> other )
       {
-         this._state.set.IntersectWith( other );
+         this.CQImpl.Collection.IntersectWith( other );
       }
 
       public void ExceptWith( IEnumerable<TValue> other )
       {
-         this._state.set.ExceptWith( other );
+         this.CQImpl.Collection.ExceptWith( other );
       }
 
       public void SymmetricExceptWith( IEnumerable<TValue> other )
       {
-         this._state.set.SymmetricExceptWith( other );
+         this.CQImpl.Collection.SymmetricExceptWith( other );
       }
 
       #endregion
@@ -320,7 +307,7 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return (SetProxyQuery<TValue>) this.CQ;
+            return this.CQImpl;
          }
       }
 
@@ -329,8 +316,8 @@ namespace CollectionsWithRoles.Implementation
 
    internal class SetProxyQueryImpl<TValue> : SetQueryImpl<TValue>, SetProxyQuery<TValue>
    {
-      internal SetProxyQueryImpl( SetState<TValue> state )
-         : base( state )
+      internal SetProxyQueryImpl( ISet<TValue> collection )
+         : base( collection )
       {
       }
 
@@ -347,30 +334,27 @@ namespace CollectionsWithRoles.Implementation
       #endregion
    }
 
-   internal class FastSetState<TValue, TValueQuery, TValueImmutable> : SetState<TValue>
+   internal sealed class FastSetState<TValue, TValueQuery, TValueImmutable>
    {
-      public readonly ISet<TValueQuery> queries;
-      public readonly ISet<TValueImmutable> immutables;
 
-      internal FastSetState( ISet<TValue> mutables, ISet<TValueQuery> queries, ISet<TValueImmutable> immutables )
-         : base( mutables )
+      internal FastSetState( ISet<TValueQuery> queries, ISet<TValueImmutable> immutables )
       {
-         ArgumentValidator.ValidateNotNull( "Queries", queries );
-         ArgumentValidator.ValidateNotNull( "Immutables", immutables );
-
-         this.queries = queries;
-         this.immutables = immutables;
+         this.Queries = ArgumentValidator.ValidateNotNull( "Queries", queries );
+         this.Immutables = ArgumentValidator.ValidateNotNull( "Immutables", immutables );
       }
+
+      public ISet<TValueQuery> Queries { get; }
+      public ISet<TValueImmutable> Immutables { get; }
    }
 
-   internal class FastSetQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfQueriesImpl<SetQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetQueryOfQueries<TValueQuery, TValueImmutable>
+   internal class FastSetQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfQueriesImpl<ISet<TValue>, SetQuery<TValueImmutable>, FastSetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetQueryOfQueries<TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
       private readonly FastSetState<TValue, TValueQuery, TValueImmutable> _state;
 
-      internal FastSetQueryOfQueriesImpl( SetQuery<TValueImmutable> immutableQuery, FastSetState<TValue, TValueQuery, TValueImmutable> state )
-         : base( immutableQuery, state )
+      internal FastSetQueryOfQueriesImpl( FastSetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> immutableQuery, FastSetState<TValue, TValueQuery, TValueImmutable> state )
+         : base( immutableQuery )
       {
          this._state = state;
       }
@@ -379,79 +363,80 @@ namespace CollectionsWithRoles.Implementation
 
       public bool IsSubsetOf( IEnumerable<TValueQuery> other )
       {
-         return this._state.queries.IsSubsetOf( other );
+         return this._state.Queries.IsSubsetOf( other );
       }
 
       public bool IsSupersetOf( IEnumerable<TValueQuery> other )
       {
-         return this._state.queries.IsSupersetOf( other );
+         return this._state.Queries.IsSupersetOf( other );
       }
 
       public bool IsProperSupersetOf( IEnumerable<TValueQuery> other )
       {
-         return this._state.queries.IsProperSupersetOf( other );
+         return this._state.Queries.IsProperSupersetOf( other );
       }
 
       public bool IsProperSubsetOf( IEnumerable<TValueQuery> other )
       {
-         return this._state.queries.IsProperSubsetOf( other );
+         return this._state.Queries.IsProperSubsetOf( other );
       }
 
       public bool Overlaps( IEnumerable<TValueQuery> other )
       {
-         return this._state.queries.Overlaps( other );
+         return this._state.Queries.Overlaps( other );
       }
 
       public bool SetEquals( IEnumerable<TValueQuery> other )
       {
-         return this._state.queries.SetEquals( other );
+         return this._state.Queries.SetEquals( other );
       }
 
       #endregion
    }
 
-   internal class FastSetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> : CollectionImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>
+   internal class FastSetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> : SetImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>
+      // CollectionImmutableQueryImpl<ISet<TValue>, TValue, TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
       private readonly FastSetState<TValue, TValueQuery, TValueImmutable> _state;
 
-      internal FastSetImmutableQueryImpl( FastSetState<TValue, TValueQuery, TValueImmutable> state )
-         : base( state )
+      internal FastSetImmutableQueryImpl( ISet<TValue> mutables, FastSetState<TValue, TValueQuery, TValueImmutable> state )
+         : base( mutables )
       {
          this._state = state;
       }
 
       #region SetQuery<TValueImmutable> Members
 
-      public bool IsSubsetOf( IEnumerable<TValueImmutable> other )
+      public override bool IsSubsetOf( IEnumerable<TValueImmutable> other )
       {
-         return this._state.immutables.IsSubsetOf( other );
+         return this._state.Immutables.IsSubsetOf( other );
       }
 
-      public bool IsSupersetOf( IEnumerable<TValueImmutable> other )
+      public override bool IsSupersetOf( IEnumerable<TValueImmutable> other )
       {
-         return this._state.immutables.IsSupersetOf( other );
+         return this._state.Immutables.IsSupersetOf( other );
       }
 
-      public bool IsProperSupersetOf( IEnumerable<TValueImmutable> other )
+      public override bool IsProperSupersetOf( IEnumerable<TValueImmutable> other )
       {
-         return this._state.immutables.IsProperSupersetOf( other );
+         return this._state.Immutables.IsProperSupersetOf( other );
       }
 
-      public bool IsProperSubsetOf( IEnumerable<TValueImmutable> other )
+      public override bool IsProperSubsetOf( IEnumerable<TValueImmutable> other )
       {
-         return this._state.immutables.IsProperSubsetOf( other );
+         return this._state.Immutables.IsProperSubsetOf( other );
       }
 
-      public bool Overlaps( IEnumerable<TValueImmutable> other )
+      public override bool Overlaps( IEnumerable<TValueImmutable> other )
       {
-         return this._state.immutables.Overlaps( other );
+         return this._state.Immutables.Overlaps( other );
       }
 
-      public bool SetEquals( IEnumerable<TValueImmutable> other )
+      public override bool SetEquals( IEnumerable<TValueImmutable> other )
       {
-         return this._state.immutables.SetEquals( other );
+         return this._state.Immutables.SetEquals( other );
       }
 
       #endregion

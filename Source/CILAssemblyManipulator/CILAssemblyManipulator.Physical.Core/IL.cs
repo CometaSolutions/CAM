@@ -137,13 +137,46 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
+   /// This interface implemented by <see cref="OpCodeInfo"/> and extended by <see cref="IOpCodeInfoWithOperand{TOperand}"/>.
+   /// </summary>
+   public interface IOpCodeInfo
+   {
+      /// <summary>
+      /// Gets the <see cref="OpCodeInfoKind"/> of this <see cref="IOpCodeInfo"/>.
+      /// </summary>
+      /// <value>The <see cref="OpCodeInfoKind"/> of this <see cref="IOpCodeInfo"/>.</value>
+      OpCodeInfoKind InfoKind { get; }
+
+      /// <summary>
+      /// Gets the <see cref="Physical.OpCodeID"/> for this <see cref="IOpCodeInfo"/>.
+      /// </summary>
+      /// <seealso cref="Physical.OpCodeID"/>
+      /// <seealso cref="Physical.OpCode"/>
+      /// <seealso cref="OpCodes"/>
+      OpCodeID OpCodeID { get; }
+
+
+      /// <summary>
+      /// Gets the additional size of operand of this <see cref="IOpCodeInfo"/>, in bytes.
+      /// </summary>
+      /// <value>The additional size of operand of this <see cref="IOpCodeInfo"/>, in bytes.</value>
+      Int32 DynamicOperandByteSize { get; }
+
+      /// <summary>
+      /// Gets the value indicating whether this op code has operand.
+      /// </summary>
+      /// <value>The value indicating whether this op code has operand.</value>
+      Boolean HasOperand { get; }
+   }
+
+   /// <summary>
    /// This is abstract base class for any op code stored in <see cref="MethodILDefinition"/>.
    /// The purpose of this class is to capture <see cref="Physical.OpCode"/> and its operand, if any.
    /// </summary>
    /// <remarks>
    /// The instances of this class are not instantiable directly, instead use <see cref="OpCodeInfoWithTableIndex"/>, <see cref="OpCodeInfoWithInt32"/>, <see cref="OpCodeInfoWithInt64"/>, <see cref="OpCodeInfoWithSingle"/>, <see cref="OpCodeInfoWithDouble"/>, <see cref="OpCodeInfoWithString"/>, <see cref="OpCodeInfoWithIntegers"/>, or <see cref="OpCodeInfoWithNoOperand"/>.
    /// </remarks>
-   public abstract class OpCodeInfo
+   public abstract class OpCodeInfo : IOpCodeInfo
    {
       private readonly UInt16 _code; // Save some memory - use integer instead of actual code (Int64 (amount of space taken by OpCode structure) -> Int16)
 
@@ -174,6 +207,9 @@ namespace CILAssemblyManipulator.Physical
       /// <seealso cref="OpCodeInfoKind"/>
       public abstract OpCodeInfoKind InfoKind { get; }
 
+      /// <inheritdoc />
+      public abstract Boolean HasOperand { get; }
+
       /// <summary>
       /// Gets the additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.
       /// </summary>
@@ -199,6 +235,18 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
+   /// This is interface providing access to the operand of the <see cref="IOpCodeInfo" /> without generic argument of the interface.
+   /// </summary>
+   public interface IOpCodeInfoWithOperand : IOpCodeInfo
+   {
+      /// <summary>
+      /// Gets the operand for this <see cref="IOpCodeInfoWithOperand"/>.
+      /// </summary>
+      /// <value>The operand for this <see cref="IOpCodeInfoWithOperand"/>.</value>
+      Object Operand { get; }
+   }
+
+   /// <summary>
    /// This interface is for any subclass of <see cref="OpCodeInfo"/>, which has an operand.
    /// </summary>
    /// <typeparam name="TOperand">The type of the operand.</typeparam>
@@ -206,29 +254,57 @@ namespace CILAssemblyManipulator.Physical
    /// This interface exists because not all <see cref="OpCodeInfo"/>s which have operand, inherit from <see cref="OpCodeInfoWithOperand{TOperand}"/>.
    /// One reason for this is that <see cref="OpCodeInfoWithOperand{TOperand}"/> provides both getter and setter for operand, which is not always sensible (e.g. for <see cref="OpCodeInfoWithIntegers"/>).
    /// </remarks>
-   public interface IOpCodeInfoWithOperand<out TOperand>
+   public interface IOpCodeInfoWithOperand<out TOperand> : IOpCodeInfoWithOperand
    {
       /// <summary>
       /// Gets the operand for this <see cref="IOpCodeInfoWithOperand{TOperand}"/>.
       /// </summary>
       /// <value>The operand for this <see cref="IOpCodeInfoWithOperand{TOperand}"/>.</value>
-      TOperand Operand { get; }
+      new TOperand Operand { get; }
+
    }
 
    /// <summary>
-   /// This is abstract base class for all <see cref="OpCodeInfo"/>s which have an operand of some sort.
+   /// This is abstract base class for all <see cref="OpCodeInfo"/>s which have a gettable and settable operand of some sort.
    /// </summary>
    /// <typeparam name="TOperand">The type of the operand.</typeparam>
    /// <remarks>
-   /// The instances of this class are not instantiable directly, instead use <see cref="OpCodeInfoWithTableIndex"/>, <see cref="OpCodeInfoWithInt32"/>, <see cref="OpCodeInfoWithInt64"/>, <see cref="OpCodeInfoWithSingle"/>, <see cref="OpCodeInfoWithDouble"/>, <see cref="OpCodeInfoWithString"/>, or <see cref="OpCodeInfoWithIntegers"/>.
+   /// <para>
+   /// The instances of this class are not instantiable directly, instead use <see cref="OpCodeInfoWithTableIndex"/>, <see cref="OpCodeInfoWithInt32"/>, <see cref="OpCodeInfoWithInt64"/>, <see cref="OpCodeInfoWithSingle"/>, <see cref="OpCodeInfoWithDouble"/>, or <see cref="OpCodeInfoWithString"/>.
+   /// </para>
+   /// <para>
+   /// It is also possible to create custom instances inheriting from this <see cref="OpCodeInfoWithOperand{TOperand}"/>, which should have <see cref="OpCodeInfo.InfoKind"/> of value <see cref="OpCodeInfoKind.CustomStart"/> or larger.
+   /// </para>
    /// </remarks>
    public abstract class OpCodeInfoWithOperand<TOperand> : OpCodeInfo, IOpCodeInfoWithOperand<TOperand>
    {
-      // Disable inheritance to other assemblies
-      internal OpCodeInfoWithOperand( OpCodeID code, TOperand operand )
+
+      /// <summary>
+      /// Initializes a new instance of <see cref="OpCodeInfoWithOperand{TOperand}"/>.
+      /// </summary>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
+      /// <param name="operand">The operand.</param>
+      public OpCodeInfoWithOperand( OpCodeID code, TOperand operand )
          : base( code )
       {
          this.Operand = operand;
+      }
+
+      /// <inheritdoc />
+      public sealed override Boolean HasOperand
+      {
+         get
+         {
+            return true;
+         }
+      }
+
+      Object IOpCodeInfoWithOperand.Operand
+      {
+         get
+         {
+            return this.Operand;
+         }
       }
 
       /// <summary>
@@ -236,6 +312,55 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The operand for this <see cref="OpCodeInfoWithOperand{TOperand}"/>.</value>
       public TOperand Operand { get; set; }
+   }
+
+   /// <summary>
+   /// This is abstract base class for all <see cref="OpCodeInfo"/>s which have a gettable, but not settable, operand of some sort.
+   /// </summary>
+   /// <typeparam name="TOperand">The type of the operand.</typeparam>
+   /// <remarks>
+   /// <para>
+   /// The instances of this class are not instantiable directly, instead use <see cref="OpCodeInfoWithIntegers"/>.
+   /// </para>
+   /// <para>
+   /// It is also possible to create custom instances inheriting from this <see cref="OpCodeInfoWithOperandGetter{TOperand}"/>, which should have <see cref="OpCodeInfo.InfoKind"/> of value <see cref="OpCodeInfoKind.CustomStart"/> or larger.
+   /// </para>
+   /// </remarks>
+   public abstract class OpCodeInfoWithOperandGetter<TOperand> : OpCodeInfo, IOpCodeInfoWithOperand<TOperand>
+   {
+      /// <summary>
+      /// Initializes a new instance of <see cref="OpCodeInfoWithOperandGetter{TOperand}"/>.
+      /// </summary>
+      /// <param name="code">The <see cref="OpCodeID"/>.</param>
+      /// <param name="operand">The operand.</param>
+      public OpCodeInfoWithOperandGetter( OpCodeID code, TOperand operand )
+         : base( code )
+      {
+         this.Operand = operand;
+      }
+
+      Object IOpCodeInfoWithOperand.Operand
+      {
+         get
+         {
+            return this.Operand;
+         }
+      }
+
+      /// <summary>
+      /// Gets the operand for this <see cref="OpCodeInfoWithOperandGetter{TOperand}"/>.
+      /// </summary>
+      /// <value>The operand for this <see cref="OpCodeInfoWithOperandGetter{TOperand}"/>.</value>
+      public TOperand Operand { get; }
+
+      /// <inheritdoc />
+      public sealed override Boolean HasOperand
+      {
+         get
+         {
+            return true;
+         }
+      }
    }
 
    /// <summary>
@@ -348,6 +473,15 @@ namespace CILAssemblyManipulator.Physical
 
       }
 
+      /// <inheritdoc />
+      public override bool HasOperand
+      {
+         get
+         {
+            return false;
+         }
+      }
+
       /// <summary>
       /// Returns the <see cref="OpCodeInfoKind.OperandNone"/>.
       /// </summary>
@@ -360,66 +494,6 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      ///// <summary>
-      ///// This method can be used to obtain instance of <see cref="OpCodeInfoWithNoOperand"/> when the <see cref="OpCodeEncoding"/> is known.
-      ///// </summary>
-      ///// <param name="encoded">The <see cref="OpCodeEncoding"/> of an op code.</param>
-      ///// <returns>An instance of <see cref="OpCodeInfoWithNoOperand"/> for given <see cref="OpCodeEncoding"/>.</returns>
-      ///// <exception cref="ArgumentException">If <paramref name="encoded"/> does not represent an op code, which takes no operand.</exception>
-      ///// <remarks>
-      ///// The <see cref="OpCode"/> is deemed to accept no operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      ///// <list type="bullet">
-      ///// <item><description><see cref="OperandType.InlineNone"/>.</description></item>
-      ///// </list>
-      ///// </remarks>
-      ///// <seealso cref="OpCodeEncoding"/>
-      ///// <seealso cref="OpCodes"/>
-      ///// 
-      ////public static OpCodeInfoWithNoOperand GetInstanceFor( OpCodeEncoding encoded )
-      ////{
-      ////   OpCodeInfoWithNoOperand retVal;
-      ////   if ( !TryGetInstanceFor( encoded, out retVal ) )
-      ////   {
-      ////      throw new ArgumentException( "Op code " + encoded + " is not operandless opcode." );
-      ////   }
-      ////   return retVal;
-      ////}
-
-      ///// <summary>
-      ///// Tries to get an instance of <see cref="OpCodeInfoWithNoOperand"/> for a given <see cref="OpCodeEncoding"/>.
-      ///// </summary>
-      ///// <param name="encoded">The <see cref="OpCodeEncoding"/> of an op code.</param>
-      ///// <param name="opCodeInfo">This parameter will hold the retrieved instance of <see cref="OpCodeInfoWithNoOperand"/>, if any.</param>
-      ///// <returns><c>true</c> if <paramref name="encoded"/> represents an op code, which takes no operand; <c>false</c> otherwise.</returns>
-      ///// <remarks>
-      ///// The <see cref="OpCode"/> is deemed to accept no operand when its <see cref="OpCode.OperandType"/> is one of the following:
-      ///// <list type="bullet">
-      ///// <item><description><see cref="OperandType.InlineNone"/>.</description></item>
-      ///// </list>
-      ///// </remarks>
-      ///// <seealso cref="OpCodeEncoding"/>
-      ///// <seealso cref="OpCodes"/>
-      //public static Boolean TryGetInstanceFor( OpCodeEncoding encoded, out OpCodeInfoWithNoOperand opCodeInfo )
-      //{
-      //   return CodeInfosWithNoOperand.TryGetValue( encoded, out opCodeInfo );
-      //}
-
-      //public static OpCodeInfoWithNoOperand GetInstanceFor( OpCode code )
-      //{
-      //   return GetInstanceFor( code.Value );
-      //}
-
-      ///// <summary>
-      ///// Gets all the values of the <see cref="OpCodeEncoding"/> enumeration, which accept no operands.
-      ///// </summary>
-      ///// <value>All the values of the <see cref="OpCodeEncoding"/> enumeration, which accept no operands.</value>
-      //public static IEnumerable<OpCodeEncoding> OperandlessCodes
-      //{
-      //   get
-      //   {
-      //      return CodeInfosWithNoOperand.Keys;
-      //   }
-      //}
    }
 
    /// <summary>
@@ -483,18 +557,17 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// This class represents any op code which takes variable amount of integers as an operand.
    /// </summary>
-   public sealed class OpCodeInfoWithIntegers : OpCodeInfo, IOpCodeInfoWithOperand<List<Int32>>
+   public sealed class OpCodeInfoWithIntegers : OpCodeInfoWithOperandGetter<List<Int32>>
    {
       /// <summary>
       /// Creates a new instance of <see cref="OpCodeInfoWithIntegers"/> with given <see cref="OpCode"/> and initial capacity for integer list.
       /// </summary>
       /// <param name="code">The <see cref="OpCodeID"/>.</param>
-      /// <param name="offsetsCount">The initial capacity for <see cref="Operand"/>.</param>
+      /// <param name="offsetsCount">The initial capacity for integer list.</param>
       /// <seealso cref="OpCodes"/>
       public OpCodeInfoWithIntegers( OpCodeID code, Int32 offsetsCount = 0 )
-         : base( code )
+         : base( code, new List<Int32>( offsetsCount ) )
       {
-         this.Operand = new List<Int32>( offsetsCount );
       }
 
       /// <summary>
@@ -509,11 +582,6 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      /// <summary>
-      /// Gets the list of integers acting as an operand for this <see cref="OpCodeInfoWithIntegers"/>.
-      /// </summary>
-      /// <value>The list of integers acting as an operand for this <see cref="OpCodeInfoWithIntegers"/>.</value>
-      public List<Int32> Operand { get; }
 
       /// <inheritdoc />
       public override Int32 DynamicOperandByteSize
@@ -591,27 +659,16 @@ namespace CILAssemblyManipulator.Physical
       /// The <see cref="OpCodeInfo"/> has integer list as operand, and is of type <see cref="OpCodeInfoWithIntegers"/>.
       /// </summary>
       OperandIntegerList,
+      /// <summary>
+      /// This is smallest value for <see cref="IOpCodeInfo"/>s of context-specific custom type.
+      /// </summary>
+      CustomStart,
    }
 }
 
 public static partial class E_CILPhysical
 {
-   /// <summary>
-   /// Gets the total byte count that a single <see cref="OpCodeInfo"/> takes.
-   /// </summary>
-   /// <param name="info">The single <see cref="OpCodeInfo"/>.</param>
-   /// <param name="opCodeProvider">The <see cref="OpCodeProvider"/> to use.</param>
-   /// <returns>The total byte count of a single <see cref="OpCodeInfo"/>.</returns>
-   /// <remarks>
-   /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="OpCodeInfo.DynamicOperandByteSize"/>.
-   /// </remarks>
-   /// <exception cref="NullReferenceException">If <paramref name="info"/> is <c>null</c>.</exception>
-   /// <exception cref="ArgumentNullException">If <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
-   public static Int32 GetTotalByteCount( this OpCodeInfo info, OpCodeProvider opCodeProvider )
-   {
-      // First call DynamicOperandByteSize so we would get NullReferenceException *before* ArgumentNullException
-      return info.DynamicOperandByteSize + ArgumentValidator.ValidateNotNull( "Op code provider", opCodeProvider ).GetCodeFor( info.OpCodeID ).GetFixedByteCount();
-   }
+
 
    /// <summary>
    /// This method will sort all <see cref="MethodILDefinition.ExceptionBlocks"/> so that they are in order they appear when traversing byte code.
@@ -627,4 +684,6 @@ public static partial class E_CILPhysical
             ( x.TryOffset >= y.HandlerOffset + y.HandlerLength || ( x.TryOffset <= y.TryOffset && x.HandlerOffset + x.HandlerLength > y.HandlerOffset + y.HandlerLength ) ? 1 : -1 );
       } );
    }
+
+
 }

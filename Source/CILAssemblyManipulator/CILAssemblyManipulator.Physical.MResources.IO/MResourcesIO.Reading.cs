@@ -918,7 +918,8 @@ public static partial class E_CILPhysical
       if ( ( rawDateTime & 0x8000000000000000uL ) != 0uL )
       {
          // This is local date-time, do UTC offset tick adjustment
-         rawDateTime -= (UInt64) TimeZoneInfo.Local.GetUtcOffset( DateTime.MinValue ).Ticks;
+         // We have to use the given ticks when calculating UTC offset, if we use DateTime.MinValue, we will get wrong value for date times where daylight saving is active.
+         rawDateTime -= (UInt64) TimeZoneInfo.Local.GetUtcOffset( new DateTime( (Int64) ( rawDateTime & 0x3FFFFFFFFFFFFFFFuL ) ) ).Ticks;
       }
       return DateTime.FromBinary( (Int64) rawDateTime );
    }

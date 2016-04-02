@@ -16,6 +16,8 @@
  * limitations under the License. 
  */
 
+using CollectionsWithRoles.API;
+
 namespace CollectionsWithRoles.API
 {
    /// <summary>
@@ -44,5 +46,24 @@ namespace CollectionsWithRoles.API
       /// </summary>
       /// <value>The <c>immutable query</c> role. This role allows access to immutable elements, if this object is a collection.</value>
       ImmutableQueryType IQ { get; }
+   }
+}
+
+public static partial class E_CWR
+{
+   internal static TImmutableQuery GetIQ<TMutableQuery, TImmutableQuery>( this Mutable<TMutableQuery, TImmutableQuery> mutable )
+      where TMutableQuery : MutableQuery<TImmutableQuery>
+   {
+      TImmutableQuery retVal;
+      if ( mutable == null )
+      {
+         retVal = default( TImmutableQuery );
+      }
+      else
+      {
+         var mq = mutable.MQ;
+         retVal = mq == null ? default( TImmutableQuery ) : mq.IQ;
+      }
+      return retVal;
    }
 }

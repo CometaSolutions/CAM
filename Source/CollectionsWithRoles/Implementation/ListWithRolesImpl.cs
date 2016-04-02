@@ -21,16 +21,13 @@ using CollectionsWithRoles.API;
 
 namespace CollectionsWithRoles.Implementation
 {
-   internal class ListWithRolesImpl<TValue, TValueQuery, TValueImmutable> : CollectionWithRolesImpl<ListQueryOfMutables<TValue, TValueQuery, TValueImmutable>, ListQueryOfQueries<TValueQuery, TValueImmutable>, ListQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, ListWithRoles<TValue, TValueQuery, TValueImmutable>
+   internal class ListWithRolesImpl<TValue, TValueQuery, TValueImmutable> : CollectionWithRolesImpl<IList<TValue>, ListQueryOfMutables<TValue, TValueQuery, TValueImmutable>, ListQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable>, ListQueryOfQueries<TValueQuery, TValueImmutable>, ListQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, ListWithRoles<TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly ListState<TValue> _state;
-
-      internal ListWithRolesImpl( ListQueryOfMutables<TValue, TValueQuery, TValueImmutable> mutableQuery, ListState<TValue> state )
-         : base( mutableQuery, state )
+      internal ListWithRolesImpl( ListQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable> mutableQuery )
+         : base( mutableQuery )
       {
-         this._state = state;
       }
 
       #region ListWithRoles<TMutableQuery,TImmutableQuery> Members
@@ -39,33 +36,31 @@ namespace CollectionsWithRoles.Implementation
       {
          set
          {
-            this._state.list[index] = value;
+            this.CQImpl.Collection[index] = value;
          }
       }
 
       public void Insert( int index, TValue item )
       {
-         this._state.list.Insert( index, item );
+         this.CQImpl.Collection.Insert( index, item );
       }
 
       public void RemoveAt( int index )
       {
-         this._state.list.RemoveAt( index );
+         this.CQImpl.Collection.RemoveAt( index );
       }
 
       #endregion
    }
 
-   internal class ListQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfMutablesImpl<ListQueryOfQueries<TValueQuery, TValueImmutable>, ListQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, ListQueryOfMutables<TValue, TValueQuery, TValueImmutable>
+   internal class ListQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfMutablesImpl<IList<TValue>, ListQueryOfQueries<TValueQuery, TValueImmutable>, ListQuery<TValueImmutable>, ListImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>, TValue, TValueQuery, TValueImmutable>, ListQueryOfMutables<TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly ListState<TValue> _state;
 
-      internal ListQueryOfMutablesImpl( ListQuery<TValueImmutable> immutableQuery, ListQueryOfQueries<TValueQuery, TValueImmutable> cmq, ListState<TValue> state )
-         : base( immutableQuery, cmq, state )
+      internal ListQueryOfMutablesImpl( ListImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> immutableQuery, ListQueryOfQueries<TValueQuery, TValueImmutable> cmq )
+         : base( immutableQuery, cmq )
       {
-         this._state = state;
       }
 
       #region ListMutableQuery<TMutableQuery,TImmutableQuery> Members
@@ -74,13 +69,13 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.list[index];
+            return this.Collection[index];
          }
       }
 
       public int IndexOf( TValue item )
       {
-         return this._state.list.IndexOf( item );
+         return this.Collection.IndexOf( item );
       }
 
       #endregion
@@ -88,9 +83,9 @@ namespace CollectionsWithRoles.Implementation
       public override Boolean Contains( TValue item, IEqualityComparer<TValue> equalityComparer = null )
       {
          equalityComparer = equalityComparer ?? EqualityComparer<TValue>.Default;
-         for ( var i = 0; i < this._state.list.Count; ++i )
+         for ( var i = 0; i < this.Collection.Count; ++i )
          {
-            if ( equalityComparer.Equals( this._state.list[i], item ) )
+            if ( equalityComparer.Equals( this.Collection[i], item ) )
             {
                return true;
             }
@@ -99,16 +94,14 @@ namespace CollectionsWithRoles.Implementation
       }
    }
 
-   internal class ListQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfQueriesImpl<ListQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, ListQueryOfQueries<TValueQuery, TValueImmutable>
+   internal class ListQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable> : CollectionQueryOfQueriesImpl<IList<TValue>, ListQuery<TValueImmutable>, ListImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>, TValue, TValueQuery, TValueImmutable>, ListQueryOfQueries<TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly ListState<TValue> _state;
 
-      internal ListQueryOfQueriesImpl( ListQuery<TValueImmutable> immutableQuery, ListState<TValue> state )
-         : base( immutableQuery, state )
+      internal ListQueryOfQueriesImpl( ListImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> immutableQuery )
+         : base( immutableQuery )
       {
-         this._state = state;
       }
 
       #region ListMutableQueryOfQueries<TValueQuery,TValueImmutable> Members
@@ -117,7 +110,7 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            TValue value = this._state.list[index];
+            TValue value = this._collection[index];
             TValueQuery result;
             if ( value == null )
             {
@@ -135,9 +128,9 @@ namespace CollectionsWithRoles.Implementation
       {
          Int32 result = -1;
          Int32 idx = 0;
-         while ( result == -1 && idx < this._state.list.Count )
+         while ( result == -1 && idx < this._collection.Count )
          {
-            TValue value = this._state.list[idx];
+            TValue value = this._collection[idx];
             if ( ( value == null && item == null ) || ( value != null && Object.Equals( value.MQ, item ) ) )
             {
                result = idx;
@@ -151,16 +144,14 @@ namespace CollectionsWithRoles.Implementation
       #endregion
    }
 
-   internal class ListImmutableQueryImpl<TValue, TMutableQuery, TImmutableQuery> : CollectionImmutableQueryImpl<TValue, TMutableQuery, TImmutableQuery>, ListQuery<TImmutableQuery>
+   internal class ListImmutableQueryImpl<TValue, TMutableQuery, TImmutableQuery> : CollectionImmutableQueryImpl<IList<TValue>, TValue, TMutableQuery, TImmutableQuery>, ListQuery<TImmutableQuery>
       where TValue : Mutable<TMutableQuery, TImmutableQuery>
       where TMutableQuery : MutableQuery<TImmutableQuery>
    {
-      private readonly ListState<TValue> _state;
 
-      internal ListImmutableQueryImpl( ListState<TValue> state )
-         : base( state )
+      internal ListImmutableQueryImpl( IList<TValue> list )
+         : base( list )
       {
-         this._state = state;
       }
 
       #region ListImmutableQuery<TImmutableQuery> Members
@@ -169,7 +160,7 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            TValue value = this._state.list[index];
+            TValue value = this.Collection[index];
             TImmutableQuery result;
             if ( value == null )
             {
@@ -187,9 +178,9 @@ namespace CollectionsWithRoles.Implementation
       {
          Int32 result = -1;
          Int32 idx = 0;
-         while ( result == -1 && idx < this._state.list.Count )
+         while ( result == -1 && idx < this.Collection.Count )
          {
-            TValue value = this._state.list[idx];
+            TValue value = this.Collection[idx];
             if ( ( value == null && item == null ) || ( value != null && value.MQ != null && Object.Equals( value.MQ.IQ, item ) ) )
             {
                result = idx;
@@ -205,9 +196,9 @@ namespace CollectionsWithRoles.Implementation
       public override Boolean Contains( TImmutableQuery item, IEqualityComparer<TImmutableQuery> equalityComparer = null )
       {
          equalityComparer = equalityComparer ?? EqualityComparer<TImmutableQuery>.Default;
-         for ( var i = 0; i < this._state.list.Count; ++i )
+         for ( var i = 0; i < this.Collection.Count; ++i )
          {
-            var cur = this._state.list[i];
+            var cur = this.Collection[i];
             if ( ( cur == null || item == null ) || ( cur != null && equalityComparer.Equals( cur.MQ.IQ, item ) ) )
             {
                return true;
@@ -217,25 +208,12 @@ namespace CollectionsWithRoles.Implementation
       }
    }
 
-   internal class ListState<TValue> : CollectionState<TValue>
+   internal class ListQueryImpl<TValueImmutable> : CollectionQueryImpl<IList<TValueImmutable>, TValueImmutable>, ListQuery<TValueImmutable>
    {
-      public readonly IList<TValue> list;
 
-      internal ListState( IList<TValue> list )
+      internal ListQueryImpl( IList<TValueImmutable> list )
          : base( list )
       {
-         this.list = list;
-      }
-   }
-
-   internal class ListQueryImpl<TValueImmutable> : CollectionQueryImpl<TValueImmutable>, ListQuery<TValueImmutable>
-   {
-      private readonly ListState<TValueImmutable> _state;
-
-      internal ListQueryImpl( ListState<TValueImmutable> state )
-         : base( state )
-      {
-         this._state = state;
       }
 
       #region ListImmutableQuery<TImmutableQuery> Members
@@ -244,13 +222,13 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.list[index];
+            return this.Collection[index];
          }
       }
 
       public int IndexOf( TValueImmutable item )
       {
-         return this._state.list.IndexOf( item );
+         return this.Collection.IndexOf( item );
       }
 
       #endregion
@@ -259,9 +237,9 @@ namespace CollectionsWithRoles.Implementation
       public override Boolean Contains( TValueImmutable item, IEqualityComparer<TValueImmutable> equalityComparer = null )
       {
          equalityComparer = equalityComparer ?? EqualityComparer<TValueImmutable>.Default;
-         for ( var i = 0; i < this._state.list.Count; ++i )
+         for ( var i = 0; i < this.Collection.Count; ++i )
          {
-            if ( equalityComparer.Equals( this._state.list[i], item ) )
+            if ( equalityComparer.Equals( this.Collection[i], item ) )
             {
                return true;
             }
@@ -270,14 +248,11 @@ namespace CollectionsWithRoles.Implementation
       }
    }
 
-   internal class ListProxyImpl<TValue> : CollectionMutableImpl<TValue, ListQuery<TValue>>, ListProxy<TValue>
+   internal class ListProxyImpl<TValue> : CollectionMutableImpl<IList<TValue>, TValue, ListQuery<TValue>, ListProxyQueryImpl<TValue>>, ListProxy<TValue>
    {
-      private readonly ListState<TValue> _state;
-
-      internal ListProxyImpl( ListProxyQuery<TValue> cq, ListState<TValue> state )
-         : base( cq, state )
+      internal ListProxyImpl( ListProxyQueryImpl<TValue> cq )
+         : base( cq )
       {
-         this._state = state;
       }
 
       #region ListMutable<TValue> Members
@@ -286,18 +261,18 @@ namespace CollectionsWithRoles.Implementation
       {
          set
          {
-            this._state.list[index] = value;
+            this.CQImpl.Collection[index] = value;
          }
       }
 
       public void Insert( int index, TValue item )
       {
-         this._state.list.Insert( index, item );
+         this.CQImpl.Collection.Insert( index, item );
       }
 
       public void RemoveAt( int index )
       {
-         this._state.list.RemoveAt( index );
+         this.CQImpl.Collection.RemoveAt( index );
       }
 
       #endregion
@@ -317,8 +292,8 @@ namespace CollectionsWithRoles.Implementation
 
    internal class ListProxyQueryImpl<TValue> : ListQueryImpl<TValue>, ListProxyQuery<TValue>
    {
-      internal ListProxyQueryImpl( ListState<TValue> state )
-         : base( state )
+      internal ListProxyQueryImpl( IList<TValue> list )
+         : base( list )
       {
       }
 

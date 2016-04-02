@@ -129,7 +129,7 @@ public static partial class E_CWR
    /// <seealso cref="CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY"/>
    public static ArrayProxy<T> ToArrayProxy<T>( this IEnumerable<T> enumerable )
    {
-      return CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( enumerable.ToArray() );
+      return enumerable.ToArray().AsArrayProxy();
    }
 
    /// <summary>

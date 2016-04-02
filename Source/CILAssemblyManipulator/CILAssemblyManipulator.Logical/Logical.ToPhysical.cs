@@ -910,14 +910,15 @@ public static partial class E_CILLogical
          // Create generic arguments for the method
          var m = (CILMethod) method;
          state.ProcessLogicalForPhysicalGArgs( m );
+         var pInvoke = m.PlatformInvokeInfo;
 
-         if ( !String.IsNullOrEmpty( m.PlatformInvokeName ) && !String.IsNullOrEmpty( m.PlatformInvokeModuleName ) )
+         if ( pInvoke != null )
          {
             md.MethodImplementationMaps.TableContents.Add( new MethodImplementationMap()
             {
-               Attributes = m.PlatformInvokeAttributes,
-               ImportName = m.PlatformInvokeName,
-               ImportScope = state.GetModuleRef( m.PlatformInvokeModuleName ),
+               Attributes = pInvoke.Attributes,
+               ImportName = pInvoke.PlatformInvokeName,
+               ImportScope = state.GetModuleRef( pInvoke.PlatformInvokeModuleName ),
                MemberForwarded = methodIdx
             } );
          }
@@ -1066,7 +1067,7 @@ public static partial class E_CILLogical
          pOpCodes.Add( pOpCode );
 
          byteOffsets[i] = curByteOffset;
-         curByteOffset += pOpCode.GetTotalByteCount( ocp );
+         curByteOffset += ocp.GetTotalByteCount( pOpCode );
       }
 
       // Walk dynamic branch codes, and if offset is larger than SByte, then re-adjust as needed all the previous jumps that jump over this
@@ -1095,7 +1096,7 @@ public static partial class E_CILLogical
          if ( codeInfo.InfoKind == CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandIntegerList )
          {
             var switchInfo = (OpCodeInfoWithIntegers) codeInfo;
-            var switchByteCount = switchInfo.GetTotalByteCount( ocp );
+            var switchByteCount = ocp.GetTotalByteCount( switchInfo );
             var targetList = switchInfo.Operand;
             for ( var j = 0; j < targetList.Count; ++j )
             {

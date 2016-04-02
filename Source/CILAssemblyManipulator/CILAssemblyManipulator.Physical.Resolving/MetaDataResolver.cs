@@ -37,7 +37,7 @@ namespace CILAssemblyManipulator.Physical.Resolving
    public interface MetaDataResolver
    {
       /// <summary>
-      /// Tries to resolve given <see cref="TableIndex"/> into <see cref="Tables.TypeDef"/>, <see cref="Tables.TypeRef"/> or <see cref="Tables.TypeSpec"/> into a full type string.
+      /// Tries to resolve given <see cref="TableIndex"/> pointing to <see cref="Tables.TypeDef"/>, <see cref="Tables.TypeRef"/> or <see cref="Tables.TypeSpec"/> table, into a full type string.
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> containing the <see cref="TableIndex"/>.</param>
       /// <param name="index">The <see cref="TableIndex"/>.</param>
@@ -53,6 +53,16 @@ namespace CILAssemblyManipulator.Physical.Resolving
       /// <param name="typeDefIndex">If succeeded, this parameter will hold the index to <see cref="CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData.TypeDefinitions"/> table where the <see cref="TypeDefinition"/> of the given <paramref name="fullTypeString"/> is.</param>
       /// <returns><c>true</c> if resolving succeeds; <c>false</c> otherwise.</returns>
       Boolean TryResolveTypeString( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData md, String fullTypeString, out CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData otherMD, out Int32 typeDefIndex );
+
+      /// <summary>
+      /// Tries to resolve given <see cref="TableIndex"/> pointing to <see cref="Tables.TypeDef"/>, <see cref="Tables.TypeRef"/> or <see cref="Tables.TypeSpec"/> table, into a <see cref="Tables.TypeDef"/> index into other meta data.
+      /// </summary>
+      /// <param name="md">The <see cref="CILMetaData"/> containing the <see cref="TableIndex"/>.</param>
+      /// <param name="index">The <see cref="TableIndex"/>.</param>
+      /// <param name="otherMD">If successful, this parameter will be <see cref="CILMetaData"/> that contains <see cref="TypeDefinition"/> corresponding to given <paramref name="index"/>.</param>
+      /// <param name="typeDefIndex">If successful, this parameter will be the index to <see cref="CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData.TypeDefinitions"/> table containing the <see cref="TypeDefinition"/> corresponding to given <paramref name="index"/>.</param>
+      /// <returns><c>true</c> if resolving succeeds; <c>False</c> otherwise.</returns>
+      Boolean TryResolveTypeDefOrRefOrSpec( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData md, TableIndex index, out CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData otherMD, out Int32 typeDefIndex );
 
       /// <summary>
       /// This event will be fired when an assembly reference will need to be resolved.

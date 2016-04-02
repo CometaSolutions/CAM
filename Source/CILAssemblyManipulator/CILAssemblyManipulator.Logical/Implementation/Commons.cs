@@ -333,6 +333,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
    internal interface CILMethodInternal : CILMethodBaseInternal, CILElementWithSimpleNameInternal
    {
+      WriteableLazy<PlatformInvokeInfo> PlatformInvokeInfoInternal { get; }
    }
 
    internal interface CILTypeBaseInternal : CILElementWithSimpleNameInternal

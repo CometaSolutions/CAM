@@ -26,27 +26,22 @@ using System.Diagnostics;
 namespace CollectionsWithRoles.Implementation
 {
 
-   [DebuggerDisplay( "Count = {_state.array.Length}" ), DebuggerTypeProxy( typeof( ArrayMutableDebugView<,> ) )]
-   internal abstract class ArrayMutableImpl<TValue, TArrayQuery> : ArrayMutable<TValue, TArrayQuery>
+   [DebuggerDisplay( "Count = {_state.array.Length}" ), DebuggerTypeProxy( typeof( ArrayMutableDebugView<,,> ) )]
+   internal abstract class ArrayMutableImpl<TValue, TArrayQuery, TArrayQueryImpl> : ArrayMutable<TValue, TArrayQuery>
       where TArrayQuery : class, ArrayQuery<TValue>
+      where TArrayQueryImpl : ArrayQueryImpl<TValue>, TArrayQuery
    {
-      private readonly TArrayQuery _cq;
-      protected readonly ArrayState<TValue> _state;
 
-      protected ArrayMutableImpl( TArrayQuery cq, ArrayState<TValue> state )
+      protected ArrayMutableImpl( TArrayQueryImpl cq )
       {
-         ArgumentValidator.ValidateNotNull( "Array query", cq );
-         ArgumentValidator.ValidateNotNull( "State", state );
-
-         this._cq = cq;
-         this._state = state;
+         this.CQImpl = ArgumentValidator.ValidateNotNull( "Array query", cq );
       }
 
       public TValue this[Int32 index]
       {
          set
          {
-            this._state.array[index] = value;
+            this.CQImpl.Array[index] = value;
          }
       }
 
@@ -54,28 +49,28 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._cq;
+            return this.CQImpl;
          }
       }
+
+      protected TArrayQueryImpl CQImpl { get; }
    }
 
    [DebuggerDisplay( "Count = {_state.array.Length}" ), DebuggerTypeProxy( typeof( ArrayQueryDebugView<> ) )]
    internal abstract class ArrayQueryImpl<TValue> : ArrayQuery<TValue>
    {
-      private readonly ArrayState<TValue> _state;
+      private readonly TValue[] _array;
 
-      protected ArrayQueryImpl( ArrayState<TValue> state )
+      protected ArrayQueryImpl( TValue[] array )
       {
-         ArgumentValidator.ValidateNotNull( "State", state );
-
-         this._state = state;
+         this._array = ArgumentValidator.ValidateNotNull( "Array", array );
       }
 
       public TValue this[Int32 index]
       {
          get
          {
-            return this._state.array[index];
+            return this._array[index];
          }
       }
 
@@ -83,7 +78,7 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.array.Length;
+            return this._array.Length;
          }
       }
 
@@ -91,32 +86,30 @@ namespace CollectionsWithRoles.Implementation
       {
          // If just cast this.GetEnumerator() to IEnumerator<TValue>, will get exception:
          // Unable to cast object of type 'SZArrayEnumerator' to type 'System.Collections.Generic.IEnumerator`1[System.Int32]'
-         return ( (IEnumerable<TValue>) this._state.array ).GetEnumerator();
+         return ( (IEnumerable<TValue>) this._array ).GetEnumerator();
       }
 
       System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
       {
-         return this._state.array.GetEnumerator();
+         return this._array.GetEnumerator();
       }
-   }
 
-   internal class ArrayState<TValue>
-   {
-      internal readonly TValue[] array;
-
-      internal ArrayState( TValue[] anArray )
+      internal TValue[] Array
       {
-         this.array = anArray ?? Empty<TValue>.Array;
+         get
+         {
+            return this._array;
+         }
       }
    }
 
    [DebuggerDisplay( "Count = {_state.array.Length}" ), DebuggerTypeProxy( typeof( ArrayWithRolesDebugView<,,> ) )]
-   internal class ArrayWithRolesImpl<TValue, TValueQuery, TValueImmutable> : ArrayMutableImpl<TValue, ArrayQueryOfMutables<TValue, TValueQuery, TValueImmutable>>, ArrayWithRoles<TValue, TValueQuery, TValueImmutable>
+   internal class ArrayWithRolesImpl<TValue, TValueQuery, TValueImmutable> : ArrayMutableImpl<TValue, ArrayQueryOfMutables<TValue, TValueQuery, TValueImmutable>, ArrayQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable>>, ArrayWithRoles<TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      internal ArrayWithRolesImpl( ArrayQueryOfMutables<TValue, TValueQuery, TValueImmutable> mq, ArrayState<TValue> state )
-         : base( mq, state )
+      internal ArrayWithRolesImpl( ArrayQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable> mq )
+         : base( mq )
       {
 
       }
@@ -133,7 +126,7 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.array;
+            return this.CQImpl.Array;
          }
       }
    }
@@ -146,14 +139,11 @@ namespace CollectionsWithRoles.Implementation
       private readonly ArrayQuery<TValueImmutable> _iq;
       private readonly ArrayQueryOfQueries<TValueQuery, TValueImmutable> _cmq;
 
-      internal ArrayQueryOfMutablesImpl( ArrayQuery<TValueImmutable> immutableQuery, ArrayQueryOfQueries<TValueQuery, TValueImmutable> cmq, ArrayState<TValue> state )
-         : base( state )
+      internal ArrayQueryOfMutablesImpl( ArrayImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> immutableQuery, ArrayQueryOfQueries<TValueQuery, TValueImmutable> cmq )
+         : base( immutableQuery.Array )
       {
-         ArgumentValidator.ValidateNotNull( "Collection query of queries", cmq );
-         ArgumentValidator.ValidateNotNull( "Immutable query", immutableQuery );
-
-         this._iq = immutableQuery;
-         this._cmq = cmq;
+         this._cmq = ArgumentValidator.ValidateNotNull( "Collection query of queries", cmq );
+         this._iq = ArgumentValidator.ValidateNotNull( "Immutable query", immutableQuery );
       }
 
       public ArrayQuery<TValueImmutable> IQ
@@ -179,20 +169,19 @@ namespace CollectionsWithRoles.Implementation
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly ArrayState<TValue> _state;
+      private readonly TValue[] _array;
 
-      internal ArrayQueryOfQueriesImpl( ArrayQuery<TValueImmutable> iq, ArrayState<TValue> state )
+      internal ArrayQueryOfQueriesImpl( ArrayImmutableQueryImpl<TValue, TValueQuery, TValueImmutable> iq )
          : base( iq )
       {
-         ArgumentValidator.ValidateNotNull( "State", state );
-         this._state = state;
+         this._array = iq.Array;
       }
 
       public TValueQuery this[Int32 index]
       {
          get
          {
-            var item = this._state.array[index];
+            var item = this._array[index];
             return item == null ? default( TValueQuery ) : item.MQ;
          }
       }
@@ -201,18 +190,18 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.array.Length;
+            return this._array.Length;
          }
       }
 
       public IEnumerator<TValueQuery> GetEnumerator()
       {
-         return this._state.array.Select( item => item == null ? default( TValueQuery ) : item.MQ ).GetEnumerator();
+         return this._array.Select( item => item == null ? default( TValueQuery ) : item.MQ ).GetEnumerator();
       }
 
       System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
       {
-         return this._state.array.Select( item => item == null ? default( TValueQuery ) : item.MQ ).GetEnumerator();
+         return this._array.Select( item => item == null ? default( TValueQuery ) : item.MQ ).GetEnumerator();
       }
    }
 
@@ -221,19 +210,19 @@ namespace CollectionsWithRoles.Implementation
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly ArrayState<TValue> _state;
+      private readonly TValue[] _array;
 
-      internal ArrayImmutableQueryImpl( ArrayState<TValue> state )
+      internal ArrayImmutableQueryImpl( TValue[] array )
       {
-         ArgumentValidator.ValidateNotNull( "State", state );
-         this._state = state;
+         ArgumentValidator.ValidateNotNull( "State", array );
+         this._array = array;
       }
 
       public TValueImmutable this[Int32 index]
       {
          get
          {
-            var item = this._state.array[index];
+            var item = this._array[index];
             return item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ;
          }
       }
@@ -242,25 +231,33 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.array.Length;
+            return this._array.Length;
          }
       }
 
       public IEnumerator<TValueImmutable> GetEnumerator()
       {
-         return this._state.array.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).GetEnumerator();
+         return this._array.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).GetEnumerator();
       }
 
       System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
       {
-         return this._state.array.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).GetEnumerator();
+         return this._array.Select( item => item == null || item.MQ == null ? default( TValueImmutable ) : item.MQ.IQ ).GetEnumerator();
+      }
+
+      internal TValue[] Array
+      {
+         get
+         {
+            return this._array;
+         }
       }
    }
 
-   internal class ArrayProxyImpl<TValue> : ArrayMutableImpl<TValue, ArrayQuery<TValue>>, ArrayProxy<TValue>
+   internal class ArrayProxyImpl<TValue> : ArrayMutableImpl<TValue, ArrayQuery<TValue>, ArrayProxyQueryImpl<TValue>>, ArrayProxy<TValue>
    {
-      internal ArrayProxyImpl( ArrayQuery<TValue> cq, ArrayState<TValue> state )
-         : base( cq, state )
+      internal ArrayProxyImpl( ArrayProxyQueryImpl<TValue> cq )
+         : base( cq )
       {
 
       }
@@ -277,15 +274,15 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.array;
+            return this.CQImpl.Array;
          }
       }
    }
 
    internal class ArrayProxyQueryImpl<TValue> : ArrayQueryImpl<TValue>, ArrayProxyQuery<TValue>
    {
-      internal ArrayProxyQueryImpl( ArrayState<TValue> state )
-         : base( state )
+      internal ArrayProxyQueryImpl( TValue[] array )
+         : base( array )
       {
       }
 
@@ -298,12 +295,13 @@ namespace CollectionsWithRoles.Implementation
       }
    }
 
-   internal sealed class ArrayMutableDebugView<TValue, TArrayQuery>
+   internal sealed class ArrayMutableDebugView<TValue, TArrayQuery, TArrayQueryImpl>
       where TArrayQuery : class, ArrayQuery<TValue>
+      where TArrayQueryImpl : ArrayQueryImpl<TValue>, TArrayQuery
    {
       private readonly ArrayQuery<TValue> _array;
 
-      internal ArrayMutableDebugView( ArrayMutableImpl<TValue, TArrayQuery> array )
+      internal ArrayMutableDebugView( ArrayMutableImpl<TValue, TArrayQuery, TArrayQueryImpl> array )
       {
          this._array = array.CQ;
       }

@@ -1635,30 +1635,30 @@ public static partial class E_CILPhysical
    }
 
 
-   internal static U FirstOfTypeOrAddDefault<T, U>( this IList<T> list, Int32 insertIdx, Func<U, Boolean> additionalFilter, Func<U> defaultFactory )
-      where U : T
-   {
-      var correctTyped = list.OfType<U>();
-      if ( additionalFilter != null )
-      {
-         correctTyped = correctTyped.Where( additionalFilter );
-      }
-      var retVal = correctTyped.FirstOrDefault();
-      if ( retVal == null )
-      {
-         retVal = defaultFactory();
-         if ( insertIdx >= 0 )
-         {
-            list.Insert( insertIdx, retVal );
-         }
-         else
-         {
-            list.Add( retVal );
-         }
-      }
+   //internal static U FirstOfTypeOrAddDefault<T, U>( this IList<T> list, Int32 insertIdx, Func<U, Boolean> additionalFilter, Func<U> defaultFactory )
+   //   where U : T
+   //{
+   //   var correctTyped = list.OfType<U>();
+   //   if ( additionalFilter != null )
+   //   {
+   //      correctTyped = correctTyped.Where( additionalFilter );
+   //   }
+   //   var retVal = correctTyped.FirstOrDefault();
+   //   if ( retVal == null )
+   //   {
+   //      retVal = defaultFactory();
+   //      if ( insertIdx >= 0 )
+   //      {
+   //         list.Insert( insertIdx, retVal );
+   //      }
+   //      else
+   //      {
+   //         list.Add( retVal );
+   //      }
+   //   }
 
-      return retVal;
-   }
+   //   return retVal;
+   //}
 
    internal static Boolean ProcessSerializationError( this EventHandler<SerializationErrorEventArgs> handler, Object sender, Exception error, Tables table, Int32 rowIndex, Int32 columnIndex )
    {

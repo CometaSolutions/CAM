@@ -1,4 +1,6 @@
-﻿using CommonUtils;
+﻿using CollectionsWithRoles.API;
+using CollectionsWithRoles.Implementation;
+using CommonUtils;
 /*
  * Copyright 2012 Stanislav Muhametsin. All rights Reserved.
  *
@@ -185,5 +187,34 @@ namespace CollectionsWithRoles.API
    public interface ListQueryOfQueries<TValueQuery, TValueImmutable> : CollectionQueryOfQueries<ListQuery<TValueImmutable>, TValueQuery, TValueImmutable>, ListQuery<TValueQuery>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
+   }
+}
+
+public static partial class E_CWR
+{
+   /// <summary>
+   /// Creates a new <see cref="ListProxy{TValue}"/> from given enumerable using default <see cref="CollectionsFactory"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <param name="enumerable">The <see cref="IEnumerable{T}"/>.</param>
+   /// <returns>A new <see cref="ListProxy{TValue}"/> with elements from <paramref name="enumerable"/>.</returns>
+   /// <seealso cref="ListProxy{TValue}"/>
+   /// <seealso cref="CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY"/>
+   public static ListProxy<T> ToListProxy<T>( this IEnumerable<T> enumerable )
+   {
+      return enumerable.ToList().AsListProxy();
+   }
+
+   /// <summary>
+   /// Creates a new <see cref="ListProxy{TValue}"/> from given enumerable using default <see cref="CollectionsFactory"/>.
+   /// </summary>
+   /// <typeparam name="T">The type of enumerable items.</typeparam>
+   /// <param name="list">The list of <typeparamref name="T"/> typed elements.</param>
+   /// <returns>A new <see cref="ListProxy{TValue}"/> with contents directly accessing given <paramref name="list"/>.</returns>
+   /// <seealso cref="ListProxy{TValue}"/>
+   /// <seealso cref="CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY"/>
+   public static ListProxy<T> AsListProxy<T>( this IList<T> list )
+   {
+      return CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy( list );
    }
 }

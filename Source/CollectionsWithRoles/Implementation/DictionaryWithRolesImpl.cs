@@ -25,16 +25,13 @@ using CommonUtils;
 namespace CollectionsWithRoles.Implementation
 {
    [DebuggerDisplay( "Count = {_state.dictionary.Count}" ), DebuggerTypeProxy( typeof( DictionaryWithRolesDebugView<,,,> ) )]
-   internal class DictionaryWithRolesImpl<TKey, TValue, TValueQuery, TValueImmutable> : CollectionMutableImpl<KeyValuePair<TKey, TValue>, DictionaryQueryOfMutables<TKey, TValue, TValueQuery, TValueImmutable>>, DictionaryWithRoles<TKey, TValue, TValueQuery, TValueImmutable>
+   internal class DictionaryWithRolesImpl<TKey, TValue, TValueQuery, TValueImmutable> : CollectionMutableImpl<IDictionary<TKey, TValue>, KeyValuePair<TKey, TValue>, DictionaryQueryOfMutables<TKey, TValue, TValueQuery, TValueImmutable>, DictionaryQueryOfMutablesImpl<TKey, TValue, TValueQuery, TValueImmutable>>, DictionaryWithRoles<TKey, TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> _state;
-
-      internal DictionaryWithRolesImpl( DictionaryQueryOfMutables<TKey, TValue, TValueQuery, TValueImmutable> mutableQuery, DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> state )
-         : base( mutableQuery, state )
+      internal DictionaryWithRolesImpl( DictionaryQueryOfMutablesImpl<TKey, TValue, TValueQuery, TValueImmutable> mutableQuery )
+         : base( mutableQuery )
       {
-         this._state = state;
       }
 
       #region DictionaryWithRoles<TKey,TMutableQuery,TImmutableQuery> Members
@@ -43,18 +40,18 @@ namespace CollectionsWithRoles.Implementation
       {
          set
          {
-            this._state.dictionary[key] = value;
+            this.CQImpl.Collection[key] = value;
          }
       }
 
       public void Add( TKey key, TValue value )
       {
-         this._state.dictionary.Add( key, value );
+         this.CQImpl.Collection.Add( key, value );
       }
 
       public bool Remove( TKey key )
       {
-         return this._state.dictionary.Remove( key );
+         return this.CQImpl.Collection.Remove( key );
       }
 
       #endregion
@@ -73,21 +70,18 @@ namespace CollectionsWithRoles.Implementation
    }
 
    [DebuggerDisplay( "Count = {_state.dictionary.Count}" ), DebuggerTypeProxy( typeof( DictionaryQueryOfMutablesDebugView<,,,> ) )]
-   internal class DictionaryQueryOfMutablesImpl<TKey, TValue, TValueQuery, TValueImmutable> : CollectionQueryImpl<KeyValuePair<TKey, TValue>>, DictionaryQueryOfMutables<TKey, TValue, TValueQuery, TValueImmutable>
+   internal class DictionaryQueryOfMutablesImpl<TKey, TValue, TValueQuery, TValueImmutable> : CollectionQueryImpl<IDictionary<TKey, TValue>, KeyValuePair<TKey, TValue>>, DictionaryQueryOfMutables<TKey, TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> _state;
-      private readonly DictionaryQuery<TKey, TValueImmutable> _iq;
+      private readonly DictionaryImmutableQueryImpl<TKey, TValue, TValueQuery, TValueImmutable> _iq;
       private readonly DictionaryQueryOfQueries<TKey, TValueQuery, TValueImmutable> _cmq;
 
-      internal DictionaryQueryOfMutablesImpl( DictionaryQuery<TKey, TValueImmutable> immutableQuery, DictionaryQueryOfQueries<TKey, TValueQuery, TValueImmutable> cmq, DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> state )
-         : base( state )
+      internal DictionaryQueryOfMutablesImpl( DictionaryImmutableQueryImpl<TKey, TValue, TValueQuery, TValueImmutable> immutableQuery, DictionaryQueryOfQueries<TKey, TValueQuery, TValueImmutable> cmq )
+         : base( immutableQuery.Collection )
       {
-         ArgumentValidator.ValidateNotNull( "Immutable query", immutableQuery );
-         this._state = state;
-         this._cmq = cmq;
-         this._iq = immutableQuery;
+         this._cmq = ArgumentValidator.ValidateNotNull( "Query of queries", cmq );
+         this._iq = ArgumentValidator.ValidateNotNull( "Immutable query", immutableQuery );
       }
 
       #region DictionaryMutableQuery<TKey,TMutableQuery,TImmutableQuery> Members
@@ -97,34 +91,34 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.dictionary[key];
+            return this._iq.Collection[key];
          }
       }
 
-      public CollectionQuery<TKey> Keys
+      public IEnumerable<TKey> Keys
       {
          get
          {
-            return this._state.keys;
+            return this._iq.Collection.Keys;
          }
       }
 
-      public CollectionQuery<TValue> Values
+      public IEnumerable<TValue> Values
       {
          get
          {
-            return this._state.values;
+            return this._iq.Collection.Values;
          }
       }
 
       public bool ContainsKey( TKey key )
       {
-         return this._state.dictionary.ContainsKey( key );
+         return this._iq.Collection.ContainsKey( key );
       }
 
       public bool TryGetValue( TKey key, out TValue value )
       {
-         return this._state.dictionary.TryGetValue( key, out value );
+         return this._iq.Collection.TryGetValue( key, out value );
       }
 
       #endregion
@@ -156,7 +150,7 @@ namespace CollectionsWithRoles.Implementation
 
       public override Boolean Contains( KeyValuePair<TKey, TValue> item, IEqualityComparer<KeyValuePair<TKey, TValue>> equalityComparer = null )
       {
-         return this._state.dictionary.Contains( item );
+         return this._iq.Collection.Contains( item );
       }
    }
 
@@ -166,12 +160,11 @@ namespace CollectionsWithRoles.Implementation
       where TValueQuery : MutableQuery<TValueImmutable>
    {
 
-      private readonly DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> _state;
-      internal DictionaryQueryOfQueriesImpl( DictionaryQuery<TKey, TValueImmutable> immutableQuery, DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> state )
+      private readonly IDictionary<TKey, TValue> _collection;
+      internal DictionaryQueryOfQueriesImpl( DictionaryImmutableQueryImpl<TKey, TValue, TValueQuery, TValueImmutable> immutableQuery )
          : base( immutableQuery )
       {
-         ArgumentValidator.ValidateNotNull( "State", state );
-         this._state = state;
+         this._collection = immutableQuery.Collection;
       }
 
       #region DictionaryQuery<TKey,TValueQuery> Members
@@ -180,7 +173,7 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            TValue mutable = this._state.dictionary[key];
+            TValue mutable = this._collection[key];
             TValueQuery result;
             if ( mutable != null )
             {
@@ -194,39 +187,32 @@ namespace CollectionsWithRoles.Implementation
          }
       }
 
-      public CollectionQuery<TKey> Keys
+      public IEnumerable<TKey> Keys
       {
          get
          {
-            return this._state.keys;
+            return this._collection.Keys;
          }
       }
 
-      public CollectionQuery<TValueQuery> Values
+      public IEnumerable<TValueQuery> Values
       {
          get
          {
-            return this._state.values.Queries;
+            return this._collection.Values.Select( v => v == null ? default( TValueQuery ) : v.MQ );
          }
       }
 
       public bool ContainsKey( TKey key )
       {
-         return this._state.dictionary.ContainsKey( key );
+         return this._collection.ContainsKey( key );
       }
 
       public bool TryGetValue( TKey key, out TValueQuery value )
       {
          TValue mutable;
-         Boolean result = this._state.dictionary.TryGetValue( key, out mutable );
-         if ( mutable != null )
-         {
-            value = mutable.MQ;
-         }
-         else
-         {
-            value = default( TValueQuery );
-         }
+         Boolean result = this._collection.TryGetValue( key, out mutable );
+         value = mutable == null ? default( TValueQuery ) : mutable.MQ;
          return result;
       }
 
@@ -238,16 +224,16 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.dictionary.Count;
+            return this._collection.Count;
          }
       }
 
       public Boolean Contains( KeyValuePair<TKey, TValueQuery> item, IEqualityComparer<KeyValuePair<TKey, TValueQuery>> equalityComparer = null )
       {
-         Boolean result = this._state.dictionary.ContainsKey( item.Key );
+         Boolean result = this._collection.ContainsKey( item.Key );
          if ( result )
          {
-            TValue value = this._state.dictionary[item.Key];
+            TValue value = this._collection[item.Key];
             result = ( value == null && item.Value == null ) || ( value != null && Object.Equals( value.MQ, item.Value ) );
          }
          return result;
@@ -256,7 +242,7 @@ namespace CollectionsWithRoles.Implementation
       public void CopyTo( KeyValuePair<TKey, TValueQuery>[] array, Int32 arrayOffset )
       {
          KeyValuePair<TKey, TValue>[] arr = new KeyValuePair<TKey, TValue>[Math.Max( array.Length - arrayOffset, 0 )];
-         this._state.collection.CopyTo( arr, 0 );
+         this._collection.CopyTo( arr, 0 );
          for ( Int32 idx = 0; idx < arr.Length; ++idx )
          {
             TValue value = arr[idx].Value;
@@ -270,7 +256,7 @@ namespace CollectionsWithRoles.Implementation
 
       public IEnumerator<KeyValuePair<TKey, TValueQuery>> GetEnumerator()
       {
-         return this._state.dictionary.Select( kvp => new KeyValuePair<TKey, TValueQuery>( kvp.Key, kvp.Value == null ? default( TValueQuery ) : kvp.Value.MQ ) ).GetEnumerator();
+         return this._collection.Select( kvp => new KeyValuePair<TKey, TValueQuery>( kvp.Key, kvp.Value == null ? default( TValueQuery ) : kvp.Value.MQ ) ).GetEnumerator();
       }
 
       #endregion
@@ -279,7 +265,7 @@ namespace CollectionsWithRoles.Implementation
 
       System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
       {
-         return this._state.dictionary.Select( kvp => new KeyValuePair<TKey, TValueQuery>( kvp.Key, kvp.Value == null ? default( TValueQuery ) : kvp.Value.MQ ) ).GetEnumerator();
+         return this._collection.Select( kvp => new KeyValuePair<TKey, TValueQuery>( kvp.Key, kvp.Value == null ? default( TValueQuery ) : kvp.Value.MQ ) ).GetEnumerator();
       }
 
       #endregion
@@ -290,12 +276,11 @@ namespace CollectionsWithRoles.Implementation
       where TValue : Mutable<TValueQuery, TValueImmutable>
       where TValueQuery : MutableQuery<TValueImmutable>
    {
-      private readonly DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> _state;
+      private readonly IDictionary<TKey, TValue> _collection;
 
-      internal DictionaryImmutableQueryImpl( DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> state )
+      internal DictionaryImmutableQueryImpl( IDictionary<TKey, TValue> collection )
       {
-         ArgumentValidator.ValidateNotNull( "State", state );
-         this._state = state;
+         this._collection = ArgumentValidator.ValidateNotNull( "Collection", collection );
       }
 
       #region DictionaryImmutableQuery<TKey,TImmutableQuery> Members
@@ -304,53 +289,36 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            TValue mutable = this._state.dictionary[key];
-            TValueImmutable result;
-            if ( mutable != null && mutable.MQ != null )
-            {
-               result = mutable.MQ.IQ;
-            }
-            else
-            {
-               result = default( TValueImmutable );
-            }
-            return result;
+            return this._collection[key].GetIQ();
          }
       }
 
-      public CollectionQuery<TKey> Keys
+      public IEnumerable<TKey> Keys
       {
          get
          {
-            return this._state.keys;
+            return this._collection.Keys;
          }
       }
 
-      public CollectionQuery<TValueImmutable> Values
+      public IEnumerable<TValueImmutable> Values
       {
          get
          {
-            return this._state.values.IQ;
+            return this._collection.Values.Select( v => v.GetIQ() );
          }
       }
 
       public bool ContainsKey( TKey key )
       {
-         return this._state.dictionary.ContainsKey( key );
+         return this._collection.ContainsKey( key );
       }
 
       public bool TryGetValue( TKey key, out TValueImmutable value )
       {
          TValue mutable;
-         Boolean result = this._state.dictionary.TryGetValue( key, out mutable );
-         if ( mutable != null && mutable.MQ != null )
-         {
-            value = mutable.MQ.IQ;
-         }
-         else
-         {
-            value = default( TValueImmutable );
-         }
+         Boolean result = this._collection.TryGetValue( key, out mutable );
+         value = mutable.GetIQ();
          return result;
       }
 
@@ -360,7 +328,7 @@ namespace CollectionsWithRoles.Implementation
 
       public IEnumerator<KeyValuePair<TKey, TValueImmutable>> GetEnumerator()
       {
-         return this._state.dictionary.Select( kvp => new KeyValuePair<TKey, TValueImmutable>( kvp.Key, kvp.Value == null || kvp.Value.MQ == null ? default( TValueImmutable ) : kvp.Value.MQ.IQ ) ).GetEnumerator();
+         return this._collection.Select( kvp => new KeyValuePair<TKey, TValueImmutable>( kvp.Key, kvp.Value.GetIQ() ) ).GetEnumerator();
       }
 
       #endregion
@@ -369,7 +337,7 @@ namespace CollectionsWithRoles.Implementation
 
       System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
       {
-         return this._state.dictionary.Select( kvp => new KeyValuePair<TKey, TValueImmutable>( kvp.Key, kvp.Value == null || kvp.Value.MQ == null ? default( TValueImmutable ) : kvp.Value.MQ.IQ ) ).GetEnumerator();
+         return this._collection.Select( kvp => new KeyValuePair<TKey, TValueImmutable>( kvp.Key, kvp.Value.GetIQ() ) ).GetEnumerator();
       }
 
       #endregion
@@ -380,17 +348,17 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.dictionary.Count;
+            return this._collection.Count;
          }
       }
 
       public bool Contains( KeyValuePair<TKey, TValueImmutable> item, IEqualityComparer<KeyValuePair<TKey, TValueImmutable>> equalityComparer = null )
       {
-         Boolean result = this._state.dictionary.ContainsKey( item.Key );
+         TValue value;
+         Boolean result = this._collection.TryGetValue( item.Key, out value );
          if ( result )
          {
-            TValue value = this._state.dictionary[item.Key];
-            result = ( value == null && item.Value == null ) || ( value != null && value.MQ != null && Object.Equals( value.MQ.IQ, item.Value ) );
+            result = ( value == null && item.Value == null ) || ( value != null && value.MQ != null && Object.Equals( value.GetIQ(), item.Value ) );
          }
          return result;
       }
@@ -398,7 +366,7 @@ namespace CollectionsWithRoles.Implementation
       public void CopyTo( KeyValuePair<TKey, TValueImmutable>[] array, int arrayOffset )
       {
          KeyValuePair<TKey, TValue>[] arr = new KeyValuePair<TKey, TValue>[Math.Max( array.Length - arrayOffset, 0 )];
-         this._state.collection.CopyTo( arr, 0 );
+         this._collection.CopyTo( arr, 0 );
          for ( Int32 idx = 0; idx < arr.Length; ++idx )
          {
             TValue value = arr[idx].Value;
@@ -407,30 +375,39 @@ namespace CollectionsWithRoles.Implementation
       }
 
       #endregion
-   }
 
-   internal class DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> : CollectionState<KeyValuePair<TKey, TValue>>
-      where TValue : Mutable<TValueQuery, TValueImmutable>
-      where TValueQuery : MutableQuery<TValueImmutable>
-   {
-      public readonly IDictionary<TKey, TValue> dictionary;
-      public readonly CollectionQuery<TKey> keys;
-      public readonly CollectionQueryOfMutables<CollectionQueryOfQueries<CollectionQuery<TValueImmutable>, TValueQuery, TValueImmutable>, CollectionQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable> values;
-
-      internal DictionaryWithRolesState( IDictionary<TKey, TValue> dictionary )
-         : base( dictionary )
+      internal IDictionary<TKey, TValue> Collection
       {
-         this.dictionary = dictionary;
-         // Keys
-         this.keys = new CollectionQueryImpl<TKey>( new CollectionState<TKey>( this.dictionary.Keys ) );
-
-         // Values
-         CollectionState<TValue> valuesState = new CollectionState<TValue>( this.dictionary.Values );
-         CollectionQuery<TValueImmutable> valuesIQ = new CollectionImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>( valuesState );
-         this.values = new CollectionQueryOfMutablesImpl<CollectionQueryOfQueries<CollectionQuery<TValueImmutable>, TValueQuery, TValueImmutable>, CollectionQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>( valuesIQ, new CollectionQueryOfQueriesImpl<CollectionQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>( valuesIQ, valuesState ), valuesState );
-
+         get
+         {
+            return this._collection;
+         }
       }
+
    }
+
+   //internal class DictionaryWithRolesState<TKey, TValue, TValueQuery, TValueImmutable> : CollectionState<KeyValuePair<TKey, TValue>>
+   //   where TValue : Mutable<TValueQuery, TValueImmutable>
+   //   where TValueQuery : MutableQuery<TValueImmutable>
+   //{
+   //   public readonly IDictionary<TKey, TValue> dictionary;
+   //   public readonly CollectionQuery<TKey> keys;
+   //   public readonly CollectionQueryOfMutables<CollectionQueryOfQueries<CollectionQuery<TValueImmutable>, TValueQuery, TValueImmutable>, CollectionQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable> values;
+
+   //   internal DictionaryWithRolesState( IDictionary<TKey, TValue> dictionary )
+   //      : base( dictionary )
+   //   {
+   //      this.dictionary = dictionary;
+   //      // Keys
+   //      this.keys = new CollectionQueryImpl<TKey>( new CollectionState<TKey>( this.dictionary.Keys ) );
+
+   //      // Values
+   //      CollectionState<TValue> valuesState = new CollectionState<TValue>( this.dictionary.Values );
+   //      CollectionQuery<TValueImmutable> valuesIQ = new CollectionImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>( valuesState );
+   //      this.values = new CollectionQueryOfMutablesImpl<CollectionQueryOfQueries<CollectionQuery<TValueImmutable>, TValueQuery, TValueImmutable>, CollectionQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>( valuesIQ, new CollectionQueryOfQueriesImpl<CollectionQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>( valuesIQ, valuesState ), valuesState );
+
+   //   }
+   //}
 
    internal class DictionaryWithRolesDebugView<TKey, TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>
@@ -524,14 +501,11 @@ namespace CollectionsWithRoles.Implementation
       }
    }
 
-   internal class DictionaryProxyImpl<TKey, TValue> : CollectionMutableImpl<KeyValuePair<TKey, TValue>, DictionaryQuery<TKey, TValue>>, DictionaryProxy<TKey, TValue>
+   internal class DictionaryProxyImpl<TKey, TValue> : CollectionMutableImpl<IDictionary<TKey, TValue>, KeyValuePair<TKey, TValue>, DictionaryQuery<TKey, TValue>, DictionaryProxyQueryImpl<TKey, TValue>>, DictionaryProxy<TKey, TValue>
    {
-      private readonly DictionaryProxyState<TKey, TValue> _state;
-
-      internal DictionaryProxyImpl( DictionaryProxyQuery<TKey, TValue> cq, DictionaryProxyState<TKey, TValue> state )
-         : base( cq, state )
+      internal DictionaryProxyImpl( DictionaryProxyQueryImpl<TKey, TValue> cq )
+         : base( cq )
       {
-         this._state = state;
       }
 
       #region DictionaryMutable<TKey,TValue,DictionaryQuery<TKey,TValue>> Members
@@ -540,18 +514,18 @@ namespace CollectionsWithRoles.Implementation
       {
          set
          {
-            this._state.dictionary[key] = value;
+            this.CQImpl.Collection[key] = value;
          }
       }
 
       public void Add( TKey key, TValue value )
       {
-         this._state.dictionary.Add( key, value );
+         this.CQImpl.Collection.Add( key, value );
       }
 
       public bool Remove( TKey key )
       {
-         return this._state.dictionary.Remove( key );
+         return this.CQImpl.Collection.Remove( key );
       }
 
       #endregion
@@ -562,21 +536,19 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return (DictionaryProxyQuery<TKey, TValue>) this.CQ;
+            return this.CQImpl;
          }
       }
 
       #endregion
    }
 
-   internal class DictionaryQueryImpl<TKey, TValue> : CollectionQueryImpl<KeyValuePair<TKey, TValue>>, DictionaryQuery<TKey, TValue>
+   internal class DictionaryQueryImpl<TKey, TValue> : CollectionQueryImpl<IDictionary<TKey, TValue>, KeyValuePair<TKey, TValue>>, DictionaryQuery<TKey, TValue>
    {
-      private readonly DictionaryProxyState<TKey, TValue> _state;
 
-      internal DictionaryQueryImpl( DictionaryProxyState<TKey, TValue> state )
-         : base( state )
+      internal DictionaryQueryImpl( IDictionary<TKey, TValue> collection )
+         : base( collection )
       {
-         this._state = state;
       }
 
       #region DictionaryQuery<TKey,TValue> Members
@@ -585,49 +557,49 @@ namespace CollectionsWithRoles.Implementation
       {
          get
          {
-            return this._state.dictionary[key];
+            return this.Collection[key];
          }
       }
 
-      public CollectionQuery<TKey> Keys
+      public IEnumerable<TKey> Keys
       {
          get
          {
-            return this._state.keys;
+            return this.Collection.Keys;
          }
       }
 
-      public CollectionQuery<TValue> Values
+      public IEnumerable<TValue> Values
       {
          get
          {
-            return this._state.values;
+            return this.Collection.Values;
          }
       }
 
       public bool ContainsKey( TKey key )
       {
-         return this._state.dictionary.ContainsKey( key );
+         return this.Collection.ContainsKey( key );
       }
 
       public bool TryGetValue( TKey key, out TValue value )
       {
-         return this._state.dictionary.TryGetValue( key, out value );
+         return this.Collection.TryGetValue( key, out value );
       }
 
       #endregion
 
       public override Boolean Contains( KeyValuePair<TKey, TValue> item, IEqualityComparer<KeyValuePair<TKey, TValue>> equalityComparer = null )
       {
-         return this._state.dictionary.Contains( item );
+         return this.Collection.Contains( item );
       }
    }
 
    internal class DictionaryProxyQueryImpl<TKey, TValue> : DictionaryQueryImpl<TKey, TValue>, DictionaryProxyQuery<TKey, TValue>
    {
 
-      internal DictionaryProxyQueryImpl( DictionaryProxyState<TKey, TValue> state )
-         : base( state )
+      internal DictionaryProxyQueryImpl( IDictionary<TKey, TValue> collection )
+         : base( collection )
       {
       }
 
@@ -642,21 +614,5 @@ namespace CollectionsWithRoles.Implementation
       }
 
       #endregion
-   }
-
-
-   internal class DictionaryProxyState<TKey, TValue> : CollectionState<KeyValuePair<TKey, TValue>>
-   {
-      internal readonly IDictionary<TKey, TValue> dictionary;
-      internal readonly CollectionQuery<TKey> keys;
-      internal readonly CollectionQuery<TValue> values;
-
-      internal DictionaryProxyState( IDictionary<TKey, TValue> dictionaryToUse )
-         : base( dictionaryToUse )
-      {
-         this.dictionary = dictionaryToUse;
-         this.keys = new CollectionQueryImpl<TKey>( new CollectionState<TKey>( this.dictionary.Keys ) );
-         this.values = new CollectionQueryImpl<TValue>( new CollectionState<TValue>( this.dictionary.Values ) );
-      }
    }
 }

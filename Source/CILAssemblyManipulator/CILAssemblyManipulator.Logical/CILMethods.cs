@@ -162,22 +162,10 @@ namespace CILAssemblyManipulator.Logical
       CILMethodWithReturnParameter<CILParameter>
    {
       /// <summary>
-      /// Gets or sets the <see cref="PInvokeAttributes"/> associated with this method.
+      /// Gets or sets the <see cref="Logical.PlatformInvokeInfo"/> associated with this method.
       /// </summary>
-      /// <value>The <see cref="PInvokeAttributes"/> associated with this method.</value>
-      PInvokeAttributes PlatformInvokeAttributes { get; set; }
-
-      /// <summary>
-      /// Gets or sets the name of the external method.
-      /// </summary>
-      /// <value>The name of the external method.</value>
-      String PlatformInvokeName { get; set; }
-
-      /// <summary>
-      /// Gets or sets the name of the module for platform invoke method.
-      /// </summary>
-      /// <value>The name of the module for platform invoke method.</value>
-      String PlatformInvokeModuleName { get; set; }
+      /// <value>The <see cref="Logical.PlatformInvokeInfo"/> associated with this method.</value>
+      PlatformInvokeInfo PlatformInvokeInfo { get; set; }
 
       /// <summary>
       /// Returns a method representing the constructed method based on this generic method definition.
@@ -188,6 +176,27 @@ namespace CILAssemblyManipulator.Logical
       /// <exception cref="ArgumentNullException">If <paramref name="args" /> is <c>null</c>.-or- Any element of <paramref name="args" /> is <c>null</c>. </exception>
       /// <exception cref="ArgumentException">The number of elements in <paramref name="args" /> is not the same as the number of type parameters of the current generic method definition.</exception>
       CILMethod MakeGenericMethod( params CILTypeBase[] args );
+   }
+
+   public sealed class PlatformInvokeInfo
+   {
+      /// <summary>
+      /// Gets or sets the <see cref="PInvokeAttributes"/> associated with this method.
+      /// </summary>
+      /// <value>The <see cref="PInvokeAttributes"/> associated with this method.</value>
+      public PInvokeAttributes Attributes { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of the external method.
+      /// </summary>
+      /// <value>The name of the external method.</value>
+      public String PlatformInvokeName { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of the module for external method.
+      /// </summary>
+      /// <value>The name of the module for external method.</value>
+      public String PlatformInvokeModuleName { get; set; }
    }
 
    /// <summary>

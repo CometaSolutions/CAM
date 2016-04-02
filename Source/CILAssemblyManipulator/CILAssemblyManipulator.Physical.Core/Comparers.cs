@@ -1761,7 +1761,7 @@ namespace CILAssemblyManipulator.Physical
          return x.ElementType == y.ElementType
             && x.SizeParameterIndex == y.SizeParameterIndex
             && x.Size == y.Size
-            && x.Flags == y.Flags;
+            && x.SizeParameterMultiplier == y.SizeParameterMultiplier;
       }
 
       private static Boolean Equality_MarshalingInfo_Interface_NoReferenceEquals( InterfaceMarshalingInfo x, InterfaceMarshalingInfo y )

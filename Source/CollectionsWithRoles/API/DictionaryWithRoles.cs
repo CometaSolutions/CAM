@@ -74,16 +74,16 @@ namespace CollectionsWithRoles.API
       TValue this[TKey key] { get; }
 
       /// <summary>
-      /// Gets an <see cref="CollectionQuery{T}"/> containing the keys of this dictionary.
+      /// Gets an <see cref="IEnumerable{T}"/> containing the keys of this dictionary.
       /// </summary>
-      /// <value>A <see cref="CollectionQuery{T}"/> containing the keys of this dictionary.</value>
-      CollectionQuery<TKey> Keys { get; }
+      /// <value>An <see cref="IEnumerable{T}"/> containing the keys of this dictionary.</value>
+      IEnumerable<TKey> Keys { get; }
 
       /// <summary>
-      /// Gets an <see cref="CollectionQuery{T}"/> containing the values of this dictionary.
+      /// Gets an <see cref="IEnumerable{T}"/> containing the values of this dictionary.
       /// </summary>
-      /// <value>A <see cref="CollectionQuery{T}"/> containing the values of this dictionary.</value>
-      CollectionQuery<TValue> Values { get; }
+      /// <value>An <see cref="IEnumerable{T}"/> containing the values of this dictionary.</value>
+      IEnumerable<TValue> Values { get; }
 
       /// <summary>
       /// Determines whether this dictionary contains an element with the specified key.

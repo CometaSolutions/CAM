@@ -1528,7 +1528,7 @@ namespace CILMerge
             {
                var md = i.Item1;
                var ocp = md.OpCodeProvider;
-               return md.MethodDefinitions.TableContents[i.Item2].IL.OpCodes.Sum( c => c.GetTotalByteCount( ocp ) );
+               return ocp.GetILByteCount( md.MethodDefinitions.TableContents[i.Item2].IL.OpCodes );
             } )];
             var blocks = new Int32[inputs.Count + 1];
             var blockByteOffsets = new Int32[inputs.Count + 1];
@@ -1564,7 +1564,7 @@ namespace CILMerge
                for ( var i = 0; i < newOpCodes.Count; ++i )
                {
                   newByteOffsets[i] = curByteOffset;
-                  curByteOffset += newOpCodes[i].GetTotalByteCount( targetOCP );
+                  curByteOffset += targetOCP.GetTotalByteCount( newOpCodes[i] );
                }
             }
 
@@ -1616,12 +1616,12 @@ namespace CILMerge
             // Op Codes
             var sourceByteOffset = 0;
             var codez = sourceIL.OpCodes;
-            var ilByteSize = codez.Sum( oc => oc.GetTotalByteCount( inputOCP ) );
+            var ilByteSize = inputOCP.GetILByteCount( codez );
             for ( var i = 0; i < codez.Count; ++i, ++byteOffsetsIndex )
             {
                var opCode = codez[i];
                byteOffsets[byteOffsetsIndex] = sourceByteOffset;
-               var oldCodeByteCount = opCode.GetTotalByteCount( inputOCP );
+               var oldCodeByteCount = inputOCP.GetTotalByteCount( opCode );
                sourceByteOffset += oldCodeByteCount;
                codeOffsets.FillWithOffsetAndCount( byteOffsets[i], oldCodeByteCount, i );
 
@@ -1830,7 +1830,7 @@ namespace CILMerge
                case OperandType.InlineBrTarget:
                   var branchCode = (OpCodeInfoWithInt32) code;
                   var jump = branchCode.Operand;
-                  var curCodeByteCount = code.GetTotalByteCount( targetOCP );
+                  var curCodeByteCount = targetOCP.GetTotalByteCount( code );
                   var curBlockStart = blocks[curBlockOffset];
                   // Find out the index of target instruction
                   var originalByteOffset = originalByteOffsets[curBlockStart + i] + curCodeByteCount + jump;

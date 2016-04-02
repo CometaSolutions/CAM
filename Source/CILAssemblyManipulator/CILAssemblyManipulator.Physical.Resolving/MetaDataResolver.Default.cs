@@ -180,7 +180,7 @@ namespace CILAssemblyManipulator.Physical.Resolving
             } );
          }
 
-         private void ResolveTypeNameFromTypeRef( Int32 index, out MDSpecificCache otherMDParam, out Int32 tDefIndexParam )
+         internal void ResolveTypeNameFromTypeRef( Int32 index, out MDSpecificCache otherMDParam, out Int32 tDefIndexParam )
          {
             var tuple = this._typeRefCache.GetOrAdd_NotThreadSafe( index, idx =>
             {
@@ -337,7 +337,7 @@ namespace CILAssemblyManipulator.Physical.Resolving
       private readonly Func<CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData, MDSpecificCache> _mdCacheFactory;
 
       /// <summary>
-      /// Creates a new instance of <see cref="MetaDataResolver"/> with an empty cache.
+      /// Creates a new instance of <see cref="DefaultMetaDataResolver"/> with an empty cache.
       /// </summary>
       public DefaultMetaDataResolver()
       {
@@ -392,6 +392,34 @@ namespace CILAssemblyManipulator.Physical.Resolving
          if ( otherMD == null && !assemblyNamePresent )
          {
             // TODO try 'mscorlib' unless this is mscorlib
+         }
+
+         return otherMD != null && typeDefIndex >= 0;
+      }
+
+      /// <inheritdoc />
+      public Boolean TryResolveTypeDefOrRefOrSpec( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData md, TableIndex index, out CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData otherMD, out Int32 typeDefIndex )
+      {
+         var idx = index.Index;
+         switch ( index.Table )
+         {
+            case Tables.TypeDef:
+               // Easy way out
+               otherMD = md;
+               typeDefIndex = idx;
+               break;
+            case Tables.TypeRef:
+               var cache = this.GetCacheFor( md );
+               MDSpecificCache otherCache;
+               cache.ResolveTypeNameFromTypeRef( idx, out otherCache, out typeDefIndex );
+               otherMD = otherCache?.MD;
+               break;
+            case Tables.TypeSpec:
+               throw new NotImplementedException( "Resolving type name from type spec." );
+            default:
+               otherMD = null;
+               typeDefIndex = -1;
+               break;
          }
 
          return otherMD != null && typeDefIndex >= 0;

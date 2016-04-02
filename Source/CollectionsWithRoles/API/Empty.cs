@@ -69,8 +69,7 @@ namespace CollectionsWithRoles.API
       static EmptyArrayProxy()
       {
          // Can not cache this to CollectionsFactoryImpl since it is not generic class.
-         var state = new ArrayState<TValue>( null );
-         ARRAY = new ArrayProxyImpl<TValue>( new ArrayProxyQueryImpl<TValue>( state ), state );
+         ARRAY = new ArrayProxyImpl<TValue>( new ArrayProxyQueryImpl<TValue>( new TValue[0] ) );
       }
 
       /// <summary>
@@ -112,9 +111,8 @@ namespace CollectionsWithRoles.API
 
       static EmptyArrayWithRoles()
       {
-         var state = new ArrayState<TValue>( null );
-         var arrayIQ = new ArrayImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>( state );
-         ARRAY = new ArrayWithRolesImpl<TValue, TValueQuery, TValueImmutable>( new ArrayQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable>( arrayIQ, new ArrayQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable>( arrayIQ, state ), state ), state );
+         var arrayIQ = new ArrayImmutableQueryImpl<TValue, TValueQuery, TValueImmutable>( new TValue[0] );
+         ARRAY = new ArrayWithRolesImpl<TValue, TValueQuery, TValueImmutable>( new ArrayQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable>( arrayIQ, new ArrayQueryOfQueriesImpl<TValue, TValueQuery, TValueImmutable>( arrayIQ ) ) );
       }
 
       /// <summary>

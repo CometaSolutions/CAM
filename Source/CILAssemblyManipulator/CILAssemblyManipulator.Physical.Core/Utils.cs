@@ -27,6 +27,72 @@ using TabularMetaData;
 namespace CILAssemblyManipulator.Physical
 {
    /// <summary>
+   /// This class encapsulates information about character range when parsing type string.
+   /// </summary>
+   /// <seealso cref="TypeParseInfo"/>
+   public sealed class ParseRange
+   {
+      /// <summary>
+      /// Gets or sets the index of the first character that is included in the range.
+      /// </summary>
+      /// <value>The index of the first character that is included in the range.</value>
+      public Int32 StartIndex { get; set; }
+
+      /// <summary>
+      /// Gets or sets the amount of characters for this range.
+      /// </summary>
+      /// <value>The amount of characters for this range.</value>
+      public Int32 CharacterCount { get; set; }
+
+      /// <summary>
+      /// Returns a textual representation of this <see cref="ParseRange"/>.
+      /// </summary>
+      /// <returns>A textual representation of this <see cref="ParseRange"/>.</returns>
+      public override String ToString()
+      {
+         return "[" + this.StartIndex + ":" + this.CharacterCount + "]";
+      }
+   }
+
+   /// <summary>
+   /// This class represents parsing information about parsed assembly-qualified type strings.
+   /// </summary>
+   /// <seealso cref="Miscellaneous.ParseAssemblyQualifiedTypeString(string)"/>
+   public sealed class TypeParseInfo
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="TypeParseInfo"/>.
+      /// </summary>
+      public TypeParseInfo()
+      {
+         this.GenericParameters = new List<TypeParseInfo>();
+      }
+
+      /// <summary>
+      /// Gets or sets the <see cref="ParseRange"/> for the type string.
+      /// </summary>
+      /// <value>The <see cref="ParseRange"/> for the type string.</value>
+      public ParseRange TypeStringRange { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="ParseRange"/> for the assembly string.
+      /// </summary>
+      /// <value>The <see cref="ParseRange"/> for the assembly string.</value>
+      public ParseRange AssemblyStringRange { get; set; }
+
+      /// <summary>
+      /// Gets or sets the <see cref="ParseRange"/> for array, pointer, or reference specification string.
+      /// </summary>
+      /// <value>The <see cref="ParseRange"/> for array, pointer, or reference specification string.</value>
+      public ParseRange ElementStringRange { get; set; }
+
+      /// <summary>
+      /// Gets the list of nested generic parameters.
+      /// </summary>
+      /// <value>The list of nested generic parameters.</value>
+      public List<TypeParseInfo> GenericParameters { get; }
+   }
+   /// <summary>
    /// This class contains miscellaneous methods, which are either not extension methods, or extension methods for types defined in other assemblies than this.
    /// </summary>
    public static class Miscellaneous
@@ -70,27 +136,226 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="typeString">This parameter will be the actual type string without assembly name.</param>
       /// <param name="assemblyString">This parameter will be the assembly name string, if the type string was assembly name -qualified. Otherwise, this parameter will be <c>null</c>.</param>
       /// <returns><c>true</c> if assembly name was present; <c>false</c> otherwise.</returns>
+      /// <remarks>
+      /// This method does not check whether the actual assembly string, if recognized, is valid assembly string.
+      /// Use <see cref="AssemblyInformation.TryParse"/> method for that.
+      /// </remarks>
       public static Boolean ParseAssemblyQualifiedTypeString( this String str, out String typeString, out String assemblyString )
       {
-         Int32 typeLength;
-         // If there is an assembly name, there will be ", " but not "\, " in type string. 
-         Boolean retVal;
-         if ( !String.IsNullOrEmpty( str ) && str.GetFirstSeparatorsFromFullTypeString( TYPE_ASSEMBLY_SEPARATOR, out typeLength ) )
+         var assemblySeparatorIndex = -1;
          {
-            // Assembly name present
-            retVal = true;
-            typeString = str.Substring( 0, typeLength );
-            assemblyString = str.Substring( typeLength + TYPE_ASSEMBLY_SEPARATOR.Length );
+            var depth = 0;
+            // Do everything in one scan, and stop when we find top-level assembly separator.
+            for ( Int32 scanIdx = 0, max = str.Length - 1; assemblySeparatorIndex == -1 && scanIdx < max; ++scanIdx )
+            {
+               switch ( str[scanIdx] )
+               {
+                  case '\\':
+                     // Skip escapes
+                     ++scanIdx;
+                     break;
+                  case '[':
+                     if ( str[scanIdx + 1] == '[' )
+                     {
+                        // Start of the list of generic parameters
+                        ++depth;
+                        ++scanIdx;
+                     }
+                     break;
+                  case ']':
+                     if ( str[scanIdx + 1] == ']' )
+                     {
+                        --depth;
+                        ++scanIdx;
+                     }
+                     break;
+                  case ',':
+                     if ( str[scanIdx + 1] == ' ' )
+                     {
+                        if ( depth == 0 && scanIdx < max - 1 )
+                        {
+                           assemblySeparatorIndex = scanIdx;
+                           //++scanIdx;
+                        }
+                     }
+                     break;
+               }
+            }
+         }
+
+         var retVal = assemblySeparatorIndex != -1;
+         if ( retVal )
+         {
+            typeString = str.Substring( 0, assemblySeparatorIndex );
+            assemblyString = str.Substring( assemblySeparatorIndex + 2 );
          }
          else
          {
-            // Assembly name not present
-            retVal = false;
             typeString = str;
             assemblyString = null;
          }
-
          return retVal;
+      }
+
+      /// <summary>
+      /// Detects whether type string is assembly name -qualified or not.
+      /// </summary>
+      /// <param name="str">The type string.</param>
+      /// <returns>A <see cref="TypeParseInfo"/> object containing information about the type string.</returns>
+      /// <remarks>
+      /// This method does not check whether the actual assembly string, if recognized, is valid assembly string.
+      /// Use <see cref="AssemblyInformation.TryParse"/> method for that.
+      /// </remarks>
+      public static TypeParseInfo ParseAssemblyQualifiedTypeString( this String str )
+      {
+         var typeInfo = new TypeParseInfo();
+         // If there is an assembly name, there will be ", " but not "\, " in type string. 
+
+         // First, scan for '[['. This will mean the start of the generic parameter list. We must skip through all the generic parameters, as the assembly string will start only then.
+         // E.g. for type strings like this: X[[Y, assembly1][Z[[A, assembly2]], assembly3]], assembly4, we want to capture 'assembly4' as assembly string
+
+         var arrayAux = -1;
+         var assemblySeparatorIndex = -1;
+         {
+            var depth = 0;
+            var typeInfoStack = new Stack<TypeParseInfo>();
+            typeInfoStack.Push( typeInfo );
+
+            var aux = 0;
+
+            // Do everything in one scan, and stop when we find top-level assembly separator.
+            for ( Int32 scanIdx = 0, max = str.Length - 1; assemblySeparatorIndex == -1 && scanIdx < max; ++scanIdx )
+            {
+               switch ( str[scanIdx] )
+               {
+                  case '\\':
+                     // Skip escapes
+                     ++scanIdx;
+                     break;
+                  case '[':
+                     if ( str[scanIdx + 1] == '[' )
+                     {
+                        // Start of the list of generic parameters
+                        ++depth;
+                        ++scanIdx;
+
+                        // Update type string of current type info
+                        var pInfo = typeInfoStack.Peek();
+                        pInfo.SetTypeAndElementStringRanges( aux, scanIdx - 1, ref arrayAux );
+                        aux = scanIdx + 1;
+
+                        // Add generic parameter to be used later
+                        var newInfo = new TypeParseInfo();
+                        pInfo.GenericParameters.Add( newInfo );
+                        typeInfoStack.Push( newInfo );
+
+                     }
+                     else if ( depth > 0 && scanIdx > 2 && str[scanIdx - 1] == ',' && str[scanIdx - 2] == ']' )
+                     {
+                        // In middle of generic parameter list, when next starts
+                        // Pop current generic parameter
+                        typeInfoStack.Pop();
+
+                        // Create new generic parameter
+                        var newInfo = new TypeParseInfo();
+                        // Add to the parent
+                        typeInfoStack.Peek().GenericParameters.Add( newInfo );
+                        // Set as currently top-most type info
+                        typeInfoStack.Push( newInfo );
+                        // Remember to update auxiliary index 
+                        aux = scanIdx + 1;
+                     }
+                     else
+                     {
+                        arrayAux = scanIdx;
+                     }
+                     break;
+                  case ']':
+                     if ( str[scanIdx + 1] == ']' )
+                     {
+                        --depth;
+                        ++scanIdx;
+                        if ( depth >= 0 )
+                        {
+                           var pInfo = typeInfoStack.Pop();
+                           if ( pInfo.TypeStringRange == null )
+                           {
+                              pInfo.SetTypeAndElementStringRanges( aux, scanIdx - 1, ref arrayAux );
+                           }
+                           else
+                           {
+                              pInfo.AssemblyStringRange = new ParseRange() { StartIndex = aux, CharacterCount = scanIdx - aux - 1 };
+                           }
+                           aux = scanIdx + 1;
+                        }
+                     }
+                     else if ( depth > 0 && scanIdx < max - 2 && str[scanIdx + 1] == ',' && str[scanIdx + 2] == '[' )
+                     {
+                        // In middle of generic parameter list, when previous ends
+                        var pInfo = typeInfoStack.Peek();
+                        if ( pInfo.TypeStringRange == null )
+                        {
+                           pInfo.SetTypeAndElementStringRanges( aux, scanIdx, ref arrayAux );
+                        }
+                        else
+                        {
+                           pInfo.AssemblyStringRange = new ParseRange() { StartIndex = aux, CharacterCount = scanIdx - aux };
+                        }
+                        aux = scanIdx + 2;
+                     }
+                     break;
+                  case ',':
+                     if ( str[scanIdx + 1] == ' ' )
+                     {
+                        if ( depth == 0 && scanIdx < max - 1 )
+                        {
+                           assemblySeparatorIndex = scanIdx;
+                           //++scanIdx;
+                        }
+                        else if ( depth > 0 )
+                        {
+                           var pInfo = typeInfoStack.Peek();
+                           if ( pInfo.TypeStringRange == null )
+                           {
+                              pInfo.SetTypeAndElementStringRanges( aux, scanIdx, ref arrayAux );
+                              aux = scanIdx + 2;
+                           }
+                           else if ( aux == scanIdx )
+                           {
+                              // Right after ]]
+                              aux = scanIdx + 2;
+                           }
+                        }
+                     }
+                     break;
+               }
+            }
+         }
+
+         if ( assemblySeparatorIndex == -1 )
+         {
+            if ( typeInfo.TypeStringRange == null )
+            {
+               typeInfo.SetTypeAndElementStringRanges( 0, str.Length, ref arrayAux );
+            }
+         }
+         else
+         {
+            if ( typeInfo.TypeStringRange == null )
+            {
+               typeInfo.SetTypeAndElementStringRanges( 0, assemblySeparatorIndex, ref arrayAux );
+            }
+            typeInfo.AssemblyStringRange = new ParseRange() { StartIndex = assemblySeparatorIndex + 2, CharacterCount = str.Length - assemblySeparatorIndex - 2 };
+         }
+
+         return typeInfo;
+
+      }
+
+      private static void SetTypeAndElementStringRanges( this TypeParseInfo info, Int32 typeStart, Int32 typeEnd, ref Int32 arrayAux )
+      {
+         // TODO array range
+         info.TypeStringRange = new ParseRange() { StartIndex = typeStart, CharacterCount = typeEnd - typeStart };
       }
 
       /// <summary>

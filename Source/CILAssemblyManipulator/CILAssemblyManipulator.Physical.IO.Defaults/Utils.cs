@@ -605,7 +605,7 @@ public static partial class E_CILPhysical
       if ( il != null )
       {
          var ocp = md.OpCodeProvider;
-         ilCodeByteCount = il.OpCodes.Sum( oci => oci.GetTotalByteCount( ocp ) );
+         ilCodeByteCount = ocp.GetILByteCount( il.OpCodes );
 
          var lIdx = il.LocalsSignatureIndex;
          var localSig = lIdx.HasValue && lIdx.Value.Table == Tables.StandaloneSignature ?

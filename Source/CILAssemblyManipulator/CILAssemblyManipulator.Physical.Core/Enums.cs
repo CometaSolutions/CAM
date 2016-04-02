@@ -536,7 +536,7 @@ namespace CILAssemblyManipulator.Physical
       /// <summary>
       /// The method implementation is forwarded through PInvoke.
       /// </summary>
-      PinvokeImpl = 0x2000,
+      PInvokeImpl = 0x2000,
 
 
       /// <summary>
@@ -1564,6 +1564,16 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
+   /// Checks whether type attribute has <see cref="TypeAttributes.BeforeFieldInit"/> flag set.
+   /// </summary>
+   /// <param name="attrs">The <see cref="TypeAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has <see cref="TypeAttributes.BeforeFieldInit"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsBeforeFieldInit( this TypeAttributes attrs )
+   {
+      return ( attrs & TypeAttributes.BeforeFieldInit ) != 0;
+   }
+
+   /// <summary>
    /// Checks whether method attribute represents a method visible in assembly scope.
    /// </summary>
    /// <param name="attrs">The <see cref="MethodAttributes"/>.</param>
@@ -1756,10 +1766,10 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="attrs">The <see cref="MethodAttributes"/>.</param>
    /// <returns><c>true</c> if <paramref name="attrs"/> represents a method forwarding its implementation through PInvoke; <c>false</c> otherwise.</returns>
-   /// <seealso cref="MethodAttributes.PinvokeImpl"/>
+   /// <seealso cref="MethodAttributes.PInvokeImpl"/>
    public static Boolean IsPInvokeImpl( this MethodAttributes attrs )
    {
-      return ( attrs & MethodAttributes.PinvokeImpl ) != 0;
+      return ( attrs & MethodAttributes.PInvokeImpl ) != 0;
    }
 
    /// <summary>
@@ -1768,7 +1778,7 @@ public static partial class E_CILPhysical
    /// <param name="attrs">The <see cref="MethodAttributes"/>.</param>
    /// <returns><c>true</c> if <paramref name="attrs"/> represents a method capable of having IL bytecode implementation; <c>false</c> otherwise.</returns>
    /// <seealso cref="MethodAttributes.Abstract"/>
-   /// <seealso cref="MethodAttributes.PinvokeImpl"/>
+   /// <seealso cref="MethodAttributes.PInvokeImpl"/>
    public static Boolean CanEmitIL( this MethodAttributes attrs )
    {
       return !attrs.IsAbstract() && !attrs.IsPInvokeImpl();

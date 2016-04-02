@@ -256,6 +256,13 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_ClassRecord( ClassRecord x, ClassRecord y )
       {
+         if ( x.Members.Count == 4 && y.Members.Count == 4 )
+         {
+            var kek1 = Equality_ClassRecordMember( x.Members[0], y.Members[0] );
+            var kek2 = Equality_ClassRecordMember( x.Members[1], y.Members[1] );
+            var kek3 = Equality_ClassRecordMember( x.Members[2], y.Members[2] );
+            var kek4 = Equality_ClassRecordMember( x.Members[3], y.Members[3] );
+         }
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
             && ListEqualityComparer<List<ClassRecordMember>, ClassRecordMember>.IsPermutation( x.Members, y.Members, ClassRecordMemberEqualityComparer )

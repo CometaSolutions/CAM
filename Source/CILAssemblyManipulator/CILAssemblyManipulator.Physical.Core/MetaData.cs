@@ -2352,7 +2352,7 @@ public static partial class E_CILPhysical
          {
 
             var ocp = md.OpCodeProvider;
-            var state = new StackCalculationState( md, il.OpCodes.Sum( oc => oc.GetTotalByteCount( ocp ) ) );
+            var state = new StackCalculationState( md, ocp.GetILByteCount( il.OpCodes ) );
 
             // Setup exception block stack sizes
             foreach ( var block in il.ExceptionBlocks )
@@ -2372,7 +2372,7 @@ public static partial class E_CILPhysical
             // Calculate actual max stack
             foreach ( var codeInfo in il.OpCodes )
             {
-               var byteCount = codeInfo.GetTotalByteCount( ocp );
+               var byteCount = ocp.GetTotalByteCount( codeInfo );
                state.NextCodeByteOffset += byteCount;
                UpdateStackSize( state, codeInfo );
                state.CurrentCodeByteOffset += byteCount;
@@ -2554,4 +2554,20 @@ public static partial class E_CILPhysical
       return String.IsNullOrEmpty( culture ) ? AssemblyInformation.NEUTRAL_CULTURE : culture;
    }
 
+   /// <summary>
+   /// Helper method to add a row to meta data table, and return <see cref="TableIndex"/> corresponding to the added row.
+   /// </summary>
+   /// <typeparam name="T">The type of the table rows.</typeparam>
+   /// <param name="table">The table to add row to.</param>
+   /// <param name="row">The row to add.</param>
+   /// <returns>A new <see cref="TableIndex"/> representing the index to added row.</returns>
+   /// <exception cref="NullReferenceException">If this <see cref="MetaDataTable{TRow}"/> is <c>null</c>.</exception>
+   public static TableIndex AddRow<T>( this MetaDataTable<T> table, T row )
+      where T : class
+   {
+      var contents = table.TableContents;
+      var retVal = new TableIndex( (Tables) table.GetTableIndex(), contents.Count );
+      contents.Add( row );
+      return retVal;
+   }
 }
