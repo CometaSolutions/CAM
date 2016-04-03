@@ -1428,12 +1428,6 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class OpCode
    {
-      private static class NameCache
-      {
-         // Currently 219 op codes.
-         internal static readonly String[] Cache = new String[219];
-      }
-
       private readonly TDynamicStackChangeParameter _dynamicPop;
       private readonly TDynamicStackChangeParameter _dynamicPush;
       private readonly Lazy<String> _name;
