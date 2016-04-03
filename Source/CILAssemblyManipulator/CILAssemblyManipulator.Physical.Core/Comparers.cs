@@ -1290,30 +1290,30 @@ namespace CILAssemblyManipulator.Physical
             switch ( x.InfoKind )
             {
                case OpCodeInfoKind.OperandInteger:
-                  retVal = ( (OpCodeInfoWithInt32) x ).Operand == ( (OpCodeInfoWithInt32) y ).Operand;
+                  retVal = ( (IOpCodeInfoWithOperand<Int32>) x ).Operand == ( (IOpCodeInfoWithOperand<Int32>) y ).Operand;
                   break;
                case OpCodeInfoKind.OperandInteger64:
-                  retVal = ( (OpCodeInfoWithInt64) x ).Operand == ( (OpCodeInfoWithInt64) y ).Operand;
+                  retVal = ( (IOpCodeInfoWithOperand<Int64>) x ).Operand == ( (IOpCodeInfoWithOperand<Int64>) y ).Operand;
                   break;
                case OpCodeInfoKind.OperandNone:
                   retVal = true;
                   break;
                case OpCodeInfoKind.OperandR4:
                   // Use .Equals in order for NaN's to work more intuitively
-                  retVal = ( (OpCodeInfoWithSingle) x ).Operand.Equals( ( (OpCodeInfoWithSingle) y ).Operand );
+                  retVal = ( (IOpCodeInfoWithOperand<Single>) x ).Operand.Equals( ( (IOpCodeInfoWithOperand<Single>) y ).Operand );
                   break;
                case OpCodeInfoKind.OperandR8:
                   // Use .Equals in order for NaN's to work more intuitively
-                  retVal = ( (OpCodeInfoWithDouble) x ).Operand.Equals( ( (OpCodeInfoWithDouble) y ).Operand );
+                  retVal = ( (IOpCodeInfoWithOperand<Double>) x ).Operand.Equals( ( (IOpCodeInfoWithOperand<Double>) y ).Operand );
                   break;
                case OpCodeInfoKind.OperandString:
-                  retVal = String.Equals( ( (OpCodeInfoWithString) x ).Operand, ( (OpCodeInfoWithString) y ).Operand );
+                  retVal = String.Equals( ( (IOpCodeInfoWithOperand<String>) x ).Operand, ( (IOpCodeInfoWithOperand<String>) y ).Operand );
                   break;
                case OpCodeInfoKind.OperandIntegerList:
-                  retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (OpCodeInfoWithIntegers) x ).Operand, ( (OpCodeInfoWithIntegers) y ).Operand );
+                  retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (IOpCodeInfoWithOperand<List<Int32>>) x ).Operand, ( (IOpCodeInfoWithOperand<List<Int32>>) y ).Operand );
                   break;
                case OpCodeInfoKind.OperandTableIndex:
-                  retVal = ( (OpCodeInfoWithTableIndex) x ).Operand == ( (OpCodeInfoWithTableIndex) y ).Operand;
+                  retVal = ( (IOpCodeInfoWithOperand<TableIndex>) x ).Operand == ( (IOpCodeInfoWithOperand<TableIndex>) y ).Operand;
                   break;
             }
          }
@@ -2046,25 +2046,25 @@ namespace CILAssemblyManipulator.Physical
             if ( infoKind != OpCodeInfoKind.OperandNone )
             {
                Int32 operandHashCode;
-               switch ( x.InfoKind )
+               switch ( infoKind )
                {
                   case OpCodeInfoKind.OperandInteger:
-                     operandHashCode = ( (OpCodeInfoWithInt32) x ).Operand;
+                     operandHashCode = ( (IOpCodeInfoWithOperand<Int32>) x ).Operand;
                      break;
                   case OpCodeInfoKind.OperandInteger64:
-                     operandHashCode = ( (OpCodeInfoWithInt64) x ).Operand.GetHashCode();
+                     operandHashCode = ( (IOpCodeInfoWithOperand<Int64>) x ).Operand.GetHashCode();
                      break;
                   case OpCodeInfoKind.OperandR4:
-                     operandHashCode = ( (OpCodeInfoWithSingle) x ).Operand.GetHashCode();
+                     operandHashCode = ( (IOpCodeInfoWithOperand<Single>) x ).Operand.GetHashCode();
                      break;
                   case OpCodeInfoKind.OperandR8:
-                     operandHashCode = ( (OpCodeInfoWithDouble) x ).Operand.GetHashCode();
+                     operandHashCode = ( (IOpCodeInfoWithOperand<Double>) x ).Operand.GetHashCode();
                      break;
                   case OpCodeInfoKind.OperandString:
-                     operandHashCode = ( (OpCodeInfoWithString) x ).Operand.GetHashCodeSafe();
+                     operandHashCode = ( (IOpCodeInfoWithOperand<String>) x ).Operand.GetHashCodeSafe();
                      break;
                   case OpCodeInfoKind.OperandTableIndex:
-                     operandHashCode = ( (OpCodeInfoWithTableIndex) x ).Operand.GetHashCode();
+                     operandHashCode = ( (IOpCodeInfoWithOperand<TableIndex>) x ).Operand.GetHashCode();
                      break;
                   default:
                      operandHashCode = 0;

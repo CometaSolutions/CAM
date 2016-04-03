@@ -139,6 +139,10 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// This interface implemented by <see cref="OpCodeInfo"/> and extended by <see cref="IOpCodeInfoWithOperand{TOperand}"/>.
    /// </summary>
+   /// <remarks>
+   /// TODO make all classes inheriting this internal and only expose interfaces.
+   /// Then make extension methods to properly create op codes via OpCodeProvider!!
+   /// </remarks>
    public interface IOpCodeInfo
    {
       /// <summary>
@@ -247,7 +251,7 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
-   /// This interface is for any subclass of <see cref="OpCodeInfo"/>, which has an operand.
+   /// This interface is for any subclass of <see cref="OpCodeInfo"/>, which has a read-only operand.
    /// </summary>
    /// <typeparam name="TOperand">The type of the operand.</typeparam>
    /// <remarks>
@@ -265,6 +269,19 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
+   /// This interface is for any subclass of <see cref="OpCodeInfo"/>, which has a settable operand.
+   /// </summary>
+   /// <typeparam name="TOperand">The type of the operand.</typeparam>
+   public interface IOpCodeInfoWithOperandAndSetter<TOperand> : IOpCodeInfoWithOperand<TOperand>
+   {
+      /// <summary>
+      /// Gets or sets the operand for this <see cref="IOpCodeInfoWithOperandAndSetter{TOperand}"/>.
+      /// </summary>
+      /// <value>The operand for this <see cref="IOpCodeInfoWithOperandAndSetter{TOperand}"/>.</value>
+      new TOperand Operand { get; set; }
+   }
+
+   /// <summary>
    /// This is abstract base class for all <see cref="OpCodeInfo"/>s which have a gettable and settable operand of some sort.
    /// </summary>
    /// <typeparam name="TOperand">The type of the operand.</typeparam>
@@ -276,7 +293,7 @@ namespace CILAssemblyManipulator.Physical
    /// It is also possible to create custom instances inheriting from this <see cref="OpCodeInfoWithOperand{TOperand}"/>, which should have <see cref="OpCodeInfo.InfoKind"/> of value <see cref="OpCodeInfoKind.CustomStart"/> or larger.
    /// </para>
    /// </remarks>
-   public abstract class OpCodeInfoWithOperand<TOperand> : OpCodeInfo, IOpCodeInfoWithOperand<TOperand>
+   public abstract class OpCodeInfoWithOperand<TOperand> : OpCodeInfo, IOpCodeInfoWithOperandAndSetter<TOperand>
    {
 
       /// <summary>
