@@ -39,12 +39,14 @@ using CommonUtils;
 using CILAssemblyManipulator.Physical.PDB;
 using TStreamInfo = System.Tuple<System.Int32, System.Int32[]>;
 using TSourceHeaderInfo = System.Tuple<System.Int32, System.Int32, System.Int32, CILAssemblyManipulator.Physical.PDB.PDBSource>;
+using TWriteAction = System.Tuple<System.Int32, System.Action<System.Byte[], System.Int32>>;
 
 #pragma warning disable 1591
 public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
-
+   private const UInt16 TOKENREF_FIXED_SIZE = 24;
+   private const Int32 GS_SYM_BUCKETS = 4096;
 
    private sealed class PDBWritingState
    {
@@ -61,6 +63,17 @@ public static partial class E_CILPhysical
          this.DataStreams = new List<TStreamInfo>();
          this.DataStreamNames = new Dictionary<String, Int32>();
          this.ZeroesArray = new Byte[this.PageSize];
+
+         // Create array for the symbol record stream
+         this.SymRecStream = new Byte[pdb.Modules
+            .SelectMany( m => m.Functions )
+            .Aggregate( 0, ( cur, f ) =>
+            {
+               cur += 14 + PDBIO.NameEncoding.SafeByteCount( f.Name, true );
+               Align4( ref cur );
+               return cur + TOKENREF_FIXED_SIZE;
+            } )];
+         this.SymRecIndex = 0;
       }
 
       public PDBInstance PDB { get; }
@@ -77,6 +90,12 @@ public static partial class E_CILPhysical
 
       public Byte[] ZeroesArray { get; }
 
+      public Byte[] SymRecStream { get; }
+
+      public Int32 SymRecIndex;
+
+      public Dictionary<UInt32, List<Int32>> GlobalSymbolStreamInfo { get; }
+
       public Int32 GetNameIndex( String name )
       {
          return this.NameIndex.GetOrAdd_NotThreadSafe( name ?? String.Empty, str =>
@@ -86,6 +105,74 @@ public static partial class E_CILPhysical
             this._nameIdx += PDBIO.NameEncoding.SafeByteCount( name, true );
             return result;
          } );
+      }
+
+      public void AddNameHashToGlobalSymbolStream( Int32 nameStart, Int32 offsetToStructure )
+      {
+         var symRecEnd = this.SymRecIndex;
+         ++offsetToStructure; // Indexing is 1-based
+         var hash = ComputeHash( this.SymRecStream, nameStart, symRecEnd - nameStart - 1, GS_SYM_BUCKETS ); // Remember terminating zero
+         this.GlobalSymbolStreamInfo
+            .GetOrAdd_NotThreadSafe( hash, h => new List<Int32>() )
+            .Add( offsetToStructure );
+      }
+
+      // This is algorithm used to compute hashes of names in gsSymStream.
+      // Ported from C to C# and modified a bit, original is available at http://code.google.com/p/pdbparser/source/browse/trunk/symeng/misc.cpp , HashPbCb function.
+      private static UInt32 ComputeHash( Byte[] pb, Int32 startIdx, Int32 count, UInt32 ulMod )
+      {
+         var ulHash = 0u;
+
+         var cl = count >> 2;
+         // Create new UInt32 array and fill it, play with unsafe blocks only if this becomes a performance problem.
+         var pul = new UInt32[cl];
+         var tmp = 0;
+         while ( tmp < pul.Length )
+         {
+            pul[tmp] = pb.ReadUInt32LEFromBytes( ref startIdx );
+            ++tmp;
+         }
+
+         // Have to unwind switch- and do-while-stataments that were compact in C.
+         var dcul = cl & 7;
+         switch ( dcul )
+         {
+            case 7: ulHash ^= pul[6]; ulHash ^= pul[5]; ulHash ^= pul[4]; ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
+            case 6: ulHash ^= pul[5]; ulHash ^= pul[4]; ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
+            case 5: ulHash ^= pul[4]; ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
+            case 4: ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
+            case 3: ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
+            case 2: ulHash ^= pul[1]; ulHash ^= pul[0]; break;
+            case 1: ulHash ^= pul[0]; break;
+         }
+         tmp = dcul;
+         while ( tmp < pul.Length )
+         {
+            ulHash ^= pul[7];
+            ulHash ^= pul[6];
+            ulHash ^= pul[5];
+            ulHash ^= pul[4];
+            ulHash ^= pul[3];
+            ulHash ^= pul[2];
+            ulHash ^= pul[1];
+            ulHash ^= pul[0];
+            tmp += 8;
+         }
+
+         if ( ( count & 2 ) != 0 )
+         {
+            ulHash ^= pb.ReadUInt16LEFromBytes( ref startIdx );
+         }
+         if ( ( count & 1 ) != 0 )
+         {
+            ulHash ^= pb[startIdx];
+         }
+
+         const UInt32 TO_LOWER_MASK = 0x20202020u;
+         ulHash |= TO_LOWER_MASK;
+         ulHash ^= ( ulHash >> 11 );
+
+         return ( ulHash ^ ( ulHash >> 16 ) ) % ulMod;
       }
    }
 
@@ -104,11 +191,26 @@ public static partial class E_CILPhysical
 
       var state = new PDBWritingState( instance, new StreamHelper( stream ), 0x200 );
 
-      // Start by writing sources
+      // Write TPI stream first, as it is always fixed content, since managed stuff does not use it.
+      state.WriteTPIStream();
+
+      // Then, write all source streams
       var sourceInfo = state.WritePDBSources();
 
-      // Then write header-block
+      // Then, write /src/headerblock used to search for file names
       state.WriteSourceHeaderBlock( sourceInfo );
+
+      // TODO /LinkInfo ? 
+
+      // Then, write root stream - we won't have any more named streams
+      state.WriteRootStream();
+
+      // DBI stream next.
+      // This will also write all module streams, global record stream, public record stream, and symbol record stream.
+      state.WriteDBIStream();
+
+
+
    }
 
    private const Int32 GUID_SIZE = 16;
@@ -309,6 +411,743 @@ public static partial class E_CILPhysical
       );
    }
 
+   private static void WriteRootStream( this PDBWritingState state, Int32 timeStamp = 0 )
+   {
+      var namedDataStreams = state.DataStreamNames;
+      var strByteCount = namedDataStreams.Keys.Aggregate( 0, ( cur, str ) => cur + PDBIO.NameEncoding.SafeByteCount( str, true ) );
+      // Amount of int32's needed to write
+      var namedDataStreamsPresentBitSetCount = BinaryUtils.AmountOfPagesTaken( namedDataStreams.Count, 32 );
+      // Root stream is unnamed, and always at index 1
+      state.AddNewIndexedStream(
+         1,
+         40 + GUID_SIZE // Minimum size
+         + namedDataStreamsPresentBitSetCount * sizeof( Int32 ) // Present bit set length
+         + namedDataStreams.Count * 8 // How many bytes for each name
+         + strByteCount, // How many bytes for strings
+         ( array, idx ) =>
+         {
+            var instance = state.PDB;
+            array
+               .WriteUInt32LEToBytes( ref idx, 0x01312E94 ) // 2000 04 04
+               .WriteInt32LEToBytes( ref idx, timeStamp ) // Timestamp
+               .WriteUInt32LEToBytes( ref idx, instance.Age )
+               .WriteGUIDToBytes( ref idx, instance.DebugGUID )
+               .WriteInt32LEToBytes( ref idx, strByteCount );
+            var strStartIdx = idx;
+            var afterStrIdx = idx + strByteCount;
+            array
+               .WriteInt32LEToBytes( ref afterStrIdx, namedDataStreams.Count ) // Amount of named streams
+               .WriteInt32LEToBytes( ref afterStrIdx, namedDataStreams.Count ) // Amount of set bits (same as size)
+               .WriteInt32LEToBytes( ref afterStrIdx, namedDataStreamsPresentBitSetCount ); // How many int32's bit set takes
+                                                                                            // Write set bits
+            for ( var i = 0; i < namedDataStreamsPresentBitSetCount; ++i )
+            {
+               var bits = UInt32.MaxValue;
+               if ( i == namedDataStreamsPresentBitSetCount - 1 )
+               {
+                  bits >>= 32 - namedDataStreams.Count % 32;
+               }
+               array.WriteUInt32LEToBytes( ref afterStrIdx, bits );
+            }
+            // Write deleted bits size (0)
+            array.WriteInt32LEToBytes( ref afterStrIdx, 0 );
+            // Write strings and their indices
+            foreach ( var kvp in namedDataStreams )
+            {
+               // First, the index of string in array and its stream index
+               array
+                  .WriteInt32LEToBytes( ref afterStrIdx, idx - strStartIdx )
+                  .WriteInt32LEToBytes( ref afterStrIdx, kvp.Value );
+               // Then write the string
+               array.WriteZeroTerminatedString( ref idx, kvp.Key );
+            }
+            // Last two ints always same: zero and 0x01329141 (2009 12 01)
+            array.WriteUInt64LEToBytes( ref afterStrIdx, 0x0132914100000000 );
+         } );
+
+   }
+
+   private static void WriteDBIStream( this PDBWritingState state )
+   {
+      var instance = state.PDB;
+      var funcSecContribs = new List<PDBIO.DBISecCon>( instance.Modules.Aggregate( 0, ( cur, m ) => cur + m.Functions.Count ) );
+      var moduleInfos = new List<Tuple<PDBIO.DBIModuleInfo, String[]>>();
+      var dbiHeader = new PDBIO.DBIHeader();
+
+      // 1. Write all module streams
+      // This will populate SymbolRecord and GlobalSymbol streams
+      foreach ( var module in instance.Modules )
+      {
+         state.WritePDBModule( module, dbiHeader, moduleInfos, funcSecContribs );
+      }
+
+      // 2. Write GlobalSymbols stream
+      dbiHeader.gsSymStream = (UInt16) state.WriteGlobalSymbolStream( funcSecContribs );
+
+      // 3. Write PublicSymbols stream (TODO)
+      dbiHeader.psSymStream = (UInt16) 0;
+
+      // 4. Write SymbolRecord stream
+      dbiHeader.symRecStream = (UInt16) state.WriteSymbolRecordStream();
+
+      // 5. Write actual DBI stream
+      dbiHeader.age = instance.Age;
+      var usedFiles = moduleInfos
+         .SelectMany( t => t.Item2 )
+         .ToArray();
+
+      dbiHeader.secConSize = INT_SIZE + funcSecContribs.Count * 28; // SectionContribution size is 28 bytes
+      dbiHeader.secMapSize = moduleInfos.Count > 0 ? 44 : INT_SIZE; // Section map size is 44 bytes
+      dbiHeader.fileInfoSize = INT_SIZE + INT_SIZE * moduleInfos.Count + usedFiles
+         .Aggregate( 0, ( cur, s ) => cur + INT_SIZE + PDBIO.NameEncoding.SafeByteCount( s, true ) );
+      Align4( ref dbiHeader.fileInfoSize );
+      dbiHeader.debugHeaderSize = moduleInfos.Count > 0 ? 22 : 0; // Debug header size is 22 bytes
+
+      state.AddNewIndexedStream(
+         3,
+         64 // DBI header size
+         + dbiHeader.moduleInfoSize // Module infos
+         + dbiHeader.fileInfoSize // File infos
+         + dbiHeader.secConSize // Section contributions
+         + dbiHeader.secMapSize // Section map sizes
+         + dbiHeader.ecInfoSize // EC info
+         + dbiHeader.debugHeaderSize, // Debug header
+         ( array, idx ) =>
+         {
+            // Write DBI header
+            dbiHeader.WriteDBIHeader( array, ref idx );
+            // Write module infos
+            foreach ( var mInfo in moduleInfos )
+            {
+               mInfo.Item1.WriteToArray( array, ref idx );
+            }
+            // Section contribution
+            array.WriteUInt32LEToBytes( ref idx, 0xF12EBA2D ); // Signature
+            var tmpUInt32 = 0u;
+            foreach ( var secCon in funcSecContribs )
+            {
+               secCon.offset = tmpUInt32;
+               secCon.WriteToArray( array, ref idx );
+               tmpUInt32 += secCon.size;
+            }
+            if ( tmpUInt32 > 0 )
+            {
+               // Section map, fixed prefix (cSeg, cSegLog, flags, ovl1, grp, frame, iSegName, iClassName, offset)
+               array
+                  .BlockCopyFrom( ref idx, new Byte[] { 0x02, 0x00, 0x02, 0x00, 0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00 } )
+                  .WriteUInt32LEToBytes( ref idx, tmpUInt32 ) // Section size
+                  .BlockCopyFrom( ref idx, new Byte[] { 0x08, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF } ); // Section map, fixed suffix.
+            }
+            else
+            {
+               array.WriteInt32LEToBytes( ref idx, 0 );
+            }
+            // File info
+            array
+               .WriteUInt16LEToBytes( ref idx, (UInt16) moduleInfos.Count ) // Amount of modules
+               .WriteUInt16LEToBytes( ref idx, (UInt16) usedFiles.Length ); // Amount of file references in modules
+            UInt16 fiIdx = 0;
+            foreach ( var mInfo in moduleInfos )
+            {
+               array.WriteUInt16LEToBytes( ref idx, fiIdx );
+               fiIdx += (UInt16) mInfo.Item2.Length;
+            }
+            foreach ( var mInfo in moduleInfos )
+            {
+               array.WriteUInt16LEToBytes( ref idx, (UInt16) mInfo.Item2.Length );
+            }
+
+            var fiNameIdx = 0u;
+            foreach ( var uf in usedFiles )
+            {
+               array.WriteUInt32LEToBytes( ref idx, fiNameIdx );
+               fiNameIdx += (UInt32) PDBIO.NameEncoding.SafeByteCount( uf, true );
+            }
+            foreach ( var uf in usedFiles )
+            {
+               array.WriteZeroTerminatedString( ref idx, uf );
+            }
+            Align4( ref idx );
+
+            // EC info
+            array.BlockCopyFrom( ref idx, new Byte[] { 0xFE, 0xEF, 0xFE, 0xEF, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } );
+
+            // Debug header
+            if ( tmpUInt32 > 0 )
+            {
+               new PDBIO.DBIDebugHeader( 11 ).WriteToArray( array, ref idx );
+            }
+         } );
+   }
+
+   private static void WritePDBModule(
+      this PDBWritingState state,
+      PDBModule module,
+      PDBIO.DBIHeader dbiHeader,
+      List<Tuple<PDBIO.DBIModuleInfo, String[]>> moduleInfos,
+      List<PDBIO.DBISecCon> funcSecContribs
+      )
+   {
+      var mInfo = new PDBIO.DBIModuleInfo( module.Name );
+      var sourceFileNames = new HashSet<String>( module.Functions
+         .SelectMany( f => f.Lines.Select( l => l.Source.Name ) )
+         ).ToArray();
+
+      mInfo.files = (UInt16) sourceFileNames.Length;
+      dbiHeader.moduleInfoSize += 64 // Module info fixed size
+         + PDBIO.NameEncoding.SafeByteCount( mInfo.moduleName, true )
+         + PDBIO.NameEncoding.SafeByteCount( mInfo.objectName, true );
+
+      var streamIndex = state.DataStreams.Count;
+      mInfo.stream = (UInt16) streamIndex;
+
+      state.AddNewIndexedStreamInPieces( streamIndex, state.GetWriteActionsForModule( module, moduleInfos.Count, mInfo, sourceFileNames, funcSecContribs ) );
+
+      // Add after writing stream
+      moduleInfos.Add( Tuple.Create( mInfo, sourceFileNames ) );
+   }
+
+   private static IEnumerable<TWriteAction> GetWriteActionsForModule(
+      this PDBWritingState state,
+      PDBModule module,
+      Int32 moduleIndex,
+      PDBIO.DBIModuleInfo mInfo,
+      String[] sourceFileNames,
+      List<PDBIO.DBISecCon> funcSecContribs
+      )
+   {
+      // 1. Signature
+      const Int32 SIG_SIZE = sizeof( Int32 );
+      yield return new TWriteAction( SIG_SIZE, ( array, idx ) => array.WriteInt32LEToBytes( ref idx, 4 ) );
+
+      // 2. Functions
+      var funcOffset = 0u;
+      UInt32 funcPointer = SIG_SIZE;
+      var funcInfos = new List<PDBIO.PDBFunctionInfo>( module.Functions.Count );
+
+      foreach ( var func in module.Functions )
+      {
+         List<Int32> usedNSCount;
+         var size = func.CalculateSymbolByteCount( out usedNSCount );
+         yield return new TWriteAction( size, ( array, idx ) =>
+         {
+            var tuple = func.WritePDBFunction( moduleIndex, array, size, usedNSCount, funcPointer, funcOffset );
+            funcSecContribs.Add( tuple.Item1 );
+            funcInfos.Add( tuple.Item2 );
+         } );
+         funcOffset += (UInt32) func.Length;
+         funcPointer += (UInt32) size;
+      }
+
+      mInfo.symbolByteCount = (Int32) funcPointer;
+
+      // 3. Sources
+      var sourceIndices = new Dictionary<String, Int32>();
+      const Int32 SOURCE_INFO_START_PADDING = 8;
+      var sourcesByteCount = sourceFileNames.Length * 8;
+      yield return new TWriteAction( SOURCE_INFO_START_PADDING + sourcesByteCount, ( array, idx ) =>
+      {
+         array
+            .WriteInt32LEToBytes( ref idx, PDBIO.SYM_DEBUG_SOURCE_INFO ) // Sources
+            .WriteInt32LEToBytes( ref idx, sourcesByteCount ); // Amount of bytes
+         foreach ( var src in sourceFileNames )
+         {
+            // Save information about the index of this source within this block
+            sourceIndices.Add( src, idx - SOURCE_INFO_START_PADDING );
+
+            array
+               .WriteInt32LEToBytes( ref idx, state.GetNameIndex( src ) ) // Name of the source
+               .WriteInt32LEToBytes( ref idx, 0 ); // length-byte (0), kind-byte (0), padding
+         }
+      } );
+
+      // 4. Lines
+      var linesByteCount = 0;
+      foreach ( var funcI in funcInfos )
+      {
+         var curWriteInfo = WritePDBFunctionLines( funcI.function, funcI.address, sourceIndices );
+         yield return curWriteInfo;
+         linesByteCount += curWriteInfo.Item1;
+      }
+
+      mInfo.linesByteCount = linesByteCount;
+
+      // 5. Write SymRec stream refs, and update GSSym at the same time
+      yield return new TWriteAction( INT_SIZE, ( array, idx ) => array.WriteInt32LEToBytes( ref idx, 8 * funcInfos.Count ) );
+
+      // PROCREF & TOKENREF use 1-based module indexing, so increment module index here
+      ++moduleIndex;
+
+      // Then write PROCREF & TOKENREF info
+      var symRecStream = state.SymRecStream;
+      foreach ( var fInfo in funcInfos )
+      {
+         // Record offset to module stream
+         yield return new TWriteAction( INT_SIZE * 2, ( array, idx ) =>
+         {
+            var sRef = state.SymRecIndex;
+            array.WriteInt32LEToBytes( ref idx, sRef ); // Pointer to the start of this function's PROCREF
+
+            // Write PROCREF to symrec stream
+            symRecStream
+               .Skip( ref state.SymRecIndex, 2 ) // Byte count, skip for now
+               .WriteUInt16LEToBytes( ref state.SymRecIndex, 0x1125 ) // S_PROCREF
+               .WriteInt32LEToBytes( ref state.SymRecIndex, 0 ) // Checksum (always zero)
+               .WriteUInt32LEToBytes( ref state.SymRecIndex, fInfo.funcPointer ) // Function pointer within the module stream
+               .WriteUInt16LEToBytes( ref state.SymRecIndex, (UInt16) moduleIndex ); // Module index
+            var tmp = state.SymRecIndex;
+            symRecStream.WriteZeroTerminatedString( ref state.SymRecIndex, fInfo.function.Name ); // Function name
+
+            // Hash function name
+            state.AddNameHashToGlobalSymbolStream( tmp, sRef );
+
+            // Pad to 4-byte boundary
+            Align4( ref state.SymRecIndex );
+            // Revisit byte count
+            symRecStream.WriteUInt16LEToBytes( ref sRef, (UInt16) ( state.SymRecIndex - sRef - 2 ) );
+
+            // Record offset to module stream
+            sRef = state.SymRecIndex;
+            array.WriteInt32LEToBytes( ref idx, state.SymRecIndex ); // Pointer to the start of this function's TOKENREF
+
+            // Write TOKENREF to symrec stream
+            symRecStream
+                .WriteUInt16LEToBytes( ref state.SymRecIndex, TOKENREF_FIXED_SIZE - 2 ) // Byte count, always fixed since token ref fixed size (+ padding)
+                .WriteUInt16LEToBytes( ref state.SymRecIndex, 0x1129 ) // S_TOKENREF
+                .WriteInt32LEToBytes( ref state.SymRecIndex, 0 ) // Checksum (always zero)
+                .WriteUInt32LEToBytes( ref state.SymRecIndex, fInfo.funcPointer ) // Function pointer within the module stream
+                .WriteUInt16LEToBytes( ref state.SymRecIndex, (UInt16) moduleIndex ); // Module index
+            tmp = state.SymRecIndex;
+            symRecStream.WriteZeroTerminatedString( ref state.SymRecIndex, fInfo.function.Token.ToString( "x8" ) ); // Fixed-length hexadecimal token value, with lower-case letters (upper-case won't work).
+
+            // Hash tokenref textual name
+            state.AddNameHashToGlobalSymbolStream( tmp, sRef );
+
+            Align4( ref state.SymRecIndex );
+         } );
+      }
+   }
+
+   private static TWriteAction WritePDBFunctionLines(
+      PDBFunction func,
+      UInt32 address,
+      Dictionary<String, Int32> sourceIndices
+      )
+   {
+      var lineInfo = new Dictionary<String, List<PDBLine>>();
+      foreach ( var line in func.Lines )
+      {
+         lineInfo
+            .GetOrAdd_NotThreadSafe( line.Source.Name, s => new List<PDBLine>() )
+            .Add( line );
+      }
+
+      const Int32 LINE_PER_SOURCE_MULTIPLIER = 12; // Source index (int32), line count (int32), byte count (int32)
+      var lineSize = 20 // Line info including SYM_DEBUG_LINE_INFO (int32) and block byte size (int32), also (2x->)1x int32s for sym-rec-stream refs
+         + lineInfo.Count * LINE_PER_SOURCE_MULTIPLIER // For each used source, source index + line count + byte count
+         + lineInfo.Values.Aggregate( 0, ( cur, l ) => cur + l.Count * PDBIO.LINE_MULTIPLIER + l.Where( ll => ll.ColumnEnd.HasValue && ll.ColumnStart.HasValue ).Count() * PDBIO.COLUMN_MULTIPLIER ); // For each line, line info + optional column info
+      return new TWriteAction(
+         lineSize,
+         ( array, idx ) =>
+         {
+            var lenIdx = idx + 4;
+            array
+               .WriteInt32LEToBytes( ref idx, PDBIO.SYM_DEBUG_LINE_INFO ) // Line info
+               .Skip( ref idx, 4 ) // Byte count of this block excluding sym + this count
+               .WriteUInt32LEToBytes( ref idx, address ) // Function address
+               .WriteUInt16LEToBytes( ref idx, 1 ) // Segment
+               .WriteUInt16LEToBytes( ref idx, (UInt16) ( func.Lines.Any( l => l.ColumnStart.HasValue && l.ColumnEnd.HasValue ) ? 1 : 0 ) ) // Flags: 1 if there is even one line present with column information, 0 otherwise
+               .WriteInt32LEToBytes( ref idx, func.Length ); // Function length is duplicated here
+            foreach ( var kvp in lineInfo )
+            {
+               var lines = kvp.Value;
+               var lineByteSize = lines.Count * PDBIO.LINE_MULTIPLIER;
+               array
+                  .WriteInt32LEToBytes( ref idx, sourceIndices[kvp.Key] ) // Source info index within its block
+                  .WriteInt32LEToBytes( ref idx, lines.Count ) // How many lines
+                  .WriteInt32LEToBytes( ref idx, LINE_PER_SOURCE_MULTIPLIER + lineByteSize + lines.Where( ll => ll.ColumnEnd.HasValue && ll.ColumnStart.HasValue ).Count() * PDBIO.COLUMN_MULTIPLIER ); // How many bytes the line info takes, including source info + line count
+               var colIdx = idx + lineByteSize;
+               foreach ( var line in lines )
+               {
+                  // Write line information
+                  // Line-flags: low 3 bytes is line start, 7 bits of highest byte is line delta, and highest bit is whether line is statement
+                  var lineFlags = ( (UInt32) line.LineStart & 0x00ffffffu ) | ( ( (UInt32) ( line.LineEnd - line.LineStart ) << 24 ) & 0x7f000000u );
+                  if ( !line.IsStatement )
+                  {
+                     lineFlags |= 0x80000000u;
+                  }
+                  array
+                     .WriteInt32LEToBytes( ref idx, line.Offset ) // Line offset
+                     .WriteUInt32LEToBytes( ref idx, lineFlags ); // Line flags
+                  if ( line.ColumnStart.HasValue && line.ColumnEnd.HasValue )
+                  {
+                     // Write column info
+                     array
+                     .WriteUInt16LEToBytes( ref colIdx, line.ColumnStart.Value )
+                     .WriteUInt16LEToBytes( ref colIdx, line.ColumnEnd.Value );
+                  }
+               }
+               // Set current index to point after columns
+               idx = colIdx;
+            }
+            // Revisit byte count
+            array.WriteInt32LEToBytes( ref lenIdx, idx - lenIdx - 4 );
+         } );
+   }
+
+   private static Tuple<PDBIO.DBISecCon, PDBIO.PDBFunctionInfo> WritePDBFunction(
+      this PDBFunction func,
+      Int32 moduleIndex,
+      Byte[] array,
+      Int32 funcBlockLen,
+      List<Int32> usedNSCount,
+      UInt32 funcPointer,
+      UInt32 funcOffset
+      )
+   {
+      var funcLen = (UInt32) func.Length;
+      var funcContrib = new PDBIO.DBISecCon()
+      {
+         module = (UInt16) moduleIndex,
+         section = 1,
+         size = funcLen
+      };
+
+      var preludeLength = 4
+         + 37 // block len + global managed function SYM + fixed size + name + 4 byte boundary
+         + PDBIO.NameEncoding.SafeByteCount( func.Name, true );
+      Align4( ref preludeLength );
+      var idx = 2; // Skip block length
+      // Block length + SYM (global managed function) + function fixed data
+      array
+         .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_GLOBAL_MANAGED_FUNC ) // global managed function
+         .WriteInt32LEToBytes( ref idx, 0 ) // parent
+         .WriteUInt32LEToBytes( ref idx, funcPointer + (UInt32) preludeLength + (UInt32) funcBlockLen ) // function end pointer
+         .WriteInt32LEToBytes( ref idx, 0 ) // next
+         .WriteUInt32LEToBytes( ref idx, funcLen ) // length
+         .WriteInt32LEToBytes( ref idx, 0 ) // debug start
+         .WriteInt32LEToBytes( ref idx, 0 ) // debug end
+         .WriteUInt32LEToBytes( ref idx, func.Token ) // token
+         .WriteUInt32LEToBytes( ref idx, funcOffset ) // address
+         .WriteUInt16LEToBytes( ref idx, 1 ) // segment
+         .WriteByteToBytes( ref idx, 0 ) // flags
+         .WriteUInt16LEToBytes( ref idx, 0 ) // returnReg
+         .WriteZeroTerminatedString( ref idx, func.Name ) // name
+         .Align4( ref idx ); // 4-byte border
+
+      // Revisit block length
+      array.WriteBlockLength( 0, idx );
+
+      WriteScopeOrFunctionBlocks( func, array, ref idx, funcPointer, funcOffset, funcPointer );
+      WriteOEM( func, array, ref idx, usedNSCount );
+      WriteENDSym( array, ref idx );
+
+      return Tuple.Create( funcContrib, new PDBIO.PDBFunctionInfo( func, funcOffset, 1, funcPointer ) );
+   }
+
+   private static void WriteScopeOrFunctionBlocks( PDBScopeOrFunction scope, Byte[] array, ref Int32 idx, UInt32 funcPointer, UInt32 functionAddress, UInt32 parentPointer )
+   {
+      var startIdx = idx;
+      // Slots
+      foreach ( var slot in scope.Slots )
+      {
+         var lenIdx = idx;
+         array
+            .Skip( ref idx, 2 ) // Block size
+            .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_MANAGED_SLOT ) // MANSLOT
+            .WriteInt32LEToBytes( ref idx, slot.SlotIndex ) // slot index
+            .WriteUInt32LEToBytes( ref idx, slot.TypeToken ) // type token
+            .WriteInt32LEToBytes( ref idx, 0 ) // address
+            .WriteUInt16LEToBytes( ref idx, 0 ) // segment
+            .WriteUInt16LEToBytes( ref idx, (UInt16) slot.Flags ) // flags
+            .WriteZeroTerminatedString( ref idx, slot.Name ) // name
+            .Align4( ref idx ); // 4-byte border
+                                // Revisit size
+         array.WriteBlockLength( lenIdx, idx );
+      }
+
+      // Used namespaces
+      foreach ( var un in scope.UsedNamespaces )
+      {
+         var lenIdx = idx;
+         array
+            .Skip( ref idx, 2 ) // Block size
+            .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_USED_NS ) // UNAMESPACE
+            .WriteZeroTerminatedString( ref idx, un ) // namespace
+            .Align4( ref idx ); // 4-byte border
+                                // Revisit size
+         array.WriteBlockLength( lenIdx, idx );
+      }
+
+      // Scopes
+      foreach ( var innerScope in scope.Scopes )
+      {
+         var lenIdx = idx;
+         var thisPointer = (UInt32) ( funcPointer + ( idx - startIdx ) );
+         array
+            .Skip( ref idx, 2 ) // block size
+            .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_SCOPE ) // BLOCK_32
+            .WriteUInt32LEToBytes( ref idx, parentPointer ); // parent
+         var endIdx = idx;
+         array
+            .Skip( ref idx, 4 ) // end pointer
+            .WriteInt32LEToBytes( ref idx, innerScope.Length ) // length
+            .WriteUInt32LEToBytes( ref idx, functionAddress + (UInt32) innerScope.Offset ) // address
+            .WriteUInt16LEToBytes( ref idx, 1 ) // segment
+            .WriteZeroTerminatedString( ref idx, innerScope.Name ) // name
+            .Align4( ref idx ); // 4-byte border
+                                // Revisit size
+         array.WriteBlockLength( lenIdx, idx );
+         // Revisit end pointer
+         array.WriteUInt32LEToBytes( ref endIdx, funcPointer + (UInt32) idx + (UInt32) CalculateByteCountFromLists( innerScope ) );
+         // Write inner scope's lists
+         WriteScopeOrFunctionBlocks( innerScope, array, ref idx, funcPointer, functionAddress, thisPointer );
+         // Write END sym
+         WriteENDSym( array, ref idx );
+      }
+   }
+
+   private static void WriteOEM( PDBFunction func, Byte[] array, ref Int32 idx, List<Int32> usedNSCount )
+   {
+      var am = func.AsyncMethodInfo;
+      if ( am != null )
+      {
+         var lenIdx = idx;
+         WriteOEMHeader( array, ref idx, PDBIO.ASYNC_METHOD_OEM_NAME );
+         array
+            .WriteUInt32LEToBytes( ref idx, am.KickoffMethodToken )
+            .WriteInt32LEToBytes( ref idx, am.CatchHandlerOffset )
+            .WriteInt32LEToBytes( ref idx, am.SynchronizationPoints.Count );
+         foreach ( var sp in am.SynchronizationPoints )
+         {
+            array
+               .WriteInt32LEToBytes( ref idx, sp.SyncOffset )
+               .WriteUInt32LEToBytes( ref idx, sp.ContinuationMethodToken )
+               .WriteInt32LEToBytes( ref idx, sp.ContinuationOffset );
+         }
+         array.Align4( ref idx );
+         // Revisit length
+         array.WriteBlockLength( lenIdx, idx );
+      }
+
+      Byte count = 0;
+      if ( usedNSCount != null )
+      {
+         ++count;
+      }
+      if ( func.ForwardingMethodToken != 0u )
+      {
+         ++count;
+      }
+      if ( func.ModuleForwardingMethodToken != 0u )
+      {
+         ++count;
+      }
+      if ( func.LocalScopes.Count > 0 )
+      {
+         ++count;
+      }
+      if ( !String.IsNullOrEmpty( func.IteratorClass ) )
+      {
+         ++count;
+      }
+      if ( count > 0 )
+      {
+         var lenIdx = idx;
+         WriteOEMHeader( array, ref idx, PDBIO.MD_OEM_NAME );
+         array
+            .WriteByteToBytes( ref idx, 4 ) // version
+            .WriteByteToBytes( ref idx, count ) // MD item count
+            .Align4( ref idx ); // 4-byte boundary
+         if ( usedNSCount != null )
+         {
+            // Used namespaces info
+            var startIdx = idx;
+            Int32 mdLenIdx;
+            array
+               .WriteOEMItemKind( ref idx, PDBIO.MD2_USED_NAMESPACES, out mdLenIdx )
+               .WriteUInt16LEToBytes( ref idx, (UInt16) usedNSCount.Count );
+            foreach ( var un in usedNSCount )
+            {
+               array.WriteUInt16LEToBytes( ref idx, (UInt16) un );
+            }
+            // Revisit length
+            array
+               .Align4( ref idx )
+               .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );
+         }
+         if ( func.ForwardingMethodToken != 0u )
+         {
+            // Forwarding method
+            var startIdx = idx;
+            Int32 mdLenIdx;
+            array
+               .WriteOEMItemKind( ref idx, PDBIO.MD2_FORWARDING_METHOD_TOKEN, out mdLenIdx )
+               .WriteUInt32LEToBytes( ref idx, func.ForwardingMethodToken )
+               .Align4( ref idx )
+               .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );// Revisit length
+         }
+         if ( func.ModuleForwardingMethodToken != 0u )
+         {
+            // Forwarding module method
+            var startIdx = idx;
+            Int32 mdLenIdx;
+            array
+               .WriteOEMItemKind( ref idx, PDBIO.MD2_FORWARDING_MODULE_METHOD_TOKEN, out mdLenIdx )
+               .WriteUInt32LEToBytes( ref idx, func.ModuleForwardingMethodToken )
+               .Align4( ref idx )
+               .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx ); // Revisit length
+         }
+         if ( func.LocalScopes.Count > 0 )
+         {
+            var startIdx = idx;
+            Int32 mdLenIdx;
+            array
+               .WriteOEMItemKind( ref idx, PDBIO.MD2_LOCAL_SCOPES, out mdLenIdx )
+               .WriteInt32LEToBytes( ref idx, func.LocalScopes.Count );
+            foreach ( var ls in func.LocalScopes )
+            {
+               array
+                  .WriteInt32LEToBytes( ref idx, ls.Offset ) // IL start offset
+                  .WriteInt32LEToBytes( ref idx, ls.Offset + ls.Length ); // IL end offset
+            }
+            // Revisit length
+            array
+               .Align4( ref idx )
+               .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );
+         }
+         if ( !String.IsNullOrEmpty( func.IteratorClass ) )
+         {
+            // Iterator info
+            var startIdx = idx;
+            Int32 mdLenIdx;
+            array
+               .WriteOEMItemKind( ref idx, PDBIO.MD2_ITERATOR_CLASS, out mdLenIdx )
+               .WriteZeroTerminatedString( ref idx, func.IteratorClass )
+               .Align4( ref idx )
+               .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );
+         }
+
+         // The size of whole OEM block
+         array.WriteBlockLength( lenIdx, idx );
+      }
+   }
+
+   private static Byte[] WriteOEMItemKind( this Byte[] array, ref Int32 idx, Byte mdKind, out Int32 lenIdx )
+   {
+      array
+         .WriteByteToBytes( ref idx, 4 ) // version
+         .WriteByteToBytes( ref idx, mdKind ) // md item kind
+         .Align4( ref idx ); // 4-byte boundary
+      lenIdx = idx; // Save length index
+      idx += 4; // Skip the length
+      return array;
+   }
+
+   private static void WriteOEMHeader( Byte[] array, ref Int32 idx, String oemName )
+   {
+      array
+         .Skip( ref idx, 2 ) // Block byte count
+         .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_OEM ) // OEM sym
+         .WriteGUIDToBytes( ref idx, GUIDs.MSIL_METADATA_GUID ) // MD2 GUID
+         .WriteInt32LEToBytes( ref idx, 0 ) // Type index
+         .WriteZeroTerminatedString( ref idx, oemName, false ); // OEM name
+   }
+
+   private static void WriteENDSym( Byte[] array, ref Int32 idx )
+   {
+      var lenIdx = idx;
+      array
+         .Skip( ref idx, 2 ) // Length
+         .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_END ) // END
+         .Align4( ref idx );
+      // Revisit length
+      array.WriteUInt16LEToBytes( ref lenIdx, (UInt16) ( idx - lenIdx - 2 ) );
+   }
+
+   private static Int32 WriteSymbolRecordStream( this PDBWritingState state )
+   {
+      System.Diagnostics.Debug.Assert( state.SymRecIndex == state.SymRecStream.Length, "The symbol record stream should've been written completely." );
+      var streamIndex = state.DataStreams.Count;
+      state.AddNewIndexedStream(
+         streamIndex,
+         state.SymRecStream.Length,
+         ( array, idx ) => array.BlockCopyFrom( ref idx, state.SymRecStream )
+         );
+      return streamIndex;
+   }
+
+   private static Int32 WriteGlobalSymbolStream(
+      this PDBWritingState state,
+      List<PDBIO.DBISecCon> funcSecContribs
+      )
+   {
+      // Write gSymStream (only if any functions)
+      //if ( state.GlobalSymbolStreamInfo.Count > 0 )
+      //{
+      var streamIndex = state.DataStreams.Count;
+      var gsSymAux = state.GlobalSymbolStreamInfo;
+      var gsSymHashSize = GS_SYM_BUCKETS / 8 + ( gsSymAux.Count + 1 ) * 4;
+      const Int32 GS_SYM_REF_MULTIPLIER = 16; // 16, if both PROCREFs and TOKENREFs are stored
+      state.AddNewIndexedStream(
+         streamIndex,
+         16 // Header size
+         + GS_SYM_REF_MULTIPLIER * funcSecContribs.Count
+         + gsSymHashSize,
+         ( array, idx ) =>
+         {
+            array
+               .WriteUInt32LEToBytes( ref idx, UInt32.MaxValue ) // Sig
+               .WriteUInt32LEToBytes( ref idx, 0xF12F091A ) // Version or hash info?
+               .WriteInt32LEToBytes( ref idx, GS_SYM_REF_MULTIPLIER * funcSecContribs.Count ) // Byte count of references to symRecStream
+               .WriteInt32LEToBytes( ref idx, gsSymHashSize ); // Present buckets bitset + offsets
+
+            // References to symRecStream
+            var gsHashSorted = gsSymAux.Keys.ToArray();
+            Array.Sort( gsHashSorted, Comparer<UInt32>.Default );
+            foreach ( var gsHash in gsHashSorted )
+            {
+               var list = gsSymAux[gsHash];
+
+               // The list items are in ascending order since whenever a new value is added, it is always greater than prev values.
+               // Iterate in descending order (not sure if really required, but it is how the values are written by MS writer)
+               for ( var i = list.Count; i > 0; --i )
+               {
+                  array
+                     .WriteInt32LEToBytes( ref idx, list[i - 1] )
+                     .WriteInt32LEToBytes( ref idx, 1 );
+               }
+            }
+
+            // Hash table present buckets bitset
+            var curGSHashIdx = 0;
+            var tmpUInt32 = 0u;
+            for ( var i = 0; i < GS_SYM_BUCKETS / 32; ++i )
+            {
+               tmpUInt32 = 0u;
+               while ( curGSHashIdx < gsHashSorted.Length && gsHashSorted[curGSHashIdx] < ( i + 1 ) * 32 )
+               {
+                  tmpUInt32 |= ( 1u << (Int32) ( gsHashSorted[curGSHashIdx] % 32 ) );
+                  ++curGSHashIdx;
+               }
+               array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+            }
+
+            // Magic zero
+            array.WriteInt32LEToBytes( ref idx, 0 );
+
+            // Write counts in each bucket
+            tmpUInt32 = 0u;
+            foreach ( var gsHash in gsHashSorted )
+            {
+               array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+               tmpUInt32 += 12u * (UInt32) gsSymAux[gsHash].Count;
+            }
+         } );
+
+      return streamIndex;
+   }
+
    private static Int32 SafeByteCount( this Encoding encoding, String str, Boolean zeroTerminated ) // = true )
    {
       var result = zeroTerminated ? 1 : sizeof( Int32 );
@@ -328,11 +1167,23 @@ public static partial class E_CILPhysical
 
    private static void AddNewIndexedStream( this PDBWritingState state, Int32 streamIndex, Int32 streamSize, Action<Byte[], Int32> write, String streamName = null )
    {
-      var startPage = state.GetCurrentPage();
-      var array = state.Stream.Buffer.SetCapacityAndReturnArray( streamSize );
+      state.AddNewIndexedStreamInPieces( streamIndex, Tuple.Create( streamSize, write ).Singleton(), streamName );
+   }
 
-      write( array, 0 );
-      state.Stream.Stream.Write( array, streamSize );
+   private static void AddNewIndexedStreamInPieces( this PDBWritingState state, Int32 streamIndex, IEnumerable<TWriteAction> writes, String streamName = null )
+   {
+      var startPage = state.GetCurrentPage();
+      var streamSize = 0;
+      foreach ( var write in writes )
+      {
+         var curSize = write.Item1;
+         var array = state.Stream.Buffer.SetCapacityAndReturnArray( curSize );
+
+         write.Item2( array, 0 );
+         state.Stream.Stream.Write( array, curSize );
+
+         streamSize += curSize;
+      }
 
       var dataStreams = state.DataStreams;
       var count = dataStreams.Count;
@@ -356,6 +1207,8 @@ public static partial class E_CILPhysical
       }
    }
 
+
+
    private static Int32 GetCurrentPage( this PDBWritingState state )
    {
       return ( (Int32) state.Stream.Stream.Position ) / state.PageSize;
@@ -376,6 +1229,147 @@ public static partial class E_CILPhysical
       state.SkipToNextPage();
       return Enumerable.Range( startPage, state.GetCurrentPage() - startPage ).ToArray();
    }
+
+   private const Int32 SLOT_FIXED_SIZE = 16;
+   private const Int32 SCOPE_FIXED_SIZE = 18;
+   private const Int32 FIXED_OEM_SIZE = GUID_SIZE + 8; // Block len + sym + GUID + type index
+   private const Int32 INT_SIZE = sizeof( Int32 );
+   private const Int32 SHORT_SIZE = sizeof( Int16 );
+
+   private static Int32 CalculateSymbolByteCount( this PDBFunction func, out List<Int32> usedNSCount )
+   {
+      // Function byte length begins after the name
+      usedNSCount = new List<Int32>();
+      var result = func.CalculateByteCountFromLists( usedNSCount )
+         + CalculateByteCountAsyncMethodInfo( func.AsyncMethodInfo ) // Async OEM
+         + CalculateByteCountMD2Info( func, ref usedNSCount ); // MD2 OEM
+      Align4( ref result ); // 4-byte boundary
+      return result; // No END SYM
+   }
+
+   private static Int32 CalculateByteCountAsyncMethodInfo( PDBAsyncMethodInfo asyncInfo )
+   {
+      // Async info OEM is needed
+      var result = asyncInfo == null ? 0 : ( FIXED_OEM_SIZE // Required OEM info
+         + PDBIO.UTF16.GetByteCount( PDBIO.ASYNC_METHOD_OEM_NAME ) + 2 // OEM name
+         + INT_SIZE * 3 // Kickoff method token, catch handler offset, sync point count
+         + asyncInfo.SynchronizationPoints.Count * INT_SIZE * 3 ); // For each sync point, sync offset, continuation method token, continuation offset
+      Align4( ref result );
+      return result;
+   }
+
+   private static Int32 CalculateByteCountMD2Info( PDBFunction func, ref List<Int32> usedNSCount )
+   {
+      var size = 0;
+      var hasUsedNS = usedNSCount.Any( c => c > 0 );
+      if ( !hasUsedNS )
+      {
+         usedNSCount = null;
+      }
+      if ( !String.IsNullOrEmpty( func.IteratorClass )
+           || func.ForwardingMethodToken != 0u
+           || func.ModuleForwardingMethodToken != 0u
+           || func.LocalScopes.Count > 0
+           || hasUsedNS
+         )
+      {
+         // MD2 OEM is needed
+         size += FIXED_OEM_SIZE // Required OEM info
+            + PDBIO.UTF16.GetByteCount( PDBIO.MD_OEM_NAME ) + 2 // OEM name
+            + 2; // Version byte, OEM MD2 infos count
+         Align4( ref size );
+         if ( hasUsedNS )
+         {
+            size += 2; // version + MD2 kind
+            Align4( ref size ); // 4-byte boundary
+            size += INT_SIZE // OEM entry byte size
+               + SHORT_SIZE // Used namespace count
+               + SHORT_SIZE * usedNSCount.Count; // Used namespace idx
+            Align4( ref size );
+         }
+         if ( func.ForwardingMethodToken != 0u )
+         {
+            size += 2; // version + MD2 kind
+            Align4( ref size ); // 4-byte boundary
+            size += INT_SIZE // OEM entry byte size
+               + INT_SIZE; // Token
+         }
+         if ( func.ModuleForwardingMethodToken != 0u )
+         {
+            size += 2; // version + MD2 kind
+            Align4( ref size ); // 4-byte boundary
+            size += INT_SIZE // OEM entry byte size
+               + INT_SIZE; // Token
+         }
+         if ( func.LocalScopes.Count > 0 )
+         {
+            size += 2; // version + MD2 kind
+            Align4( ref size ); // 4-byte boundary
+            size += INT_SIZE // OEM entry byte size
+               + INT_SIZE // Local scope count
+               + INT_SIZE * 2 * func.LocalScopes.Count; // Local scope offset and length
+            Align4( ref size );
+         }
+         if ( !String.IsNullOrEmpty( func.IteratorClass ) )
+         {
+            size += 2; // version + MD2 kind
+            Align4( ref size ); // 4-byte boundary
+            size += INT_SIZE // OEM entry byte size
+               + PDBIO.NameEncoding.GetByteCount( func.IteratorClass ); // Iterator class name
+            Align4( ref size );
+         }
+
+      }
+      return size;
+   }
+
+   private static Int32 CalculateByteCount( this PDBScope scope, List<Int32> usedNSCount )
+   {
+      var result = SCOPE_FIXED_SIZE + 4; // BlockLen + SYM
+      result += PDBIO.NameEncoding.SafeByteCount( scope.Name, true );
+      Align4( ref result );
+      result += scope.CalculateByteCountFromLists( usedNSCount );
+      Align4( ref result );
+      return result + 4; // END SYM
+   }
+
+   private static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope )
+   {
+      return scope.CalculateByteCountFromLists( null );
+   }
+
+   private static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope, List<Int32> usedNSCount )
+   {
+      if ( usedNSCount != null )
+      {
+         usedNSCount.Add( scope.UsedNamespaces.Count );
+      }
+      var retVal = scope.Slots.Aggregate( 0, ( cur, slot ) =>
+         {
+            var result = cur + 4 + SLOT_FIXED_SIZE + PDBIO.NameEncoding.SafeByteCount( slot.Name, true ); // BlockLen + SYM
+            Align4( ref result );
+            return result;
+         } )
+         + scope.UsedNamespaces.Aggregate( 0, ( cur, un ) =>
+         {
+            var result = cur + 4 + PDBIO.NameEncoding.SafeByteCount( un, true ); // BlockLen + SYM
+            Align4( ref result );
+            return result;
+         } )
+         + scope.Scopes.Aggregate( 0, ( cur, scp ) => cur + scp.CalculateByteCount( usedNSCount ) );
+      return retVal;
+   }
+
+   private static void Align4( ref Int32 number )
+   {
+      number = number.RoundUpI32( 4 );
+   }
+
+   private static void WriteBlockLength( this Byte[] array, Int32 lenIdx, Int32 curIdx )
+   {
+      array.WriteUInt16LEToBytes( ref lenIdx, (UInt16) ( curIdx - lenIdx - 2 ) );
+   }
+
 }
 
 
@@ -1650,62 +2644,7 @@ public static partial class E_CILPhysical
 //         return array;
 //      }
 
-//      // This is algorithm used to compute hashes of names in gsSymStream.
-//      // Ported from C to C# and modified a bit, original is available at http://code.google.com/p/pdbparser/source/browse/trunk/symeng/misc.cpp , HashPbCb function.
-//      private static UInt32 ComputeHash( Byte[] pb, Int32 startIdx, Int32 count, UInt32 ulMod )
-//      {
-//         var ulHash = 0u;
 
-//         var cl = count >> 2;
-//         // Create new UInt32 array and fill it, play with unsafe blocks only if this becomes a performance problem.
-//         var pul = new UInt32[cl];
-//         var tmp = 0;
-//         while ( tmp < pul.Length )
-//         {
-//            pul[tmp] = pb.ReadUInt32LEFromBytes( ref startIdx );
-//            ++tmp;
-//         }
-
-//         // Have to unwind switch- and do-while-stataments that were compact in C.
-//         var dcul = cl & 7;
-//         switch ( dcul )
-//         {
-//            case 7: ulHash ^= pul[6]; ulHash ^= pul[5]; ulHash ^= pul[4]; ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
-//            case 6: ulHash ^= pul[5]; ulHash ^= pul[4]; ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
-//            case 5: ulHash ^= pul[4]; ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
-//            case 4: ulHash ^= pul[3]; ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
-//            case 3: ulHash ^= pul[2]; ulHash ^= pul[1]; ulHash ^= pul[0]; break;
-//            case 2: ulHash ^= pul[1]; ulHash ^= pul[0]; break;
-//            case 1: ulHash ^= pul[0]; break;
-//         }
-//         tmp = dcul;
-//         while ( tmp < pul.Length )
-//         {
-//            ulHash ^= pul[7];
-//            ulHash ^= pul[6];
-//            ulHash ^= pul[5];
-//            ulHash ^= pul[4];
-//            ulHash ^= pul[3];
-//            ulHash ^= pul[2];
-//            ulHash ^= pul[1];
-//            ulHash ^= pul[0];
-//            tmp += 8;
-//         }
-
-//         if ( ( count & 2 ) != 0 )
-//         {
-//            ulHash ^= pb.ReadUInt16LEFromBytes( ref startIdx );
-//         }
-//         if ( ( count & 1 ) != 0 )
-//         {
-//            ulHash ^= pb[startIdx];
-//         }
-
-//         ulHash |= TO_LOWER_MASK;
-//         ulHash ^= ( ulHash >> 11 );
-
-//         return ( ulHash ^ ( ulHash >> 16 ) ) % ulMod;
-//      }
 
 //      private static void AddToGSSym( IDictionary<UInt32, Object> gsSymAux, Byte[] symRecStream, Int32 symRecStart, Int32 symRecEnd, Int32 symRecRef )
 //      {

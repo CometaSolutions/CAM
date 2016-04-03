@@ -26,27 +26,28 @@ namespace CILAssemblyManipulator.Physical.PDB
 {
    public static partial class PDBIO
    {
-      private const UInt16 SYM_GLOBAL_MANAGED_FUNC = 0x112a;
-      private const UInt16 SYM_LOCAL_MANAGED_FUNC = 0x112b;
-      private const UInt16 SYM_MANAGED_SLOT = 0x1120;
-      private const UInt16 SYM_MANAGED_CONSTANT = 0x112d;
-      private const UInt16 SYM_USED_NS = 0x1124;
-      private const UInt16 SYM_SCOPE = 0x1103;
-      private const UInt16 SYM_END = 0x0006;
-      private const UInt16 SYM_OEM = 0x0404;
-      private const Int32 SYM_DEBUG_SOURCE_INFO = 0xF4;
-      private const Int32 SYM_DEBUG_LINE_INFO = 0xF2;
+      internal const UInt16 SYM_GLOBAL_MANAGED_FUNC = 0x112a;
+      internal const UInt16 SYM_LOCAL_MANAGED_FUNC = 0x112b;
+      internal const UInt16 SYM_MANAGED_SLOT = 0x1120;
+      internal const UInt16 SYM_MANAGED_CONSTANT = 0x112d;
+      internal const UInt16 SYM_USED_NS = 0x1124;
+      internal const UInt16 SYM_SCOPE = 0x1103;
+      internal const UInt16 SYM_END = 0x0006;
+      internal const UInt16 SYM_OEM = 0x0404;
+      internal const Int32 SYM_DEBUG_SOURCE_INFO = 0xF4;
+      internal const Int32 SYM_DEBUG_LINE_INFO = 0xF2;
 
-      private const Byte MD2_USED_NAMESPACES = 0;
-      private const Byte MD2_FORWARDING_METHOD_TOKEN = 1;
-      private const Byte MD2_FORWARDING_MODULE_METHOD_TOKEN = 2;
-      private const Byte MD2_LOCAL_SCOPES = 3;
-      private const Byte MD2_ITERATOR_CLASS = 4;
-      private const Byte MD2_YET_UNKNOWN = 6;
-      private const Byte MD2_YET_UNKNOWN_2 = 7;
+      internal const Byte MD2_USED_NAMESPACES = 0;
+      internal const Byte MD2_FORWARDING_METHOD_TOKEN = 1;
+      internal const Byte MD2_FORWARDING_MODULE_METHOD_TOKEN = 2;
+      internal const Byte MD2_LOCAL_SCOPES = 3;
+      internal const Byte MD2_ITERATOR_CLASS = 4;
+      internal const Byte MD2_YET_UNKNOWN = 5;
+      internal const Byte MD2_YET_UNKNOWN_2 = 6;
+      internal const Byte MD2_YET_UNKNOWN_3 = 7;
 
-      private const Int32 LINE_MULTIPLIER = 8; // Offset (int32), flags (uint32)
-      private const Int32 COLUMN_MULTIPLIER = 4; // Column start (uint16), column end (uint16)
+      internal const Int32 LINE_MULTIPLIER = 8; // Offset (int32), flags (uint32)
+      internal const Int32 COLUMN_MULTIPLIER = 4; // Column start (uint16), column end (uint16)
 
       private const Int32 INT_SIZE = sizeof( Int32 );
       private const Int32 SHORT_SIZE = sizeof( Int16 );
@@ -70,7 +71,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
       }
 
-      private sealed class DBIModuleInfo
+      internal sealed class DBIModuleInfo
       {
          internal Int32 opened;
          internal DBISecCon section;
@@ -140,7 +141,7 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       }
 
-      private sealed class DBISecCon
+      internal sealed class DBISecCon
       {
          internal UInt16 section;
          internal UInt32 offset;
@@ -186,7 +187,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
       }
 
-      private sealed class DBIHeader
+      internal sealed class DBIHeader
       {
          internal Int32 signature;
          internal Int32 version;
@@ -271,7 +272,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
       }
 
-      private sealed class DBIDebugHeader
+      internal sealed class DBIDebugHeader
       {
          internal UInt16 snFPO;
          internal UInt16 snException;
@@ -332,14 +333,14 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
       }
 
-      private struct PDBFunctionInfo
+      internal sealed class PDBFunctionInfo
       {
          internal readonly PDBFunction function;
-         internal readonly Int32 address;
+         internal readonly UInt32 address;
          internal readonly UInt16 segment;
-         internal readonly Int32 funcPointer;
+         internal readonly UInt32 funcPointer;
 
-         internal PDBFunctionInfo( PDBFunction func, Int32 addr, UInt16 seg, Int32 funcPtr )
+         internal PDBFunctionInfo( PDBFunction func, UInt32 addr, UInt16 seg, UInt32 funcPtr )
          {
             this.function = func;
             this.address = addr;
@@ -353,7 +354,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
       }
 
-      private static Byte[] WriteZeroTerminatedString( this Byte[] array, ref Int32 idx, String str, Boolean useUTF8 = true )
+      internal static Byte[] WriteZeroTerminatedString( this Byte[] array, ref Int32 idx, String str, Boolean useUTF8 = true )
       {
          array.WriteStringToBytes( ref idx, useUTF8 ? NameEncoding : UTF16, str );
          array.WriteByteToBytes( ref idx, 0 );
@@ -364,7 +365,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          return array;
       }
 
-      private static Byte[] Align4( this Byte[] array, ref Int32 idx )
+      internal static Byte[] Align4( this Byte[] array, ref Int32 idx )
       {
          while ( idx % 4 != 0 )
          {

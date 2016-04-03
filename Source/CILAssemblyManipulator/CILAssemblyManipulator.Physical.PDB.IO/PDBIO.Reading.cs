@@ -44,9 +44,9 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       private const String SOURCE_SERVER_STREAM_NAME = "srcsrv";
 
-      private const String MD_OEM_NAME = "MD2";
-      private const String ASYNC_METHOD_OEM_NAME = "asyncMethodInfo";
-      private const String ENC_OEM_NAME = "ENC";
+      internal const String MD_OEM_NAME = "MD2";
+      internal const String ASYNC_METHOD_OEM_NAME = "asyncMethodInfo";
+      internal const String ENC_OEM_NAME = "ENC";
 
       /// <summary>
       /// Reads the <see cref="PDBInstance"/> from the given <see cref="Stream"/>.
@@ -193,24 +193,24 @@ namespace CILAssemblyManipulator.Physical.PDB
          //}
          //var srcHdrStr = String.Join( "\n", srcHdrStrs.Select( s => String.Join( "\n", s ) ) );
 
-         var kekke = streamNameIndices["/src/headerblock"];
-         streamHelper.ReadPagedData( pageSize, dataStreamPages[kekke], dataStreamSizes[kekke], array );
-         var hashBucketCount = array.ReadInt32LEFromBytesNoRef( 68 );
-         var entries = new List<Int32>( hashBucketCount );
-         for ( var i = 84; i < dataStreamSizes[kekke]; i += 44 )
-         {
-            entries.Add( array.ReadInt32LEFromBytesNoRef( i ) );
-         }
+         //var kekke = streamNameIndices["/src/headerblock"];
+         //streamHelper.ReadPagedData( pageSize, dataStreamPages[kekke], dataStreamSizes[kekke], array );
+         //var hashBucketCount = array.ReadInt32LEFromBytesNoRef( 68 );
+         //var entries = new List<Int32>( hashBucketCount );
+         //for ( var i = 84; i < dataStreamSizes[kekke]; i += 44 )
+         //{
+         //   entries.Add( array.ReadInt32LEFromBytesNoRef( i ) );
+         //}
 
-         var hashBucketIndices = new HashSet<Int32>();
-         foreach ( var entry in entries )
-         {
-            var hashIdx = entry % hashBucketCount;
-            if ( !hashBucketIndices.Add( hashIdx ) )
-            {
+         //var hashBucketIndices = new HashSet<Int32>();
+         //foreach ( var entry in entries )
+         //{
+         //   var hashIdx = entry % hashBucketCount;
+         //   if ( !hashBucketIndices.Add( hashIdx ) )
+         //   {
 
-            }
-         }
+         //   }
+         //}
 
          // TEMP END
          // Read modules.
@@ -360,10 +360,10 @@ namespace CILAssemblyManipulator.Physical.PDB
             {
                case SYM_GLOBAL_MANAGED_FUNC:
                case SYM_LOCAL_MANAGED_FUNC:
-                  Int32 addr; UInt16 seg;
+                  UInt32 addr; UInt16 seg;
                   var func = NewPDBFunction( moduleInfo.moduleName, array, ref idx, blockEndIdx, out addr, out seg );
                   module.Functions.Add( func );
-                  thisFuncs.Add( new PDBFunctionInfo( func, addr, seg, -1 ) ); // Function pointer is not used during reading
+                  thisFuncs.Add( new PDBFunctionInfo( func, addr, seg, 0u ) ); // Function pointer is not used during reading
                   break;
                default:
 #if DEBUG
@@ -456,12 +456,12 @@ namespace CILAssemblyManipulator.Physical.PDB
                   break;
                case SYM_DEBUG_LINE_INFO:
 
-                  var addr = array.ReadInt32LEFromBytes( ref idx );
+                  var addr = array.ReadUInt32LEFromBytes( ref idx );
                   var section = array.ReadUInt16LEFromBytes( ref idx );
                   var flags = array.ReadUInt16LEFromBytes( ref idx );
                   /*var cod = */
                   array.ReadUInt32LEFromBytes( ref idx );
-                  var funcIdx = functions.BinarySearchDeferredEqualityDetection( new PDBFunctionInfo( null, addr, section, -1 ), PDB_FUNC_ADDRESS_AND_TOKEN_BASED );
+                  var funcIdx = functions.BinarySearchDeferredEqualityDetection( new PDBFunctionInfo( null, addr, section, 0u ), PDB_FUNC_ADDRESS_AND_TOKEN_BASED );
                   if ( funcIdx >= 0 )
                   {
                      // Skip the functions that already have lines
@@ -656,18 +656,18 @@ namespace CILAssemblyManipulator.Physical.PDB
          };
       }
 
-      private static PDBScope NewPDBScope( Byte[] array, ref Int32 idx, Int32 funcOffset, Int32 listsStartIdx, out Int32 address, out UInt16 segment, out Int32 end )
+      private static PDBScope NewPDBScope( Byte[] array, ref Int32 idx, UInt32 funcOffset, Int32 listsStartIdx, out UInt32 address, out UInt16 segment, out Int32 end )
       {
          /*var parent = */
          array.ReadInt32LEFromBytes( ref idx );
          end = array.ReadInt32LEFromBytes( ref idx );
          var length = array.ReadInt32LEFromBytes( ref idx );
-         address = array.ReadInt32LEFromBytes( ref idx );
+         address = array.ReadUInt32LEFromBytes( ref idx );
          segment = array.ReadUInt16LEFromBytes( ref idx );
          var result = new PDBScope()
          {
             Name = array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding ),
-            Offset = address - funcOffset,
+            Offset = (Int32) ( address - funcOffset ),
             Length = length
          };
 
@@ -676,7 +676,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          return result;
       }
 
-      private static PDBFunction NewPDBFunction( String moduleName, Byte[] array, ref Int32 idx, Int32 listsStartIdx, out Int32 address, out UInt16 segment )
+      private static PDBFunction NewPDBFunction( String moduleName, Byte[] array, ref Int32 idx, Int32 listsStartIdx, out UInt32 address, out UInt16 segment )
       {
          var result = new PDBFunction();
 
@@ -691,7 +691,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          /*var debugEnd = */
          array.ReadInt32LEFromBytes( ref idx );
          result.Token = array.ReadUInt32LEFromBytes( ref idx );
-         address = array.ReadInt32LEFromBytes( ref idx );
+         address = array.ReadUInt32LEFromBytes( ref idx );
          segment = array.ReadUInt16LEFromBytes( ref idx );
          /*var flags = */
          array.ReadByteFromBytes( ref idx );
@@ -712,7 +712,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          return result;
       }
 
-      private static void ReadListsFromBytes( PDBScopeOrFunction scope, Byte[] array, ref Int32 idx, Int32 max, Int32 funcOffset )
+      private static void ReadListsFromBytes( PDBScopeOrFunction scope, Byte[] array, ref Int32 idx, Int32 max, UInt32 funcOffset )
       {
          UInt16 blockLen;
          while ( idx < max )
@@ -739,7 +739,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                   }
                   break;
                case SYM_SCOPE:
-                  Int32 scopeAddress; UInt16 scopeSegment;
+                  UInt32 scopeAddress; UInt16 scopeSegment;
                   Int32 end;
                   scope.Scopes.Add( NewPDBScope( array, ref idx, funcOffset, blockEndIdx, out scopeAddress, out scopeSegment, out end ) );
                   idx = end;
@@ -844,7 +844,12 @@ namespace CILAssemblyManipulator.Physical.PDB
                   // Could set the capacities of the using lists of each slot, but at this point the slots may or may not have been created...
                   // So just skip.
 
-                  //var uSize = array.ReadUInt16LEFromBytes( ref idx );
+                  var uSize = array.ReadUInt16LEFromBytes( ref idx );
+                  var arrrr = new UInt16[uSize];
+                  for ( var i = 0; i < uSize; ++i )
+                  {
+                     arrrr[i] = array.ReadUInt16LEFromBytes( ref idx );
+                  }
                   //func.UsingCounts.Capacity = uSize;
                   //for ( UInt16 i = 0; i < uSize; ++i )
                   //{
