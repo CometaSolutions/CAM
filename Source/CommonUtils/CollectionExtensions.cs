@@ -878,20 +878,21 @@ public static partial class E_CommonUtils
    /// <param name="indexExtractor">The callback to extract index from element.</param>
    /// <param name="overwriteStrategy">The <see cref="CollectionOverwriteStrategy"/> which will tell how to behave when two or more elements will be assigned the same array index.</param>
    /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <param name="settingFailed">The optional callback to invoke when setting item to array was not possible (e.g. array creation callback returned <c>null</c>).</param>
    /// <returns>The created array.</returns>
    /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
    /// <exception cref="InvalidOperationException">If <paramref name="overwriteStrategy"/> is <see cref="CollectionOverwriteStrategy.Throw" />, and two elements will get assigned the same array index.</exception>
    /// <exception cref="ArgumentException">If <paramref name="overwriteStrategy"/> is other than values in <see cref="CollectionOverwriteStrategy"/> enumeration.</exception>
-   public static T[] ToArray_SelfIndexing<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, CollectionOverwriteStrategy overwriteStrategy, Func<Int32, T[]> arrayFactory = null )
+   public static T[] ToArray_SelfIndexing<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, CollectionOverwriteStrategy overwriteStrategy, Func<Int32, T[]> arrayFactory = null, Action<T> settingFailed = null )
    {
       switch ( overwriteStrategy )
       {
          case CollectionOverwriteStrategy.Preserve:
-            return source.ToArray_SelfIndexing_Preserve( indexExtractor, arrayFactory );
+            return source.ToArray_SelfIndexing_Preserve( indexExtractor, arrayFactory, settingFailed );
          case CollectionOverwriteStrategy.Overwrite:
-            return source.ToArray_SelfIndexing_Overwrite( indexExtractor, arrayFactory );
+            return source.ToArray_SelfIndexing_Overwrite( indexExtractor, arrayFactory, settingFailed );
          case CollectionOverwriteStrategy.Throw:
-            return source.ToArray_SelfIndexing_Throw( indexExtractor, arrayFactory );
+            return source.ToArray_SelfIndexing_Throw( indexExtractor, arrayFactory, settingFailed );
          default:
             throw new InvalidOperationException( "Unrecognized dictionary overwrite strategy: " + overwriteStrategy + "." );
       }
@@ -905,9 +906,10 @@ public static partial class E_CommonUtils
    /// <param name="source">The source enumerable.</param>
    /// <param name="indexExtractor">The callback to extract index from element.</param>
    /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <param name="settingFailed">The optional callback to invoke when setting item to array was not possible (e.g. array creation callback returned <c>null</c>).</param>
    /// <returns>The created array.</returns>
    /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
-   public static T[] ToArray_SelfIndexing_Overwrite<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null )
+   public static T[] ToArray_SelfIndexing_Overwrite<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null, Action<T> settingFailed = null )
    {
       ValidateToArrayParams( source, indexExtractor, ref arrayFactory );
 
@@ -915,7 +917,7 @@ public static partial class E_CommonUtils
       foreach ( var item in source )
       {
          var index = indexExtractor( item );
-         CheckArrayAndSet( ref array, index, arrayFactory, item );
+         CheckArrayAndSet( ref array, index, arrayFactory, item, settingFailed );
       }
 
       return array ?? Empty<T>.Array;
@@ -929,9 +931,10 @@ public static partial class E_CommonUtils
    /// <param name="source">The source enumerable.</param>
    /// <param name="indexExtractor">The callback to extract index from element.</param>
    /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <param name="settingFailed">The optional callback to invoke when setting item to array was not possible (e.g. array creation callback returned <c>null</c>).</param>
    /// <returns>The created array.</returns>
    /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
-   public static T[] ToArray_SelfIndexing_Preserve<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null )
+   public static T[] ToArray_SelfIndexing_Preserve<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null, Action<T> settingFailed = null )
    {
       ValidateToArrayParams( source, indexExtractor, ref arrayFactory );
 
@@ -942,7 +945,7 @@ public static partial class E_CommonUtils
          var index = indexExtractor( item );
          if ( indices.Add( index ) )
          {
-            CheckArrayAndSet( ref array, index, arrayFactory, item );
+            CheckArrayAndSet( ref array, index, arrayFactory, item, settingFailed );
          }
       }
       return array ?? Empty<T>.Array;
@@ -956,10 +959,11 @@ public static partial class E_CommonUtils
    /// <param name="source">The source enumerable.</param>
    /// <param name="indexExtractor">The callback to extract index from element.</param>
    /// <param name="arrayFactory">The optional array creation and resize callback.</param>
+   /// <param name="settingFailed">The optional callback to invoke when setting item to array was not possible (e.g. array creation callback returned <c>null</c>).</param>
    /// <returns>The created array.</returns>
    /// <exception cref="ArgumentNullException">If <paramref name="source"/> or <paramref name="indexExtractor"/> are <c>null</c>.</exception>
    /// <exception cref="InvalidOperationException">If two elements will get assigned the same array index.</exception>
-   public static T[] ToArray_SelfIndexing_Throw<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null )
+   public static T[] ToArray_SelfIndexing_Throw<T>( this IEnumerable<T> source, Func<T, Int32> indexExtractor, Func<Int32, T[]> arrayFactory = null, Action<T> settingFailed = null )
    {
       ValidateToArrayParams( source, indexExtractor, ref arrayFactory );
 
@@ -970,7 +974,7 @@ public static partial class E_CommonUtils
          var index = indexExtractor( item );
          if ( indices.Add( index ) )
          {
-            CheckArrayAndSet( ref array, index, arrayFactory, item );
+            CheckArrayAndSet( ref array, index, arrayFactory, item, settingFailed );
          }
          else
          {
@@ -980,18 +984,29 @@ public static partial class E_CommonUtils
       return array ?? Empty<T>.Array;
    }
 
-   private static void CheckArrayAndSet<T>( ref T[] array, Int32 index, Func<Int32, T[]> arrayFactory, T item )
+   private static void CheckArrayAndSet<T>( ref T[] array, Int32 index, Func<Int32, T[]> arrayFactory, T item, Action<T> settingFailed )
    {
       if ( array == null || index >= array.Length )
       {
          var newArray = arrayFactory( index + 1 );
-         if ( array != null )
+         if ( newArray != null )
          {
-            Array.Copy( array, newArray, array.Length );
+            if ( array != null )
+            {
+               Array.Copy( array, newArray, array.Length );
+            }
+            array = newArray;
          }
-         array = newArray;
       }
-      array[index] = item;
+
+      if ( array != null && index < array.Length )
+      {
+         array[index] = item;
+      }
+      else
+      {
+         settingFailed?.Invoke( item );
+      }
    }
 
    private static void ValidateToArrayParams<T>( IEnumerable<T> source, Func<T, Int32> indexExtractor, ref Func<Int32, T[]> arrayFactory )

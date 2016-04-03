@@ -890,6 +890,10 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       public static readonly OpCode Initblk;
       /// <summary>
+      /// See <see cref="F:System.Reflection.Emit.OpCodes.No"/>.
+      /// </summary>
+      public static readonly OpCode No_;
+      /// <summary>
       /// See <see cref="F:System.Reflection.Emit.OpCodes.Rethrow"/>
       /// </summary>
       public static readonly OpCode Rethrow;
@@ -1126,8 +1130,8 @@ namespace CILAssemblyManipulator.Physical
          Sub_Ovf = new OpCode( OpCodeID.Sub_Ovf, Pop1_pop1, Push1, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Sub_Ovf_Un = new OpCode( OpCodeID.Sub_Ovf_Un, Pop1_pop1, Push1, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Endfinally = new OpCode( OpCodeID.Endfinally, Pop0, Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Return, true );
-         Leave = new OpCode( OpCodeID.Leave, Pop0, Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true, OpCodeID.Leave_S );
-         Leave_S = new OpCode( OpCodeID.Leave_S, Pop0, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true, OpCodeID.Leave );
+         Leave = new OpCode( OpCodeID.Leave, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Leave, DynamicStackChanges.Varpop_Leave_Count ), Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true, OpCodeID.Leave_S );
+         Leave_S = new OpCode( OpCodeID.Leave_S, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Leave, DynamicStackChanges.Varpop_Leave_Count ), Push0, OperandType.ShortInlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, true, OpCodeID.Leave );
          Stind_I = new OpCode( OpCodeID.Stind_I, Popi_popi, Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Conv_U = new OpCode( OpCodeID.Conv_U, Pop1, Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Arglist = new OpCode( OpCodeID.Arglist, Pop0, Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
@@ -1153,6 +1157,7 @@ namespace CILAssemblyManipulator.Physical
          Constrained_ = new OpCode( OpCodeID.Constrained_, Pop0, Push0, OperandType.InlineType, OpCodeType.Prefix, FlowControl.Meta, false );
          Cpblk = new OpCode( OpCodeID.Cpblk, Popi_popi_popi, Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
          Initblk = new OpCode( OpCodeID.Initblk, Popi_popi_popi, Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
+         No_ = new OpCode( OpCodeID.No_, Pop0, Push0, OperandType.ShortInlineI, OpCodeType.Prefix, FlowControl.Next, false );
          Rethrow = new OpCode( OpCodeID.Rethrow, Pop0, Push0, OperandType.InlineNone, OpCodeType.Objmodel, FlowControl.Throw, true );
          Sizeof = new OpCode( OpCodeID.Sizeof, Pop0, Pushi, OperandType.InlineType, OpCodeType.Primitive, FlowControl.Next, false );
          Refanytype = new OpCode( OpCodeID.Refanytype, Pop1, Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next, false );
@@ -1161,18 +1166,18 @@ namespace CILAssemblyManipulator.Physical
 
       private static class DynamicStackChanges
       {
-         internal static IEnumerable<StackValueKind> Varpop_Ret( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static IEnumerable<StackValueKind> Varpop_Ret( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
          {
             return GetStackChangeForReturnOf( method?.Signature );
          }
 
-         internal static IEnumerable<StackValueKind> Varpop_Newobj( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static IEnumerable<StackValueKind> Varpop_Newobj( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
          {
             AbstractMethodSignature signature;
             return Varpop_Newobj( md, method, codeInfo, out signature );
          }
 
-         internal static IEnumerable<StackValueKind> Varpop_CallOrCallvirt( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static IEnumerable<StackValueKind> Varpop_CallOrCallvirt( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
          {
             AbstractMethodSignature signature;
             var paramz = Varpop_Newobj( md, method, codeInfo, out signature );
@@ -1192,10 +1197,11 @@ namespace CILAssemblyManipulator.Physical
             }
          }
 
-         internal static IEnumerable<StackValueKind> Varpop_Calli( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static IEnumerable<StackValueKind> Varpop_Calli( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
          {
-            var values = Varpop_CallOrCallvirt( md, method, codeInfo );
+            var values = Varpop_CallOrCallvirt( md, method, codeInfo, currentStack );
 
+            // Calli takes function pointer in addition to other args
             // TODO Is function pointer value or ref?
             yield return StackValueKind.Value;
 
@@ -1205,23 +1211,29 @@ namespace CILAssemblyManipulator.Physical
             }
          }
 
-         internal static IEnumerable<StackValueKind> Varpush_Any( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static IEnumerable<StackValueKind> Varpop_Leave( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
+         {
+            // Leave instruction pops all stack values.
+            return currentStack;
+         }
+
+         internal static IEnumerable<StackValueKind> Varpush_Any( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
          {
             return GetStackChangeForReturnOf( GetSignatureFromOpCodeInfo( md, codeInfo ) );
          }
 
-         internal static Int32 Varpop_Ret_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static Int32 Varpop_Ret_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack )
          {
             return GetStackChangeForReturnOf_Count( method?.Signature );
          }
 
-         internal static Int32 Varpop_Newobj_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static Int32 Varpop_Newobj_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack )
          {
             AbstractMethodSignature signature;
             return Varpop_Newobj_Count( md, method, codeInfo, out signature );
          }
 
-         internal static Int32 Varpop_CallOrCallvirt_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static Int32 Varpop_CallOrCallvirt_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack )
          {
             AbstractMethodSignature signature;
             var count = Varpop_Newobj_Count( md, method, codeInfo, out signature );
@@ -1232,12 +1244,17 @@ namespace CILAssemblyManipulator.Physical
             return count;
          }
 
-         internal static Int32 Varpop_Calli_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static Int32 Varpop_Calli_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack )
          {
-            return Varpop_CallOrCallvirt_Count( md, method, codeInfo ) + 1;
+            return Varpop_CallOrCallvirt_Count( md, method, codeInfo, currentStack ) + 1;
          }
 
-         internal static Int32 Varpush_Any_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+         internal static Int32 Varpop_Leave_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack )
+         {
+            return currentStack;
+         }
+
+         internal static Int32 Varpush_Any_Count( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack )
          {
             return GetStackChangeForReturnOf_Count( GetSignatureFromOpCodeInfo( md, codeInfo ) );
          }
@@ -1397,9 +1414,9 @@ namespace CILAssemblyManipulator.Physical
 
 
 
-   internal delegate IEnumerable<StackValueKind> DynamicStackChangeDelegate( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo );
+   internal delegate IEnumerable<StackValueKind> DynamicStackChangeDelegate( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack );
 
-   internal delegate Int32 DynamicStackChangeSizeDelegate( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo );
+   internal delegate Int32 DynamicStackChangeSizeDelegate( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack );
 
    /// <summary>
    /// <para>This class contains all required information about a single CIL op code, except for information related to serialization.
@@ -1413,8 +1430,8 @@ namespace CILAssemblyManipulator.Physical
    {
       private static class NameCache
       {
-         // Currently 218 op codes.
-         internal static readonly String[] Cache = new String[218];
+         // Currently 219 op codes.
+         internal static readonly String[] Cache = new String[219];
       }
 
       private const UInt64 OPERAND_TYPE_MASK = 0x1FU;
@@ -1444,24 +1461,13 @@ namespace CILAssemblyManipulator.Physical
       // Bit 20: Unconditionally ends bulk of code (1 = true, 0 = false)
       // Bits 21-24 (4bits): Operand size in bytes
       // Bits 25-32 (8bits): Other form (short or long) for branch-instruction
+      // TODO this is probably no longer needed, since OpCode is now class, and OpCode:s are no longer stored directly by OpCodeInfo?
       private readonly UInt64 _state;
 
       private readonly ArrayQuery<StackValueKind> _staticPop;
       private readonly ArrayQuery<StackValueKind> _staticPush;
       private readonly TDynamicStackChangeParameter _dynamicPop;
       private readonly TDynamicStackChangeParameter _dynamicPush;
-
-      // Int32 staticPop
-      // Int32 staticPush
-
-      // Func<CILMetaData, MethodDefinition, Int32> dynamicPop
-      // Int32 staticPush
-
-      // Int32 staticPop
-      // Func<CILMetaData, MethodDefinition, Int32> dynamicPush
-
-      // Func<CILMetaData, MethodDefinition, Int32> dynamicPop
-      // Func<CILMetaData, MethodDefinition, Int32> dynamicPush
 
       internal OpCode(
          OpCodeID codeID,
@@ -1618,7 +1624,7 @@ namespace CILAssemblyManipulator.Physical
          System.Diagnostics.Debug.Assert( this.OpCodeType == type );
          System.Diagnostics.Debug.Assert( this.FlowControl == flowControl );
          System.Diagnostics.Debug.Assert( this.OperandType == operand );
-         System.Diagnostics.Debug.Assert( this.UnconditionallyEndsBulkOfCode == unconditionallyEndsBulkOfCode );
+         //System.Diagnostics.Debug.Assert( this.UnconditionallyEndsBulkOfCode == unconditionallyEndsBulkOfCode );
          System.Diagnostics.Debug.Assert( (UInt64) this.OperandSize == operandSize );
          System.Diagnostics.Debug.Assert( this.OtherForm == otherForm );
          System.Diagnostics.Debug.Assert( this.ToString().Equals( codeID.ToString( "g" ).ToLowerInvariant().Replace( '_', '.' ) ) );
@@ -1722,13 +1728,14 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="md">The current <see cref="CILMetaData"/>.</param>
       /// <param name="method">The current <see cref="MethodDefinition"/>.</param>
       /// <param name="codeInfo">The current <see cref="OpCodeInfo"/>.</param>
+      /// <param name="currentStack">The current stack state.</param>
       /// <returns>The enumerable of <see cref="StackValueKind"/>s indicating the pop behaviour for this <see cref="OpCode"/>, or <c>null</c>.</returns>
       /// <remarks>
       /// If this returns <c>null</c>, then the pop behaviour is static.
       /// </remarks>
-      public IEnumerable<StackValueKind> GetDynamicStackPop( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+      public IEnumerable<StackValueKind> GetDynamicStackPop( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
       {
-         return this._dynamicPop?.Item1?.Invoke( md, method, codeInfo );
+         return this._dynamicPop?.Item1?.Invoke( md, method, codeInfo, currentStack );
       }
 
       /// <summary>
@@ -1737,13 +1744,14 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="md">The current <see cref="CILMetaData"/>.</param>
       /// <param name="method">The current <see cref="MethodDefinition"/>.</param>
       /// <param name="codeInfo">The current <see cref="OpCodeInfo"/>.</param>
+      /// <param name="currentStack">The current stack state.</param>
       /// <returns>The enumerable of <see cref="StackValueKind"/>s indicating the push behaviour for this <see cref="OpCode"/>, or <c>null</c>.</returns>
       /// <remarks>
       /// If this returns <c>null</c>, then the push behaviour is static.
       /// </remarks>
-      public IEnumerable<StackValueKind> GetDynamicStackPush( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+      public IEnumerable<StackValueKind> GetDynamicStackPush( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, IEnumerable<StackValueKind> currentStack )
       {
-         return this._dynamicPush?.Item1?.Invoke( md, method, codeInfo );
+         return this._dynamicPush?.Item1?.Invoke( md, method, codeInfo, currentStack );
       }
 
       /// <summary>
@@ -1752,11 +1760,12 @@ namespace CILAssemblyManipulator.Physical
       /// <param name="md">The current <see cref="CILMetaData"/>.</param>
       /// <param name="method">The current <see cref="MethodDefinition"/>.</param>
       /// <param name="codeInfo">The current <see cref="OpCodeInfo"/>.</param>
+      /// <param name="currentStack">The current amount of items on stack.</param>
       /// <value>The positive or negative number indicating how this <see cref="OpCode"/> changes stack state.</value>
-      public Int32 GetStackChange( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo )
+      public Int32 GetStackChange( CILMetaData md, MethodDefinition method, OpCodeInfo codeInfo, Int32 currentStack )
       {
-         var push = this._staticPush?.Count ?? this._dynamicPush.Item2( md, method, codeInfo );
-         var pop = this._staticPop?.Count ?? this._dynamicPop.Item2( md, method, codeInfo );
+         var push = this._staticPush?.Count ?? this._dynamicPush.Item2( md, method, codeInfo, currentStack );
+         var pop = this._staticPop?.Count ?? this._dynamicPop.Item2( md, method, codeInfo, currentStack );
          return push - pop;
       }
 
@@ -1796,20 +1805,20 @@ namespace CILAssemblyManipulator.Physical
          }
       }
 
-      /// <summary>
-      /// Gets the value indicating whether this op code ends bulk of code unconditionally.
-      /// </summary>
-      /// <value>The value indicating whether this op code ends bulk of code unconditionally.</value>
-      /// <remarks>
-      /// One such code is <see cref="Physical.OpCodeID.Ret"/>.
-      /// </remarks>
-      public Boolean UnconditionallyEndsBulkOfCode
-      {
-         get
-         {
-            return ( ( this._state & ENDS_BLK_CODE_MASK ) >> ENDS_BLK_CODE_SHIFT ) != 0;
-         }
-      }
+      ///// <summary>
+      ///// Gets the value indicating whether this op code ends bulk of code unconditionally.
+      ///// </summary>
+      ///// <value>The value indicating whether this op code ends bulk of code unconditionally.</value>
+      ///// <remarks>
+      ///// One such code is <see cref="Physical.OpCodeID.Ret"/>.
+      ///// </remarks>
+      //public Boolean UnconditionallyEndsBulkOfCode
+      //{
+      //   get
+      //   {
+      //      return ( ( this._state & ENDS_BLK_CODE_MASK ) >> ENDS_BLK_CODE_SHIFT ) != 0;
+      //   }
+      //}
 
       /// <inheritdoc/>
       public override String ToString()
@@ -2723,6 +2732,10 @@ namespace CILAssemblyManipulator.Physical
       /// <see cref="OpCodes.Initblk"/>
       /// </summary>
       Initblk,
+      /// <summary>
+      /// <see cref="OpCodes.No_"/>
+      /// </summary>
+      No_,
       /// <summary>
       /// <see cref="OpCodes.Rethrow"/>
       /// </summary>

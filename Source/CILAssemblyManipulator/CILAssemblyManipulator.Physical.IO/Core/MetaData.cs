@@ -164,7 +164,7 @@ public static partial class E_CILPhysical
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
       var code = state.MD.OpCodeProvider.GetCodeFor( codeInfo.OpCodeID );
       // Calling GetStackChange will take care of calculating stack change even for Ret/Call/Callvirt/Calli/Newobj codes.
-      curStacksize += code.GetStackChange( state.MD, state.Method, codeInfo );
+      curStacksize += code.GetStackChange( state.MD, state.Method, codeInfo, curStacksize );
 
       // Save max stack here
       state.UpdateMaxStack( curStacksize );
@@ -190,11 +190,11 @@ public static partial class E_CILPhysical
          }
       }
 
-      // Set stack to zero if required
-      if ( code.UnconditionallyEndsBulkOfCode )
-      {
-         curStacksize = 0;
-      }
+      //// Set stack to zero if required
+      //if ( code.UnconditionallyEndsBulkOfCode )
+      //{
+      //   curStacksize = 0;
+      //}
 
       // Save current size for next iteration
       state.CurrentStack = curStacksize;

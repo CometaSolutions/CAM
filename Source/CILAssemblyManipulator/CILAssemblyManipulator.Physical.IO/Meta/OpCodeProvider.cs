@@ -70,8 +70,11 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="size">The size of the code, in bytes.</param>
       /// <param name="serializedValue">The serialized value of the code, as short.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="code"/> is <c>null</c>.</exception>
       public OpCodeSerializationInfo( OpCode code, Byte size, Int16 serializedValue )
       {
+         ArgumentValidator.ValidateNotNull( "Op code", code );
+
          this.Code = code;
          //this.OpCodeID = code.OpCodeID;
          this.Size = size;
@@ -129,9 +132,13 @@ namespace CILAssemblyManipulator.Physical.Meta
          DefaultInstance = new DefaultOpCodeProvider();
       }
 
-      private readonly IDictionary<OpCodeID, OpCodeSerializationInfo> _infos;
-      private readonly IDictionary<Int16, OpCodeSerializationInfo> _infosBySerializedValue;
-      //private readonly IDictionary<OpCodeID, OpCode> _codes;
+      private const Int32 INFOS_ARRAY_SIZE = Byte.MaxValue;
+
+      private readonly OpCodeSerializationInfo[] _infosArray;
+      private readonly Dictionary<OpCodeID, OpCodeSerializationInfo> _infosDictionary;
+
+      private readonly OpCodeSerializationInfo[] _infosBySerializedValue_Byte1;
+      private readonly OpCodeSerializationInfo[] _infosBySerializedValue_Byte2;
       private readonly IDictionary<OpCodeID, OpCodeInfoWithNoOperand> _operandless;
 
       /// <summary>
@@ -140,15 +147,23 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="codes">The <see cref="OpCodeSerializationInfo"/>s to support. If <c>null</c>, the return value of <see cref="GetDefaultOpCodes"/> will be used.</param>
       public DefaultOpCodeProvider( IEnumerable<OpCodeSerializationInfo> codes = null )
       {
-         // TODO ugly exception if two statements below fail
-         this._infos = ( codes ?? GetDefaultOpCodes() ).ToDictionary( i => i.Code.OpCodeID, i => i );
-         this._infosBySerializedValue = this._infos.Values.ToDictionary( i => i.SerializedValue, i => i );
-         //this._codes = this._infos
-         //   .Values
-         //   .ToDictionary_Overwrite( c => c.Code.OpCodeID, c => c.Code );
-         this._operandless = this._infos
-            .Where( kvp => kvp.Value.Code.OperandType == OperandType.InlineNone )
-            .ToDictionary_Overwrite( kvp => kvp.Key, kvp => new OpCodeInfoWithNoOperand( kvp.Key ) );
+         var tooBigCodes = new Dictionary<OpCodeID, OpCodeSerializationInfo>();
+         this._infosArray = ( codes ?? GetDefaultOpCodes() ).ToArray_SelfIndexing(
+            info => (Int32) info.Code.OpCodeID,
+            CollectionOverwriteStrategy.Throw,
+            arrayFactory: currentIndex => currentIndex > INFOS_ARRAY_SIZE ? null : new OpCodeSerializationInfo[Math.Max( currentIndex, INFOS_ARRAY_SIZE )], // The tertiary ensures that we never create array bigger than Byte.MaxValue. The Math.Max ensures that we create Byte.MaxValue sized array on first element, instead of resizing array each time.
+            settingFailed: info => tooBigCodes.Add( info.Code.OpCodeID, info )
+            );
+         this._infosDictionary = tooBigCodes;
+
+         var allInfos = this._infosArray.Where( info => info != null ).Concat( tooBigCodes.Values );
+         this._infosBySerializedValue_Byte1 = new OpCodeSerializationInfo[Byte.MaxValue];
+         allInfos.Where( info => info.Size == 1 ).ToArray_SelfIndexing( info => info.SerializedValue, CollectionOverwriteStrategy.Throw, arrayFactory: len => this._infosBySerializedValue_Byte1 );
+         this._infosBySerializedValue_Byte2 = new OpCodeSerializationInfo[Byte.MaxValue];
+         allInfos.Where( info => info.Size == 2 ).ToArray_SelfIndexing( info => info.SerializedValue & Byte.MaxValue, CollectionOverwriteStrategy.Throw, arrayFactory: len => this._infosBySerializedValue_Byte2 );
+         this._operandless = allInfos
+            .Where( info => info.Code.OperandType == OperandType.InlineNone )
+            .ToDictionary_Overwrite( info => info.Code.OpCodeID, info => new OpCodeInfoWithNoOperand( info.Code.OpCodeID ) );
       }
 
       /// <inheritdoc />
@@ -161,7 +176,16 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <inheritdoc />
       public Boolean TryGetInfoFor( OpCodeID codeID, out OpCodeSerializationInfo info )
       {
-         return this._infos.TryGetValue( codeID, out info );
+         var idx = (Int32) codeID;
+         if ( idx > INFOS_ARRAY_SIZE )
+         {
+            return this._infosDictionary.TryGetValue( codeID, out info );
+         }
+         else
+         {
+            info = this._infosArray[idx];
+            return info != null;
+         }
       }
 
       /// <inheritdoc />
@@ -182,12 +206,11 @@ namespace CILAssemblyManipulator.Physical.Meta
       public Boolean TryReadOpCode( Byte[] array, Int32 index, out OpCodeSerializationInfo info )
       {
          var startIdx = index;
-         var b = array[index++];
-         var encoding = ( b == MAX_ONE_BYTE_INSTRUCTION ?
-            ( ( b << 8 ) | array[index++] ) :
-            b );
-         var retVal = this._infosBySerializedValue.TryGetValue( (Int16) encoding, out info );
-         return retVal;
+         var b = array[index];
+         info = b == MAX_ONE_BYTE_INSTRUCTION ?
+            this._infosBySerializedValue_Byte2[array[index + 1]] :
+            info = this._infosBySerializedValue_Byte1[b];
+         return info != null;
       }
 
 
@@ -420,7 +443,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return NewProviderInfo( OpCodes.Constrained_, 0xFE16 );
          yield return NewProviderInfo( OpCodes.Cpblk, 0xFE17 );
          yield return NewProviderInfo( OpCodes.Initblk, 0xFE18 );
-         // 0xFE19 is missing
+         yield return NewProviderInfo( OpCodes.No_, 0xFE19 );
          yield return NewProviderInfo( OpCodes.Rethrow, 0xFE1A );
          // 0xFE1B is missing
          yield return NewProviderInfo( OpCodes.Sizeof, 0xFE1C );
