@@ -36,9 +36,8 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Tries to get <see cref="OpCodeSerializationInfo" /> for given <see cref="OpCodeID"/>.
       /// </summary>
       /// <param name="codeID">The <see cref="OpCodeID"/>.</param>
-      /// <param name="info">This parameter will contain <see cref="OpCodeSerializationInfo"/>, if the <paramref name="codeID"/> was recognized by this <see cref="OpCodeProvider"/>.</param>
-      /// <returns><c>true</c> if this <see cref="OpCodeProvider"/> had a <see cref="OpCodeSerializationInfo"/> for given <paramref name="codeID"/>; <c>false</c> otherwise.</returns>
-      Boolean TryGetInfoFor( OpCodeID codeID, out OpCodeSerializationInfo info );
+      /// <returns><see cref="OpCodeSerializationInfo"/> for given <paramref name="codeID"/>, or <c>null</c>.</returns>
+      OpCodeSerializationInfo GetSerializationInfoOrNull( OpCodeID codeID );
 
       /// <summary>
       /// Writes the op code (but not the operand) to the given array at given index.
@@ -181,17 +180,17 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
 
       /// <inheritdoc />
-      public Boolean TryGetInfoFor( OpCodeID codeID, out OpCodeSerializationInfo info )
+      public OpCodeSerializationInfo GetSerializationInfoOrNull( OpCodeID codeID )
       {
          var idx = (Int32) codeID;
          if ( idx > INFOS_ARRAY_SIZE )
          {
-            return this._infosDictionary.TryGetValue( codeID, out info );
+            OpCodeSerializationInfo info;
+            return this._infosDictionary.TryGetValue( codeID, out info ) ? info : null;
          }
          else
          {
-            info = this._infosArray[idx];
-            return info != null;
+            return this._infosArray[idx];
          }
       }
 
@@ -532,8 +531,8 @@ public static partial class E_CILPhysical
    /// <exception cref="ArgumentException">If no suitable <see cref="OpCode"/> is found.</exception>
    public static CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo GetInfoFor( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCodeID codeID )
    {
-      CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo info;
-      if ( !( (CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryGetInfoFor( codeID, out info ) )
+      var info = ( (CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).GetSerializationInfoOrNull( codeID );
+      if ( info == null )
       {
          throw new ArgumentException( "Op code " + codeID + " is invalid or not supported by this op code provider." );
       }
