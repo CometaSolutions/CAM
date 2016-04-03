@@ -207,7 +207,7 @@ public static partial class E_CILPhysical
       OpCodeInfo info;
       if ( ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryReadOpCode( bytes, idx, out ocpInfo ) )
       {
-         idx += ocpInfo.Size;
+         idx += ocpInfo.CodeSize;
          var codeID = ocpInfo.Code.OpCodeID;
          switch ( ocpInfo.Code.OperandType )
          {

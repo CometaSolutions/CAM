@@ -68,16 +68,17 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Creates new instance of <see cref="OpCodeSerializationInfo"/> with given parameters.
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
-      /// <param name="size">The size of the code, in bytes.</param>
+      /// <param name="codeSize">The size of the code, in bytes.</param>
+      /// <param name="operandSize">The size of the operand, in bytes.</param>
       /// <param name="serializedValue">The serialized value of the code, as short.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="code"/> is <c>null</c>.</exception>
-      public OpCodeSerializationInfo( OpCode code, Byte size, Int16 serializedValue )
+      public OpCodeSerializationInfo( OpCode code, Byte codeSize, Byte operandSize, Int16 serializedValue )
       {
          ArgumentValidator.ValidateNotNull( "Op code", code );
 
          this.Code = code;
-         //this.OpCodeID = code.OpCodeID;
-         this.Size = size;
+         this.CodeSize = codeSize;
+         this.FixedOperandSize = operandSize;
          this.SerializedValue = serializedValue;
       }
 
@@ -91,7 +92,13 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Gets the byte size of the code, without operand.
       /// </summary>
       /// <value>The byte size of the code, without operand.</value>
-      public Byte Size { get; }
+      public Byte CodeSize { get; }
+
+      /// <summary>
+      /// Gets the fixed byte size of the operand, without the code.
+      /// </summary>
+      /// <value>The fixed byte size of the operand, without the code.</value>
+      public Byte FixedOperandSize { get; }
 
       /// <summary>
       /// Gets the serialized value of the code, as short.
@@ -158,9 +165,9 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          var allInfos = this._infosArray.Where( info => info != null ).Concat( tooBigCodes.Values );
          this._infosBySerializedValue_Byte1 = new OpCodeSerializationInfo[Byte.MaxValue];
-         allInfos.Where( info => info.Size == 1 ).ToArray_SelfIndexing( info => info.SerializedValue, CollectionOverwriteStrategy.Throw, arrayFactory: len => this._infosBySerializedValue_Byte1 );
+         allInfos.Where( info => info.CodeSize == 1 ).ToArray_SelfIndexing( info => info.SerializedValue, CollectionOverwriteStrategy.Throw, arrayFactory: len => this._infosBySerializedValue_Byte1 );
          this._infosBySerializedValue_Byte2 = new OpCodeSerializationInfo[Byte.MaxValue];
-         allInfos.Where( info => info.Size == 2 ).ToArray_SelfIndexing( info => info.SerializedValue & Byte.MaxValue, CollectionOverwriteStrategy.Throw, arrayFactory: len => this._infosBySerializedValue_Byte2 );
+         allInfos.Where( info => info.CodeSize == 2 ).ToArray_SelfIndexing( info => info.SerializedValue & Byte.MaxValue, CollectionOverwriteStrategy.Throw, arrayFactory: len => this._infosBySerializedValue_Byte2 );
          this._operandless = allInfos
             .Where( info => info.Code.OperandType == OperandType.InlineNone )
             .ToDictionary_Overwrite( info => info.Code.OpCodeID, info => new OpCodeInfoWithNoOperand( info.Code.OpCodeID ) );
@@ -191,7 +198,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <inheritdoc />
       public void WriteOpCode( OpCodeSerializationInfo info, Byte[] array, Int32 index )
       {
-         if ( info.Size == 1 )
+         if ( info.CodeSize == 1 )
          {
             array.WriteByteToBytes( ref index, (Byte) info.SerializedValue );
          }
@@ -456,9 +463,41 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="serializedValue">The serialized value of the code, as short.</param>
+      /// <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> of <paramref name="code"/> is not one of the values in <see cref="OperandType"/> enumeration.</exception>
       protected static OpCodeSerializationInfo NewProviderInfo( OpCode code, Int32 serializedValue )
       {
-         return new OpCodeSerializationInfo( code, (Byte) ( ( (UInt32) serializedValue ) > MAX_ONE_BYTE_INSTRUCTION ? 2 : 1 ), (Int16) serializedValue );
+         Byte operandSize;
+         switch ( code.OperandType )
+         {
+            case OperandType.InlineNone:
+               operandSize = 0;
+               break;
+            case OperandType.ShortInlineBrTarget:
+            case OperandType.ShortInlineI:
+            case OperandType.ShortInlineVar:
+               operandSize = 1;
+               break;
+            case OperandType.InlineBrTarget:
+            case OperandType.InlineField:
+            case OperandType.InlineI:
+            case OperandType.InlineMethod:
+            case OperandType.InlineSignature:
+            case OperandType.InlineString:
+            case OperandType.InlineSwitch:
+            case OperandType.InlineToken:
+            case OperandType.InlineType:
+            case OperandType.InlineVar:
+            case OperandType.ShortInlineR:
+               operandSize = 4;
+               break;
+            case OperandType.InlineI8:
+            case OperandType.InlineR:
+               operandSize = 8;
+               break;
+            default:
+               throw new ArgumentException( "Unrecognized operand type: " + code.OperandType + "." );
+         }
+         return new OpCodeSerializationInfo( code, (Byte) ( ( (UInt32) serializedValue ) > MAX_ONE_BYTE_INSTRUCTION ? 2 : 1 ), operandSize, (Int16) serializedValue );
       }
    }
 }
@@ -501,7 +540,7 @@ public static partial class E_CILPhysical
 
    /// <summary>
    /// Calculates the total fixed byte count for a specific <see cref="OpCodeID"/>.
-   /// This is the sum of <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo.Size"/> and <see cref="OpCode.OperandSize"/>.
+   /// This is the sum of <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo.CodeSize"/> and <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo.FixedOperandSize"/>.
    /// </summary>
    /// <param name="opCodeProvider">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/>.</param>
    /// <param name="codeID">The <see cref="OpCodeID"/>.</param>
@@ -513,8 +552,17 @@ public static partial class E_CILPhysical
    /// </remarks>
    public static Int32 GetFixedByteCount( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCodeID codeID )
    {
-      var info = opCodeProvider.GetInfoFor( codeID );
-      return info.Size + info.Code.OperandSize;
+      return opCodeProvider.GetInfoFor( codeID ).GetFixedByteCount();
+   }
+
+   /// <summary>
+   /// Helper method to calculate the fixed byte count for specific <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo"/>
+   /// </summary>
+   /// <param name="info">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo"/>.</param>
+   /// <returns>The sum of <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo.CodeSize"/> and <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo.FixedOperandSize"/>.</returns>
+   public static Int32 GetFixedByteCount( this CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo info )
+   {
+      return info.CodeSize + info.FixedOperandSize;
    }
 
    /// <summary>

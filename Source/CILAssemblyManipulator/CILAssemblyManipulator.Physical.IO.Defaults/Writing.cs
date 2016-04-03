@@ -1599,7 +1599,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          var ocp = this._md.OpCodeProvider;
          var ocpInfo = ocp.GetInfoFor( codeID );
          ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) ocp ).WriteOpCode( ocpInfo, array, idx );
-         idx += ocpInfo.Size;
+         idx += ocpInfo.CodeSize;
          var code = ocpInfo.Code;
          var operandType = code.OperandType;
          if ( operandType != OperandType.InlineNone )
