@@ -477,6 +477,9 @@ namespace CILAssemblyManipulator.Physical.Meta
             case OperandType.ShortInlineVar:
                operandSize = 1;
                break;
+            case OperandType.InlineVar:
+               operandSize = 2;
+               break;
             case OperandType.InlineBrTarget:
             case OperandType.InlineField:
             case OperandType.InlineI:
@@ -486,7 +489,6 @@ namespace CILAssemblyManipulator.Physical.Meta
             case OperandType.InlineSwitch:
             case OperandType.InlineToken:
             case OperandType.InlineType:
-            case OperandType.InlineVar:
             case OperandType.ShortInlineR:
                operandSize = 4;
                break;
