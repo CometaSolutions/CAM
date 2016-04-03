@@ -178,12 +178,12 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    public abstract class OpCodeInfo : IOpCodeInfo
    {
-      private readonly UInt16 _code; // Save some memory - use integer instead of actual code (Int64 (amount of space taken by OpCode structure) -> Int16)
+      private readonly Byte _code; // Save some memory - use byte instead of integer.
 
       // Disable inheritance to other assemblies
       internal OpCodeInfo( OpCodeID code )
       {
-         this._code = (UInt16) code;
+         this._code = checked((Byte) code);
       }
 
       /// <summary>
