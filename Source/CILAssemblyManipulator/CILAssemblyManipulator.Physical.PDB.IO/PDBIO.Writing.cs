@@ -49,10 +49,40 @@ public static partial class E_CILPhysical
    private const Int32 GS_SYM_BUCKETS = 4096;
 
    private const Int32 START_PAGE = 3; // Next two pages after the first page are for page allocation bits
+   private sealed class PDBNameIndex
+   {
+      private Int32 _index;
+
+      public PDBNameIndex( Int32 startingIndex )
+      {
+         this._index = startingIndex;
+         this.NameIndex = new Dictionary<String, Int32>();
+      }
+
+      public Dictionary<String, Int32> NameIndex { get; }
+
+      public Int32 CurrentIndexValue
+      {
+         get
+         {
+            return this._index;
+         }
+      }
+
+      public Int32 GetNameIndex( String name )
+      {
+         return this.NameIndex.GetOrAdd_NotThreadSafe( name ?? String.Empty, str =>
+         {
+            var result = this._index;
+
+            this._index += PDBIO.NameEncoding.SafeByteCount( name, true );
+            return result;
+         } );
+      }
+   }
 
    private sealed class PDBWritingState
    {
-      private Int32 _nameIdx;
 
       public PDBWritingState( PDBInstance pdb, StreamHelper stream, Int32 pageSize )
       {
@@ -61,8 +91,7 @@ public static partial class E_CILPhysical
          this.StreamStart = stream.Stream.Position;
          this.PageSize = pageSize;
 
-         this.NameIndex = new Dictionary<String, Int32>();
-         this._nameIdx = 1;
+         this.NameIndex = new PDBNameIndex( 1 );
          this.DataStreams = new List<TStreamInfo>();
          this.DataStreamNames = new Dictionary<String, Int32>();
          this.ZeroesArray = new Byte[this.PageSize];
@@ -88,15 +117,7 @@ public static partial class E_CILPhysical
 
       public Int32 PageSize { get; }
 
-      public Dictionary<String, Int32> NameIndex { get; }
-
-      public Int32 CurrentNameIndexValue
-      {
-         get
-         {
-            return this._nameIdx;
-         }
-      }
+      public PDBNameIndex NameIndex { get; }
 
       public List<TStreamInfo> DataStreams { get; }
 
@@ -112,13 +133,7 @@ public static partial class E_CILPhysical
 
       public Int32 GetNameIndex( String name )
       {
-         return this.NameIndex.GetOrAdd_NotThreadSafe( name ?? String.Empty, str =>
-         {
-            var result = this._nameIdx;
-
-            this._nameIdx += PDBIO.NameEncoding.SafeByteCount( name, true );
-            return result;
-         } );
+         return this.NameIndex.GetNameIndex( name );
       }
 
       public void AddNameHashToGlobalSymbolStream( Int32 nameStart, Int32 offsetToStructure )
@@ -520,12 +535,18 @@ public static partial class E_CILPhysical
       var usedFiles = moduleInfos
          .SelectMany( t => t.Item2 )
          .ToArray();
+      var moduleFileNameIndex = new PDBNameIndex( 0 );
+      foreach ( var fn in usedFiles )
+      {
+         moduleFileNameIndex.GetNameIndex( fn );
+      }
 
       dbiHeader.secConSize = INT_SIZE + funcSecContribs.Count * 28; // SectionContribution size is 28 bytes
       dbiHeader.secMapSize = moduleInfos.Count > 0 ? 44 : INT_SIZE; // Section map size is 44 bytes
       dbiHeader.fileInfoSize = INT_SIZE
          + INT_SIZE * moduleInfos.Count
-         + usedFiles.Aggregate( 0, ( cur, s ) => cur + INT_SIZE + PDBIO.NameEncoding.SafeByteCount( s, true ) );
+         + INT_SIZE * usedFiles.Length
+         + moduleFileNameIndex.CurrentIndexValue;
       Align4( ref dbiHeader.fileInfoSize );
       dbiHeader.debugHeaderSize = moduleInfos.Count > 0 ? 22 : 0; // Debug header size is 22 bytes
 
@@ -584,13 +605,11 @@ public static partial class E_CILPhysical
                array.WriteUInt16LEToBytes( ref idx, (UInt16) mInfo.Item2.Length );
             }
 
-            var fiNameIdx = 0u;
             foreach ( var uf in usedFiles )
             {
-               array.WriteUInt32LEToBytes( ref idx, fiNameIdx );
-               fiNameIdx += (UInt32) PDBIO.NameEncoding.SafeByteCount( uf, true );
+               array.WriteInt32LEToBytes( ref idx, moduleFileNameIndex.GetNameIndex( uf ) );
             }
-            foreach ( var uf in usedFiles )
+            foreach ( var uf in moduleFileNameIndex.NameIndex.Keys ) // TODO currently this works, since we are iterating in same order as adding. This might change some day....!!!
             {
                array.WriteZeroTerminatedString( ref idx, uf );
             }
@@ -625,8 +644,9 @@ public static partial class E_CILPhysical
    private static void WriteNameIndex( this PDBWritingState state )
    {
       // Write name index
-      var strByteCount = state.CurrentNameIndexValue;
-      var nameIndex = state.NameIndex;
+      var nameIdx = state.NameIndex;
+      var strByteCount = nameIdx.CurrentIndexValue;
+      var nameIndex = nameIdx.NameIndex;
       var strCount = nameIndex.Count;
       state.AddNewIndexedStream(
          6,
