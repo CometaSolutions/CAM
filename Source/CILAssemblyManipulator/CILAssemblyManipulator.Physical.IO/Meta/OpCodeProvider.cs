@@ -105,6 +105,22 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <value>The serialized value of the code, as short.</value>
       public Int16 SerializedValue { get; }
 
+      /// <summary>
+      /// Gets the dynamic byte size taken by a single <see cref="IOpCodeInfo"/>.
+      /// </summary>
+      /// <param name="instance">The <see cref="IOpCodeInfo"/>.</param>
+      /// <returns>The dynamic byte size of given <see cref="IOpCodeInfo"/>.</returns>
+      /// <remarks>
+      /// Currently the only <see cref="IOpCodeInfo"/>s with dynamic byte size are <see cref="IOpCodeInfoWithOperand{TOperand}"/>s which have list of integers as their operand type (e.g. for <see cref="OpCodes.Switch"/> instruction).
+      /// </remarks>
+      public virtual Int32 GetDynamicSize( IOpCodeInfo instance )
+      {
+         ArgumentValidator.ValidateNotNull( "Instance", instance );
+
+         var ints = instance as IOpCodeInfoWithOperand<List<Int32>>;
+         return ints == null ? 0 : ( ints.Operand.Count * sizeof( Int32 ) );
+      }
+
       // TODO I am thinking of removing OpCode.OpCodeID property.
       // Would make comparing OpCodes (and caching their textual values) hard tho.
       ///// <summary>
@@ -548,7 +564,7 @@ public static partial class E_CILPhysical
    /// <returns>The total fixed byte count for a specific <see cref="OpCode"/>.</returns>
    /// <exception cref="NullReferenceException">If </exception>
    /// <remarks>
-   /// One should use <see cref="GetTotalByteCount"/> extension method when calculating byte sizes when writing or reading IL bytecode.
+   /// One should use <see cref="GetTotalByteCount(CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider, IOpCodeInfo)"/> extension method when calculating byte sizes when writing or reading IL bytecode.
    /// This is because switch instruction (<see cref="OpCodeID.Switch"/>) has additional offset array, the length of which is determined by the fixed operand of switch instruction.
    /// </remarks>
    public static Int32 GetFixedByteCount( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCodeID codeID )
@@ -573,14 +589,30 @@ public static partial class E_CILPhysical
    /// <param name="info">The single <see cref="OpCodeInfo"/>.</param>
    /// <returns>The total byte count of a single <see cref="OpCodeInfo"/>.</returns>
    /// <remarks>
-   /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="OpCodeInfo.DynamicOperandByteSize"/>.
+   /// The total byte count is the size of op code of <see cref="OpCodeInfo"/> added with <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo.GetDynamicSize"/>.
    /// </remarks>
    /// <exception cref="NullReferenceException">If <paramref name="opCodeProvider"/> is <c>null</c>.</exception>
    /// <exception cref="ArgumentNullException">If <paramref name="info"/> is <c>null</c>.</exception>
-   public static Int32 GetTotalByteCount( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, OpCodeInfo info )
+   public static Int32 GetTotalByteCount( this CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, IOpCodeInfo info )
    {
       // Get NullReferenceException *before* ArgumentNullException
-      return ArgumentValidator.ValidateNotNullReference( opCodeProvider ).GetFixedByteCount( info.OpCodeID ) + info.DynamicOperandByteSize;
+      return ArgumentValidator.ValidateNotNullReference( opCodeProvider ).GetInfoFor( info.OpCodeID ).GetTotalByteCount( info );// .GetFixedByteCount( info.OpCodeID ) + info.DynamicOperandByteSize;
+   }
+
+   /// <summary>
+   /// Calculates the total byte count which will be taken by given <see cref="IOpCodeInfo"/> when it is written to byte stream.
+   /// </summary>
+   /// <param name="info">The <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo"/>.</param>
+   /// <param name="instance">The <see cref="IOpCodeInfo"/>.</param>
+   /// <returns>The total byte count which will be taken by given <see cref="IOpCodeInfo"/> when it is written to byte stream.</returns>
+   /// <remarks>
+   /// The return byte count includes count for op code, its operand, and any additional dynamic operand size.
+   /// </remarks>
+   /// <exception cref="NullReferenceException">If this <see cref="CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo"/> is <c>null</c>.</exception>
+   /// <exception cref="ArgumentNullException">If <paramref name="instance"/> is <c>null</c>.</exception>
+   public static Int32 GetTotalByteCount( this CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo info, IOpCodeInfo instance )
+   {
+      return info.GetFixedByteCount() + info.GetDynamicSize( instance );
    }
 
    /// <summary>

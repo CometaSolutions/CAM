@@ -94,6 +94,7 @@
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB\CILAssemblyManipulator.Physical.PDB.csproj">
       <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
       <Name>CILAssemblyManipulator.Physical.PDB</Name>
+      <Aliases>CAMPhysicalP</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.Resolving\CILAssemblyManipulator.Physical.Resolving.csproj">
       <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>

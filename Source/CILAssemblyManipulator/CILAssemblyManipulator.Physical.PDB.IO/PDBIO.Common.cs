@@ -55,7 +55,7 @@ namespace CILAssemblyManipulator.Physical.PDB
       private const Int32 EC_INFO_SIZE = 0x19;
 
       internal const String SOURCE_FILE_PREFIX = "/src/files/";
-      private const String NAMES_STREAM_NAME = "/names";
+      internal const String NAMES_STREAM_NAME = "/names";
 
       private class StreamInfo
       {
@@ -372,6 +372,12 @@ namespace CILAssemblyManipulator.Physical.PDB
             array[idx++] = 0;
          }
          return array;
+      }
+
+      internal static Stream SeekToPage( this Stream stream, Int64 streamStart, Int32 pageSize, Int32 page, Int32 pageOffset )
+      {
+         stream.SeekFromBegin( streamStart + page * pageSize + pageOffset );
+         return stream;
       }
 
    }

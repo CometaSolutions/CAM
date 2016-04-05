@@ -160,11 +160,11 @@ namespace CILAssemblyManipulator.Physical
       OpCodeID OpCodeID { get; }
 
 
-      /// <summary>
-      /// Gets the additional size of operand of this <see cref="IOpCodeInfo"/>, in bytes.
-      /// </summary>
-      /// <value>The additional size of operand of this <see cref="IOpCodeInfo"/>, in bytes.</value>
-      Int32 DynamicOperandByteSize { get; }
+      ///// <summary>
+      ///// Gets the additional size of operand of this <see cref="IOpCodeInfo"/>, in bytes.
+      ///// </summary>
+      ///// <value>The additional size of operand of this <see cref="IOpCodeInfo"/>, in bytes.</value>
+      //Int32 DynamicOperandByteSize { get; }
 
       /// <summary>
       /// Gets the value indicating whether this op code has operand.
@@ -214,17 +214,17 @@ namespace CILAssemblyManipulator.Physical
       /// <inheritdoc />
       public abstract Boolean HasOperand { get; }
 
-      /// <summary>
-      /// Gets the additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.
-      /// </summary>
-      /// <value>The additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.</value>
-      public virtual Int32 DynamicOperandByteSize
-      {
-         get
-         {
-            return 0;
-         }
-      }
+      ///// <summary>
+      ///// Gets the additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.
+      ///// </summary>
+      ///// <value>The additional size of operand of this <see cref="OpCodeInfo"/>, in bytes.</value>
+      //public virtual Int32 DynamicOperandByteSize
+      //{
+      //   get
+      //   {
+      //      return 0;
+      //   }
+      //}
 
       /// <summary>
       /// Returns the textual representation of this <see cref="OpCodeInfo"/>.
@@ -600,14 +600,14 @@ namespace CILAssemblyManipulator.Physical
       }
 
 
-      /// <inheritdoc />
-      public override Int32 DynamicOperandByteSize
-      {
-         get
-         {
-            return this.Operand.Count * sizeof( Int32 );
-         }
-      }
+      ///// <inheritdoc />
+      //public override Int32 DynamicOperandByteSize
+      //{
+      //   get
+      //   {
+      //      return this.Operand.Count * sizeof( Int32 );
+      //   }
+      //}
    }
 
    /// <summary>

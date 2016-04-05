@@ -48,6 +48,8 @@ public static partial class E_CILPhysical
    private const UInt16 TOKENREF_FIXED_SIZE = 24;
    private const Int32 GS_SYM_BUCKETS = 4096;
 
+   private const Int32 START_PAGE = 3; // Next two pages after the first page are for page allocation bits
+
    private sealed class PDBWritingState
    {
       private Int32 _nameIdx;
@@ -56,10 +58,11 @@ public static partial class E_CILPhysical
       {
          this.PDB = pdb;
          this.Stream = stream;
+         this.StreamStart = stream.Stream.Position;
          this.PageSize = pageSize;
 
          this.NameIndex = new Dictionary<String, Int32>();
-         this._nameIdx = 0;
+         this._nameIdx = 1;
          this.DataStreams = new List<TStreamInfo>();
          this.DataStreamNames = new Dictionary<String, Int32>();
          this.ZeroesArray = new Byte[this.PageSize];
@@ -74,15 +77,26 @@ public static partial class E_CILPhysical
                return cur + TOKENREF_FIXED_SIZE;
             } )];
          this.SymRecIndex = 0;
+         this.GlobalSymbolStreamInfo = new Dictionary<UInt32, List<Int32>>();
       }
 
       public PDBInstance PDB { get; }
 
       public StreamHelper Stream { get; }
 
+      public Int64 StreamStart { get; }
+
       public Int32 PageSize { get; }
 
       public Dictionary<String, Int32> NameIndex { get; }
+
+      public Int32 CurrentNameIndexValue
+      {
+         get
+         {
+            return this._nameIdx;
+         }
+      }
 
       public List<TStreamInfo> DataStreams { get; }
 
@@ -191,6 +205,9 @@ public static partial class E_CILPhysical
 
       var state = new PDBWritingState( instance, new StreamHelper( stream ), 0x200 );
 
+      // Remember to start writing from
+      state.SeekToPage( START_PAGE );
+
       // Write TPI stream first, as it is always fixed content, since managed stuff does not use it.
       state.WriteTPIStream();
 
@@ -202,15 +219,20 @@ public static partial class E_CILPhysical
 
       // TODO /LinkInfo ? 
 
-      // Then, write root stream - we won't have any more named streams
-      state.WriteRootStream();
-
       // DBI stream next.
       // This will also write all module streams, global record stream, public record stream, and symbol record stream.
       state.WriteDBIStream();
 
+      // Name index next
+      state.WriteNameIndex();
 
+      // Then, write root stream - we won't have any more named streams
+      state.WriteRootStream();
 
+      // Now finalize the writing (directory, PDB header, free page map)
+      state.FinalizePDBWriting();
+
+      // We're done
    }
 
    private const Int32 GUID_SIZE = 16;
@@ -287,7 +309,7 @@ public static partial class E_CILPhysical
                var newHashSize = oldHashSize + BUCKETS_INCREASE;
                success = true;
                newHash = new TSourceHeaderInfo[newHashSize];
-               foreach ( var info in srcHash.ConcatSingle( srcInfo ) )
+               foreach ( var info in srcHash.ConcatSingle( srcInfo ).Where( h => h != null ) )
                {
                   var curHash = hashFunction( newHash, info );
                   if ( curHash.HasValue )
@@ -347,7 +369,7 @@ public static partial class E_CILPhysical
             array.WriteInt32LEToBytes( ref idx, 0 );
 
             // Write hash info
-            foreach ( var hashInfo in srcHash )
+            foreach ( var hashInfo in srcHash.Where( h => h != null ) )
             {
 
                array
@@ -439,7 +461,8 @@ public static partial class E_CILPhysical
                .WriteInt32LEToBytes( ref afterStrIdx, namedDataStreams.Count ) // Amount of named streams
                .WriteInt32LEToBytes( ref afterStrIdx, namedDataStreams.Count ) // Amount of set bits (same as size)
                .WriteInt32LEToBytes( ref afterStrIdx, namedDataStreamsPresentBitSetCount ); // How many int32's bit set takes
-                                                                                            // Write set bits
+
+            // Write set bits
             for ( var i = 0; i < namedDataStreamsPresentBitSetCount; ++i )
             {
                var bits = UInt32.MaxValue;
@@ -461,8 +484,10 @@ public static partial class E_CILPhysical
                // Then write the string
                array.WriteZeroTerminatedString( ref idx, kvp.Key );
             }
-            // Last two ints always same: zero and 0x01329141 (2009 12 01)
-            array.WriteUInt64LEToBytes( ref afterStrIdx, 0x0132914100000000 );
+
+            array
+               .WriteInt32LEToBytes( ref afterStrIdx, 0 ) // Magic (?) zero
+               .WriteInt32LEToBytes( ref afterStrIdx, 20140516 ); // Some kind of version...
          } );
 
    }
@@ -498,11 +523,14 @@ public static partial class E_CILPhysical
 
       dbiHeader.secConSize = INT_SIZE + funcSecContribs.Count * 28; // SectionContribution size is 28 bytes
       dbiHeader.secMapSize = moduleInfos.Count > 0 ? 44 : INT_SIZE; // Section map size is 44 bytes
-      dbiHeader.fileInfoSize = INT_SIZE + INT_SIZE * moduleInfos.Count + usedFiles
-         .Aggregate( 0, ( cur, s ) => cur + INT_SIZE + PDBIO.NameEncoding.SafeByteCount( s, true ) );
+      dbiHeader.fileInfoSize = INT_SIZE
+         + INT_SIZE * moduleInfos.Count
+         + usedFiles.Aggregate( 0, ( cur, s ) => cur + INT_SIZE + PDBIO.NameEncoding.SafeByteCount( s, true ) );
       Align4( ref dbiHeader.fileInfoSize );
       dbiHeader.debugHeaderSize = moduleInfos.Count > 0 ? 22 : 0; // Debug header size is 22 bytes
 
+      var secConSize = 0u;
+      var secConStream = state.DataStreams.Count;
       state.AddNewIndexedStream(
          3,
          64 // DBI header size
@@ -523,19 +551,18 @@ public static partial class E_CILPhysical
             }
             // Section contribution
             array.WriteUInt32LEToBytes( ref idx, 0xF12EBA2D ); // Signature
-            var tmpUInt32 = 0u;
             foreach ( var secCon in funcSecContribs )
             {
-               secCon.offset = tmpUInt32;
+               secCon.offset = secConSize;
                secCon.WriteToArray( array, ref idx );
-               tmpUInt32 += secCon.size;
+               secConSize += secCon.size;
             }
-            if ( tmpUInt32 > 0 )
+            if ( secConSize > 0 )
             {
                // Section map, fixed prefix (cSeg, cSegLog, flags, ovl1, grp, frame, iSegName, iClassName, offset)
                array
                   .BlockCopyFrom( ref idx, new Byte[] { 0x02, 0x00, 0x02, 0x00, 0x0D, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00 } )
-                  .WriteUInt32LEToBytes( ref idx, tmpUInt32 ) // Section size
+                  .WriteUInt32LEToBytes( ref idx, secConSize ) // Section size
                   .BlockCopyFrom( ref idx, new Byte[] { 0x08, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF } ); // Section map, fixed suffix.
             }
             else
@@ -573,11 +600,180 @@ public static partial class E_CILPhysical
             array.BlockCopyFrom( ref idx, new Byte[] { 0xFE, 0xEF, 0xFE, 0xEF, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } );
 
             // Debug header
-            if ( tmpUInt32 > 0 )
+            if ( dbiHeader.debugHeaderSize > 0 )
             {
-               new PDBIO.DBIDebugHeader( 11 ).WriteToArray( array, ref idx );
+               new PDBIO.DBIDebugHeader( (UInt16) secConStream ).WriteToArray( array, ref idx );
             }
          } );
+
+      // Write section header stream. This is needed to set global RVA to zero.
+      if ( secConSize > 0 )
+      {
+         state.AddNewIndexedStream(
+            secConStream,
+            40,
+            ( array, idx ) => array
+               .ZeroOut( ref idx, 8 )
+               .WriteUInt32LEToBytes( ref idx, secConSize )
+               .ZeroOut( ref idx, 4 )
+               .WriteUInt32LEToBytes( ref idx, secConSize )
+               .ZeroOut( ref idx, 20 )
+            );
+      }
+   }
+
+   private static void WriteNameIndex( this PDBWritingState state )
+   {
+      // Write name index
+      var strByteCount = state.CurrentNameIndexValue;
+      var nameIndex = state.NameIndex;
+      var strCount = nameIndex.Count;
+      state.AddNewIndexedStream(
+         6,
+         20 // Fixed size
+         + strByteCount // Serialized strings
+         + INT_SIZE * strCount, // Each string is prepended by its 'id'
+         ( array, idx ) =>
+         {
+            array
+               .WriteUInt32LEToBytes( ref idx, 0xFEEFFEEF ) // Signature
+               .WriteUInt32LEToBytes( ref idx, 0x00000001 ) // Version
+               .WriteInt32LEToBytes( ref idx, strByteCount ); // String byte count
+            var afterStrIdx = idx + strByteCount;
+            array.WriteByteToBytes( ref idx, 0 ); // 1 zero byte to distinguish zero indices
+            array.WriteInt32LEToBytes( ref afterStrIdx, nameIndex.Count ); // Max amount of names
+            foreach ( var kvp in nameIndex )
+            {
+               // Write index information first
+               array
+                  .WriteInt32LEToBytes( ref afterStrIdx, kvp.Value );
+               // Write string
+               array.WriteZeroTerminatedString( ref idx, kvp.Key );
+            }
+            array.WriteInt32LEToBytes( ref afterStrIdx, nameIndex.Count ); // Amount of names
+         },
+         PDBIO.NAMES_STREAM_NAME
+         );
+   }
+
+   private static void FinalizePDBWriting( this PDBWritingState state )
+   {
+      // Write directory first
+      Int32 directoryByteCount;
+      var directoryPages = state.WriteDirectory( out directoryByteCount );
+
+      // Then, write PDB header to the beginning of the stream
+      state.SeekToPage( 0 );
+      var pagesUsed = state.WritePDBHeader( directoryByteCount, directoryPages );
+
+      // Then, free page map (DBI will refuse to load the file if this is not present)
+      state.WriteFreePageMap( pagesUsed );
+   }
+
+   private static Int32[] WriteDirectory( this PDBWritingState state, out Int32 directoryByteCount )
+   {
+      // Write directory
+      var dataStreams = state.DataStreams;
+      directoryByteCount = INT_SIZE // Count of data streams
+         + INT_SIZE * dataStreams.Count // The size of each data stream
+         + dataStreams.Aggregate( 0, ( cur, tuple ) => cur + ( tuple == null ? 0 : tuple.Item2.Length * INT_SIZE ) ); // The size of page info for each data stream
+
+      var directoryPages = state.WritePagedData( new TWriteAction( directoryByteCount, ( array, idx ) =>
+      {
+         array.WriteInt32LEToBytes( ref idx, dataStreams.Count );
+         foreach ( var tuple in dataStreams )
+         {
+            array.WriteInt32LEToBytes( ref idx, tuple == null ? 0 : tuple.Item1 );
+         }
+         foreach ( var tuple in dataStreams )
+         {
+            if ( tuple != null )
+            {
+               foreach ( var page in tuple.Item2 )
+               {
+                  array.WriteInt32LEToBytes( ref idx, page );
+               }
+            }
+         }
+      } ) ).Item2;
+
+
+      // Write directory page information
+      directoryPages = state.WritePagedData( new TWriteAction( directoryPages.Length * INT_SIZE, ( array, idx ) =>
+      {
+         foreach ( var page in directoryPages )
+         {
+            array.WriteInt32LEToBytes( ref idx, page );
+         }
+      } ) ).Item2;
+
+      return directoryPages;
+   }
+
+   private static Int32 WritePDBHeader( this PDBWritingState state, Int32 directoryByteCount, Int32[] directoryPages )
+   {
+      var pagesUsed = directoryPages[directoryPages.Length - 1] + 1;
+
+      var headerSize = 52 // Header fixed size
+         + directoryPages.Length * INT_SIZE; // Directory page sizes
+      var pageSize = state.PageSize;
+      if ( headerSize > pageSize )
+      {
+         throw new PDBException( "Header is larger than pagesize." );
+      }
+      state.WritePagedData( new TWriteAction( headerSize, ( array, idx ) =>
+      {
+         array
+         .BlockCopyFrom( ref idx, new Byte[]
+         {
+                    0x4D, 0x69, 0x63, 0x72, 0x6F, 0x73, 0x6F, 0x66, 0x74, 0x20, 0x43, 0x2F, 0x43, 0x2B, 0x2B, 0x20, // Microsoft C/C++ 
+                    0x4D, 0x53, 0x46, 0x20, 0x37, 0x2E, 0x30, 0x30, 0x0D, 0x0A, 0x1A, 0x44, 0x53, 0x00, 0x00, 0x00  // MSF 7.00...DS...
+         }, 0, 32 )
+         .WriteInt32LEToBytes( ref idx, pageSize ) // Page size
+         .WriteInt32LEToBytes( ref idx, START_PAGE - 1 ) // Free page map
+         .WriteInt32LEToBytes( ref idx, pagesUsed ) // Pages used
+         .WriteInt32LEToBytes( ref idx, directoryByteCount ) // Directory byte count
+         .WriteInt32LEToBytes( ref idx, 0 ); // Magic zero
+
+         // Write directory page information pages
+         foreach ( var page in directoryPages )
+         {
+            array.WriteInt32LEToBytes( ref idx, page );
+         }
+      } ) );
+
+      return pagesUsed;
+   }
+
+   private static void WriteFreePageMap( this PDBWritingState state, Int32 pagesUsed )
+   {
+      var pageSize = state.PageSize;
+      state.WritePagedData( new TWriteAction( pageSize * ( START_PAGE - 1 ), ( array, idx ) =>
+      {
+         var reserved = ( pagesUsed + 1 ) / 2;
+         var max = pageSize / INT_SIZE;
+         for ( var i = 0; i < max; ++i )
+         {
+            var ui = UInt32.MaxValue;
+            if ( i * 32 < reserved )
+            {
+               ui <<= reserved;
+               reserved -= 32;
+            }
+            array.WriteUInt32LEToBytes( ref idx, ui );
+         }
+         reserved = ( pagesUsed + 1 ) - ( ( pagesUsed + 1 ) / 2 );
+         for ( var i = 0; i < max; ++i )
+         {
+            var ui = UInt32.MaxValue;
+            if ( i * 32 < reserved )
+            {
+               ui <<= reserved;
+               reserved -= 32;
+            }
+            array.WriteUInt32LEToBytes( ref idx, ui );
+         }
+      } ) );
    }
 
    private static void WritePDBModule(
@@ -597,6 +793,7 @@ public static partial class E_CILPhysical
       dbiHeader.moduleInfoSize += 64 // Module info fixed size
          + PDBIO.NameEncoding.SafeByteCount( mInfo.moduleName, true )
          + PDBIO.NameEncoding.SafeByteCount( mInfo.objectName, true );
+      Align4( ref dbiHeader.moduleInfoSize );
 
       var streamIndex = state.DataStreams.Count;
       mInfo.stream = (UInt16) streamIndex;
@@ -627,11 +824,17 @@ public static partial class E_CILPhysical
 
       foreach ( var func in module.Functions )
       {
+         var preludeLength = 4
+            + 37 // block len + global managed function SYM + fixed size + name + 4 byte boundary
+            + PDBIO.NameEncoding.SafeByteCount( func.Name, true );
+         Align4( ref preludeLength );
+
          List<Int32> usedNSCount;
-         var size = func.CalculateSymbolByteCount( out usedNSCount );
+         var funcBlockLen = func.CalculateSymbolByteCount( out usedNSCount );
+         var size = preludeLength + funcBlockLen + 4;
          yield return new TWriteAction( size, ( array, idx ) =>
          {
-            var tuple = func.WritePDBFunction( moduleIndex, array, size, usedNSCount, funcPointer, funcOffset );
+            var tuple = func.WritePDBFunction( moduleIndex, array, preludeLength, funcBlockLen, usedNSCount, funcPointer, funcOffset );
             funcSecContribs.Add( tuple.Item1 );
             funcInfos.Add( tuple.Item2 );
          } );
@@ -799,6 +1002,7 @@ public static partial class E_CILPhysical
       this PDBFunction func,
       Int32 moduleIndex,
       Byte[] array,
+      Int32 preludeLength,
       Int32 funcBlockLen,
       List<Int32> usedNSCount,
       UInt32 funcPointer,
@@ -813,10 +1017,6 @@ public static partial class E_CILPhysical
          size = funcLen
       };
 
-      var preludeLength = 4
-         + 37 // block len + global managed function SYM + fixed size + name + 4 byte boundary
-         + PDBIO.NameEncoding.SafeByteCount( func.Name, true );
-      Align4( ref preludeLength );
       var idx = 2; // Skip block length
       // Block length + SYM (global managed function) + function fixed data
       array
@@ -1097,8 +1297,8 @@ public static partial class E_CILPhysical
          ( array, idx ) =>
          {
             array
-               .WriteUInt32LEToBytes( ref idx, UInt32.MaxValue ) // Sig
-               .WriteUInt32LEToBytes( ref idx, 0xF12F091A ) // Version or hash info?
+               .WriteUInt32LEToBytes( ref idx, UInt32.MaxValue ) // Signature (gsi.h, GSIHashHdr struct)
+               .WriteUInt32LEToBytes( ref idx, 0xF12F091A ) // Version ( gsi.h, GSIHashSCImpvV70 )
                .WriteInt32LEToBytes( ref idx, GS_SYM_REF_MULTIPLIER * funcSecContribs.Count ) // Byte count of references to symRecStream
                .WriteInt32LEToBytes( ref idx, gsSymHashSize ); // Present buckets bitset + offsets
 
@@ -1172,8 +1372,39 @@ public static partial class E_CILPhysical
 
    private static void AddNewIndexedStreamInPieces( this PDBWritingState state, Int32 streamIndex, IEnumerable<TWriteAction> writes, String streamName = null )
    {
-      var startPage = state.GetCurrentPage();
+      var streamInfo = state.WritePagedData( writes );
+
+      var dataStreams = state.DataStreams;
+      var count = dataStreams.Count;
+      if ( streamIndex < count )
+      {
+         dataStreams[streamIndex] = streamInfo;
+      }
+      else
+      {
+         if ( streamIndex > count )
+         {
+            dataStreams.AddRange( Enumerable.Repeat<TStreamInfo>( null, streamIndex - count ) );
+         }
+         dataStreams.Add( streamInfo );
+      }
+
+      if ( streamName != null )
+      {
+         state.DataStreamNames[streamName] = streamIndex;
+      }
+   }
+
+   private static TStreamInfo WritePagedData( this PDBWritingState state, TWriteAction writes )
+   {
+      return state.WritePagedData( writes.Singleton() );
+   }
+
+   private static TStreamInfo WritePagedData( this PDBWritingState state, IEnumerable<TWriteAction> writes )
+   {
+
       var streamSize = 0;
+      var startPage = state.GetCurrentPage();
       foreach ( var write in writes )
       {
          var curSize = write.Item1;
@@ -1184,27 +1415,7 @@ public static partial class E_CILPhysical
 
          streamSize += curSize;
       }
-
-      var dataStreams = state.DataStreams;
-      var count = dataStreams.Count;
-      var streamInfo = Tuple.Create( streamSize, state.PagesFromContinuousStream( startPage ) );
-      if ( streamIndex < count )
-      {
-         dataStreams[streamIndex] = streamInfo;
-      }
-      else
-      {
-         if ( streamIndex > count )
-         {
-            dataStreams.AddRange( Enumerable.Repeat<TStreamInfo>( null, count - streamIndex ) );
-         }
-         dataStreams.Add( streamInfo );
-      }
-
-      if ( streamName != null )
-      {
-         state.DataStreamNames[streamName] = streamIndex;
-      }
+      return Tuple.Create( streamSize, state.PagesFromContinuousStream( startPage ) );
    }
 
 
@@ -1340,7 +1551,7 @@ public static partial class E_CILPhysical
 
    private static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope, List<Int32> usedNSCount )
    {
-      if ( usedNSCount != null )
+      if ( usedNSCount != null && !( scope is PDBFunction ) )
       {
          usedNSCount.Add( scope.UsedNamespaces.Count );
       }
@@ -1370,6 +1581,10 @@ public static partial class E_CILPhysical
       array.WriteUInt16LEToBytes( ref lenIdx, (UInt16) ( curIdx - lenIdx - 2 ) );
    }
 
+   private static void SeekToPage( this PDBWritingState state, Int32 page, Int32 pageOffset = 0 )
+   {
+      state.Stream.Stream.SeekToPage( state.StreamStart, state.PageSize, page, pageOffset );
+   }
 }
 
 

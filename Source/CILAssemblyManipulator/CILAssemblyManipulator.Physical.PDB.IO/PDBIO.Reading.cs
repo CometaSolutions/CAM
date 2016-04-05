@@ -107,7 +107,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          // Read DBI data
          array = streamHelper.ReadPagedData( pageSize, dataStreamPages[3], dataStreamSizes[3] );
          idx = 0;
-         DBIHeader dbiHeader; DBIModuleInfo[] modules; DBIDebugHeader debugHeader;
+         DBIHeader dbiHeader; List<DBIModuleInfo> modules; DBIDebugHeader debugHeader;
          LoadDBIStream( array, ref idx, out dbiHeader, out modules, out debugHeader );
 
          // Make array have the size of biggest stream size to be used, so we wouldn't need to create new array each time for stream
@@ -212,6 +212,9 @@ namespace CILAssemblyManipulator.Physical.PDB
          //   }
          //}
 
+         //var kekke = dbiHeader.psSymStream;
+         //streamHelper.ReadPagedData( pageSize, dataStreamPages[kekke], dataStreamSizes[kekke], array );
+
          // TEMP END
          // Read modules.
          var allSources = new Dictionary<String, PDBSource>();
@@ -274,7 +277,7 @@ namespace CILAssemblyManipulator.Physical.PDB
 
          if ( retVal.Count != nameCount )
          {
-            throw new PDBException( "Name index claimed to have " + max + " entries but had only " + retVal.Count + " entries." );
+            throw new PDBException( "Name index claimed to have " + nameCount + " entries but had only " + retVal.Count + " entries." );
          }
 
          return retVal;
@@ -307,19 +310,18 @@ namespace CILAssemblyManipulator.Physical.PDB
          return retVal;
       }
 
-      private static void LoadDBIStream( Byte[] array, ref Int32 idx, out DBIHeader dbiHeader, out DBIModuleInfo[] modules, out DBIDebugHeader debugHeader )
+      private static void LoadDBIStream( Byte[] array, ref Int32 idx, out DBIHeader dbiHeader, out List<DBIModuleInfo> modules, out DBIDebugHeader debugHeader )
       {
          dbiHeader = new DBIHeader( array, ref idx );
 
          // Read module info
          var max = idx + dbiHeader.moduleInfoSize;
-         var list = new List<DBIModuleInfo>();
+         modules = new List<DBIModuleInfo>();
          while ( idx < max )
          {
-            list.Add( new DBIModuleInfo( array, ref idx, NameEncoding ) );
+            modules.Add( new DBIModuleInfo( array, ref idx, NameEncoding ) );
             Align4( ref idx );
          }
-         modules = list.ToArray();
 
          // Skip following parts: Section Contribution, Section Map, File Info, TSM, EC
          idx += dbiHeader.secConSize + dbiHeader.secMapSize + dbiHeader.fileInfoSize + dbiHeader.tsMapSize + dbiHeader.ecInfoSize;
@@ -555,8 +557,7 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       private static Stream SeekToPage( this StreamInfo stream, Int32 pageSize, Int32 page, Int32 pageOffset )
       {
-         stream.stream.SeekFromBegin( stream.begin + page * pageSize + pageOffset );
-         return stream.stream;
+         return stream.stream.SeekToPage( stream.begin, pageSize, page, pageOffset );
       }
 
       private static Byte[] ReadPagedData( this StreamInfo stream, Int32 pageSize, Int32[] pages, Int32 byteCount )
@@ -844,12 +845,12 @@ namespace CILAssemblyManipulator.Physical.PDB
                   // Could set the capacities of the using lists of each slot, but at this point the slots may or may not have been created...
                   // So just skip.
 
-                  var uSize = array.ReadUInt16LEFromBytes( ref idx );
-                  var arrrr = new UInt16[uSize];
-                  for ( var i = 0; i < uSize; ++i )
-                  {
-                     arrrr[i] = array.ReadUInt16LEFromBytes( ref idx );
-                  }
+                  //var uSize = array.ReadUInt16LEFromBytes( ref idx );
+                  //var arrrr = new UInt16[uSize];
+                  //for ( var i = 0; i < uSize; ++i )
+                  //{
+                  //   arrrr[i] = array.ReadUInt16LEFromBytes( ref idx );
+                  //}
                   //func.UsingCounts.Capacity = uSize;
                   //for ( UInt16 i = 0; i < uSize; ++i )
                   //{
@@ -883,8 +884,8 @@ namespace CILAssemblyManipulator.Physical.PDB
                   func.IteratorClass = array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding );
                   break;
                case MD2_YET_UNKNOWN:
-                  break;
                case MD2_YET_UNKNOWN_2:
+               case MD2_YET_UNKNOWN_3:
                   break;
                default:
 #if DEBUG
