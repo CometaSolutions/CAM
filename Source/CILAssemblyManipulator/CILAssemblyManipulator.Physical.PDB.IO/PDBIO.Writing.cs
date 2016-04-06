@@ -1247,7 +1247,7 @@ public static partial class E_CILPhysical
             Int32 mdLenIdx;
             array
                .WriteOEMItemKind( ref idx, PDBIO.MD2_ITERATOR_CLASS, out mdLenIdx )
-               .WriteZeroTerminatedString( ref idx, func.IteratorClass )
+               .WriteZeroTerminatedString( ref idx, func.IteratorClass, false )
                .Align4( ref idx )
                .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );
          }
@@ -1550,7 +1550,8 @@ public static partial class E_CILPhysical
             size += 2; // version + MD2 kind
             Align4( ref size ); // 4-byte boundary
             size += INT_SIZE // OEM entry byte size
-               + PDBIO.NameEncoding.GetByteCount( func.IteratorClass ); // Iterator class name
+               + PDBIO.UTF16.GetByteCount( func.IteratorClass )// Iterator class name
+               + 2; // Zero padding
             Align4( ref size );
          }
 

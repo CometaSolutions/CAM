@@ -881,7 +881,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                   break;
                case MD2_ITERATOR_CLASS:
                   // Forward iterator class
-                  func.IteratorClass = array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding );
+                  func.IteratorClass = array.ReadZeroTerminatedUTF16String( ref idx );
                   break;
                case MD2_YET_UNKNOWN:
                case MD2_YET_UNKNOWN_2:
