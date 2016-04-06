@@ -218,6 +218,7 @@ namespace CILAssemblyManipulator.Physical
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
             && x.Age == y.Age
+            && x.Timestamp == y.Timestamp
             && x.DebugGUID == y.DebugGUID
             && String.Equals( x.SourceServer, y.SourceServer )
             && ListEqualityComparer<List<PDBModule>, PDBModule>.ListEquality( x.Modules, y.Modules, Equality_PDBModule )

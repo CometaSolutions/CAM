@@ -119,7 +119,8 @@ namespace CILAssemblyManipulator.Physical.PDB
 
          // Read root stream
          streamHelper.ReadPagedData( pageSize, dataStreamPages[1], dataStreamSizes[1], array );
-         idx = 8; // Skip version & timestamp
+         idx = 4; // Skip version
+         instance.Timestamp = array.ReadUInt32LEFromBytes( ref idx );
          instance.Age = array.ReadUInt32LEFromBytes( ref idx );
          instance.DebugGUID = array.ReadGUIDFromBytes( ref idx );
          var streamNameIndices = LoadStreamIndices( array, ref idx, ignoreCaseSourceFileStreamNames );

@@ -448,7 +448,7 @@ public static partial class E_CILPhysical
       );
    }
 
-   private static void WriteRootStream( this PDBWritingState state, Int32 timeStamp = 0 )
+   private static void WriteRootStream( this PDBWritingState state )
    {
       var namedDataStreams = state.DataStreamNames;
       var strByteCount = namedDataStreams.Keys.Aggregate( 0, ( cur, str ) => cur + PDBIO.NameEncoding.SafeByteCount( str, true ) );
@@ -466,7 +466,7 @@ public static partial class E_CILPhysical
             var instance = state.PDB;
             array
                .WriteUInt32LEToBytes( ref idx, 0x01312E94 ) // 2000 04 04
-               .WriteInt32LEToBytes( ref idx, timeStamp ) // Timestamp
+               .WriteUInt32LEToBytes( ref idx, instance.Timestamp ) // Timestamp
                .WriteUInt32LEToBytes( ref idx, instance.Age )
                .WriteGUIDToBytes( ref idx, instance.DebugGUID )
                .WriteInt32LEToBytes( ref idx, strByteCount );

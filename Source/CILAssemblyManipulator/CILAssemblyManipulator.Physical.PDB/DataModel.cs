@@ -54,6 +54,16 @@ namespace CILAssemblyManipulator.Physical.PDB
       public Guid DebugGUID { get; set; }
 
       /// <summary>
+      /// Gets or sets the timestamp of this <see cref="PDBInstance"/> as integer value.
+      /// </summary>
+      /// <value>The timestamp of this <see cref="PDBInstance"/> as integer value.</value>
+      /// <remarks>
+      /// This <see cref="Guid"/> should match the one serialized in <see cref="P:CILAssemblyManipulator.Physical.DebugInformation.Timestamp"/>.
+      /// </remarks>
+      [CLSCompliant( false )]
+      public UInt32 Timestamp { get; set; }
+
+      /// <summary>
       /// Gets or sets the age of this <see cref="PDBInstance"/>.
       /// </summary>
       /// <value>The age of this <see cref="PDBInstance"/>.</value>

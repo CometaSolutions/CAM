@@ -72,7 +72,6 @@ namespace CILAssemblyManipulator.Tests.Physical
             pdb2 = mem.ReadPDBInstance();
          }
          Assert.IsTrue( Comparers.PDBInstanceEqualityComparer.Equals( pdb, pdb2 ), "PDB after writing and reading must still have same content." );
-
       }
    }
 }
