@@ -356,6 +356,7 @@ public static partial class E_CILPhysical
          streamSize,
          ( array, idx ) =>
          {
+            // langapi/pdb/pdb.h, SrcHeaderBlock and SrcHeaderOut structs
             const Int32 SRC_HEADER_VERSION = 19980827;
             array
                .WriteInt32LEToBytes( ref idx, SRC_HEADER_VERSION ) // Signature
@@ -380,6 +381,7 @@ public static partial class E_CILPhysical
                   array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
                }
             }
+            array.WriteInt32LEToBytes( ref idx, srcHashSize );
 
             // Magic zero
             array.WriteInt32LEToBytes( ref idx, 0 );
