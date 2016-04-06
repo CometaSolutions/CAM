@@ -297,8 +297,7 @@ public static partial class E_CILPhysical
          return hIdx < len ? hIdx : (Int32?) null;
       } );
 
-      const Int32 BUCKETS_INCREASE = 10;
-      var srcHash = new TSourceHeaderInfo[BinaryUtils.AmountOfPagesTaken( sources.Count, BUCKETS_INCREASE ) * BUCKETS_INCREASE];
+      var srcHash = new TSourceHeaderInfo[sources.Count * 2];
 
       foreach ( var src in sources.Keys )
       {
@@ -322,7 +321,7 @@ public static partial class E_CILPhysical
             TSourceHeaderInfo[] newHash;
             do
             {
-               var newHashSize = oldHashSize + BUCKETS_INCREASE;
+               var newHashSize = oldHashSize * 2; // + BUCKETS_INCREASE;
                success = true;
                newHash = new TSourceHeaderInfo[newHashSize];
                foreach ( var info in srcHash.ConcatSingle( srcInfo ).Where( h => h != null ) )
@@ -365,7 +364,8 @@ public static partial class E_CILPhysical
                .WriteUInt32LEToBytes( ref idx, state.PDB.Age ) // PDB age
                .ZeroOut( ref idx, 44 ) // 44 bytes of zero padding
                .WriteInt32LEToBytes( ref idx, srcCount ) // Amount of sources
-               .WriteInt32LEToBytes( ref idx, srcHashSize ); // Amount of hash buckets
+               .WriteInt32LEToBytes( ref idx, srcHashSize ) // Amount of hash buckets
+               .WriteInt32LEToBytes( ref idx, 1 ); // Magic?
 
             // Present hashes bit vector
             var tmpUInt32 = 0u;
@@ -381,7 +381,6 @@ public static partial class E_CILPhysical
                   array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
                }
             }
-            array.WriteInt32LEToBytes( ref idx, srcHashSize );
 
             // Magic zero
             array.WriteInt32LEToBytes( ref idx, 0 );
