@@ -852,11 +852,18 @@ public static partial class E_CILPhysical
          List<Int32> usedNSCount;
          var funcBlockLen = func.CalculateSymbolByteCount( out usedNSCount );
          var size = preludeLength + funcBlockLen + 4;
+         Align4( ref size );
          yield return new TWriteAction( size, ( array, idx ) =>
          {
-            var tuple = func.WritePDBFunction( moduleIndex, array, preludeLength, funcBlockLen, usedNSCount, funcPointer, funcOffset );
-            funcSecContribs.Add( tuple.Item1 );
-            funcInfos.Add( tuple.Item2 );
+            func.WritePDBFunction( moduleIndex, array, preludeLength, funcBlockLen, usedNSCount, funcPointer, funcOffset );
+            var funcLen = (UInt32) func.Length;
+            funcSecContribs.Add( new PDBIO.DBISecCon()
+            {
+               module = (UInt16) moduleIndex,
+               section = 1,
+               size = funcLen
+            } );
+            funcInfos.Add( new PDBIO.PDBFunctionInfo( func, funcOffset, 1, funcPointer ) );
          } );
          funcOffset += (UInt32) func.Length;
          funcPointer += (UInt32) size;
@@ -866,34 +873,41 @@ public static partial class E_CILPhysical
 
       // 3. Sources
       var sourceIndices = new Dictionary<String, Int32>();
-      const Int32 SOURCE_INFO_START_PADDING = 8;
       var sourcesByteCount = sourceFileNames.Length * 8;
-      yield return new TWriteAction( SOURCE_INFO_START_PADDING + sourcesByteCount, ( array, idx ) =>
+      const Int32 SOURCE_INFO_START_PADDING = 8;
+      var sourcesTotalByteCount = sourcesByteCount > 0 ? ( SOURCE_INFO_START_PADDING + sourcesByteCount ) : 0;
+      if ( sourcesTotalByteCount > 0 )
       {
-         array
-            .WriteInt32LEToBytes( ref idx, PDBIO.SYM_DEBUG_SOURCE_INFO ) // Sources
-            .WriteInt32LEToBytes( ref idx, sourcesByteCount ); // Amount of bytes
-         foreach ( var src in sourceFileNames )
+         yield return new TWriteAction( sourcesTotalByteCount, ( array, idx ) =>
          {
-            // Save information about the index of this source within this block
-            sourceIndices.Add( src, idx - SOURCE_INFO_START_PADDING );
-
             array
-               .WriteInt32LEToBytes( ref idx, state.GetNameIndex( src ) ) // Name of the source
-               .WriteInt32LEToBytes( ref idx, 0 ); // length-byte (0), kind-byte (0), padding
-         }
-      } );
+               .WriteInt32LEToBytes( ref idx, PDBIO.SYM_DEBUG_SOURCE_INFO ) // Sources
+               .WriteInt32LEToBytes( ref idx, sourcesByteCount ); // Amount of bytes
+            foreach ( var src in sourceFileNames )
+            {
+               // Save information about the index of this source within this block
+               sourceIndices.Add( src, idx - SOURCE_INFO_START_PADDING );
+
+               array
+                  .WriteInt32LEToBytes( ref idx, state.GetNameIndex( src ) ) // Name of the source
+                  .WriteInt32LEToBytes( ref idx, 0 ); // length-byte (0), kind-byte (0), padding
+            }
+         } );
+      }
 
       // 4. Lines
       var linesByteCount = 0;
       foreach ( var funcI in funcInfos )
       {
          var curWriteInfo = WritePDBFunctionLines( funcI.function, funcI.address, sourceIndices );
-         yield return curWriteInfo;
-         linesByteCount += curWriteInfo.Item1;
+         if ( curWriteInfo != null )
+         {
+            yield return curWriteInfo;
+            linesByteCount += curWriteInfo.Item1;
+         }
       }
 
-      mInfo.linesByteCount = linesByteCount;
+      mInfo.linesByteCount = sourcesTotalByteCount + linesByteCount;
 
       // 5. Write SymRec stream refs, and update GSSym at the same time
       yield return new TWriteAction( INT_SIZE, ( array, idx ) => array.WriteInt32LEToBytes( ref idx, 8 * funcInfos.Count ) );
@@ -969,7 +983,7 @@ public static partial class E_CILPhysical
       var lineSize = 20 // Line info including SYM_DEBUG_LINE_INFO (int32) and block byte size (int32), also (2x->)1x int32s for sym-rec-stream refs
          + lineInfo.Count * LINE_PER_SOURCE_MULTIPLIER // For each used source, source index + line count + byte count
          + lineInfo.Values.Aggregate( 0, ( cur, l ) => cur + l.Count * PDBIO.LINE_MULTIPLIER + l.Where( ll => ll.ColumnEnd.HasValue && ll.ColumnStart.HasValue ).Count() * PDBIO.COLUMN_MULTIPLIER ); // For each line, line info + optional column info
-      return new TWriteAction(
+      return lineInfo.Count > 0 ? new TWriteAction(
          lineSize,
          ( array, idx ) =>
          {
@@ -1015,10 +1029,10 @@ public static partial class E_CILPhysical
             }
             // Revisit byte count
             array.WriteInt32LEToBytes( ref lenIdx, idx - lenIdx - 4 );
-         } );
+         } ) : null;
    }
 
-   private static Tuple<PDBIO.DBISecCon, PDBIO.PDBFunctionInfo> WritePDBFunction(
+   private static void WritePDBFunction(
       this PDBFunction func,
       Int32 moduleIndex,
       Byte[] array,
@@ -1029,14 +1043,6 @@ public static partial class E_CILPhysical
       UInt32 funcOffset
       )
    {
-      var funcLen = (UInt32) func.Length;
-      var funcContrib = new PDBIO.DBISecCon()
-      {
-         module = (UInt16) moduleIndex,
-         section = 1,
-         size = funcLen
-      };
-
       var idx = 2; // Skip block length
       // Block length + SYM (global managed function) + function fixed data
       array
@@ -1044,7 +1050,7 @@ public static partial class E_CILPhysical
          .WriteInt32LEToBytes( ref idx, 0 ) // parent
          .WriteUInt32LEToBytes( ref idx, funcPointer + (UInt32) preludeLength + (UInt32) funcBlockLen ) // function end pointer
          .WriteInt32LEToBytes( ref idx, 0 ) // next
-         .WriteUInt32LEToBytes( ref idx, funcLen ) // length
+         .WriteUInt32LEToBytes( ref idx, (UInt32) func.Length ) // length
          .WriteInt32LEToBytes( ref idx, 0 ) // debug start
          .WriteInt32LEToBytes( ref idx, 0 ) // debug end
          .WriteUInt32LEToBytes( ref idx, func.Token ) // token
@@ -1061,8 +1067,6 @@ public static partial class E_CILPhysical
       WriteScopeOrFunctionBlocks( func, array, ref idx, funcPointer, funcOffset, funcPointer );
       WriteOEM( func, array, ref idx, usedNSCount );
       WriteENDSym( array, ref idx );
-
-      return Tuple.Create( funcContrib, new PDBIO.PDBFunctionInfo( func, funcOffset, 1, funcPointer ) );
    }
 
    private static void WriteScopeOrFunctionBlocks( PDBScopeOrFunction scope, Byte[] array, ref Int32 idx, UInt32 funcPointer, UInt32 functionAddress, UInt32 parentPointer )
