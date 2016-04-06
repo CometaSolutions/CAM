@@ -301,10 +301,16 @@ public static partial class E_CILPhysical
 
       foreach ( var src in sources.Keys )
       {
+         // The order we get these names from name index is important!!!
+         // We have to get normal index *first*, and then object file name index, and then virtual file name index.
+         // Only in this order, querying the sources by e.g. ILDasm tool will work (e.g. the .language element in IL code will be correct).
+         var srcNI = state.GetNameIndex( src.Name );
+         var objNI = state.GetNameIndex( "" );
+         var virtualNI = state.GetNameIndex( src.Name.ToLowerInvariant() );
          var srcInfo = Tuple.Create(
-            state.GetNameIndex( src.Name.ToLowerInvariant() ),
-            state.GetNameIndex( "" ),
-            state.GetNameIndex( src.Name ),
+            virtualNI,
+            objNI,
+            srcNI,
             src
             );
          var hashBucketCount = srcHash.Length;
