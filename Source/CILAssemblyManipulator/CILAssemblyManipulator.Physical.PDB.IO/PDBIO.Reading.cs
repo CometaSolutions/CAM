@@ -105,7 +105,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          }
 
          // Read DBI data
-         array = streamHelper.ReadPagedData( pageSize, dataStreamPages[3], dataStreamSizes[3] );
+         array = streamHelper.ReadPagedData( pageSize, dataStreamPages[STREAM_INDEX_DBI], dataStreamSizes[STREAM_INDEX_DBI] );
          idx = 0;
          DBIHeader dbiHeader; List<DBIModuleInfo> modules; DBIDebugHeader debugHeader;
          LoadDBIStream( array, ref idx, out dbiHeader, out modules, out debugHeader );
@@ -118,7 +118,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          var instance = new PDBInstance();
 
          // Read root stream
-         streamHelper.ReadPagedData( pageSize, dataStreamPages[1], dataStreamSizes[1], array );
+         streamHelper.ReadPagedData( pageSize, dataStreamPages[STREAM_INDEX_ROOT], dataStreamSizes[STREAM_INDEX_ROOT], array );
          idx = 4; // Skip version
          instance.Timestamp = array.ReadUInt32LEFromBytes( ref idx );
          instance.Age = array.ReadUInt32LEFromBytes( ref idx );
@@ -213,7 +213,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          //   }
          //}
 
-         //var kekke = dbiHeader.psSymStream;
+         //var kekke = 2; // dbiHeader.psSymStream;
          //streamHelper.ReadPagedData( pageSize, dataStreamPages[kekke], dataStreamSizes[kekke], array );
 
          // TEMP END

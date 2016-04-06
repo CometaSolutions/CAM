@@ -26,6 +26,17 @@ namespace CILAssemblyManipulator.Physical.PDB
 {
    public static partial class PDBIO
    {
+      // From dbiimpl.h, "snPDB"
+      internal const Int32 STREAM_INDEX_ROOT = 1;
+      // From dbiimpl.h, "snTpi"
+      internal const Int32 STREAM_INDEX_TPI = 2;
+      // From dbiimpl.h, "snDbi"
+      internal const Int32 STREAM_INDEX_DBI = 3;
+      // From dbiimpl.h, "snIpi"
+      internal const Int32 STREAM_INDEX_IPI = 4;
+
+
+      internal const UInt16 SYM_PUBLIC = 0x110e;
       internal const UInt16 SYM_GLOBAL_MANAGED_FUNC = 0x112a;
       internal const UInt16 SYM_LOCAL_MANAGED_FUNC = 0x112b;
       internal const UInt16 SYM_MANAGED_SLOT = 0x1120;

@@ -223,7 +223,8 @@ public static partial class E_CILPhysical
       // Remember to start writing from
       state.SeekToPage( START_PAGE );
 
-      // Write TPI stream first, as it is always fixed content, since managed stuff does not use it.
+      // Write IPI and TPI streams first, as they always have fixed content, since managed stuff does not use it.
+      state.WriteIPIStream();
       state.WriteTPIStream();
 
       // Then, write all source streams
@@ -268,7 +269,7 @@ public static partial class E_CILPhysical
          .ToDictionary_Preserve(
             src => src,
             src => state.AddNewNamedStream(
-            PDBIO.SOURCE_FILE_PREFIX + src.Name,
+            PDBIO.SOURCE_FILE_PREFIX + src.Name.ToLowerInvariant(), // Use to-lower conversion so that .language etc elements in IL would appear correctly.
             GUID_SIZE * 4 + src.Hash?.Length ?? 0,
             ( array, idx ) => array
                .WriteGUIDToBytes( ref idx, src.Language )
@@ -410,6 +411,16 @@ public static partial class E_CILPhysical
 
    private static void WriteTPIStream( this PDBWritingState state )
    {
+      state.WriteTPIOrIPIStream( PDBIO.STREAM_INDEX_TPI );
+   }
+
+   private static void WriteIPIStream( this PDBWritingState state )
+   {
+      state.WriteTPIOrIPIStream( PDBIO.STREAM_INDEX_IPI );
+   }
+
+   private static void WriteTPIOrIPIStream( this PDBWritingState state, Int32 streamIndex )
+   {
       const Int32 TPI_HEADER_SIZE = 0x38;
       const Int32 VERSION_80 = 20040203;
       const Int32 TI_LOWEST = 0x1000;
@@ -423,9 +434,12 @@ public static partial class E_CILPhysical
       const Int32 TI_PAIRS_OFFSET = 0;
       const Int32 TI_PAIRS_COUNT = -1;
       const Int32 HASH_HEAD_LIST_OFFSET = 0;
-      const Int32 HASH_HEAD_LIST_COUNT = 0;
+      const Int32 HASH_HEAD_LIST_COUNT = -1;
 
-      state.AddNewIndexedStream( 2, TPI_HEADER_SIZE, ( array, idx ) =>
+      state.AddNewIndexedStream(
+         streamIndex,
+         TPI_HEADER_SIZE,
+         ( array, idx ) =>
           array
              // HDR struct
              .WriteInt32LEToBytes( ref idx, VERSION_80 ) // Version
@@ -456,7 +470,7 @@ public static partial class E_CILPhysical
       var namedDataStreamsPresentBitSetCount = BinaryUtils.AmountOfPagesTaken( namedDataStreams.Count, 32 );
       // Root stream is unnamed, and always at index 1
       state.AddNewIndexedStream(
-         1,
+         PDBIO.STREAM_INDEX_ROOT,
          40 + GUID_SIZE // Minimum size
          + namedDataStreamsPresentBitSetCount * sizeof( Int32 ) // Present bit set length
          + namedDataStreams.Count * 8 // How many bytes for each name
@@ -553,7 +567,7 @@ public static partial class E_CILPhysical
       var secConSize = 0u;
       var secConStream = state.DataStreams.Count;
       state.AddNewIndexedStream(
-         3,
+         PDBIO.STREAM_INDEX_DBI,
          64 // DBI header size
          + dbiHeader.moduleInfoSize // Module infos
          + dbiHeader.fileInfoSize // File infos
@@ -650,18 +664,18 @@ public static partial class E_CILPhysical
       var strCount = nameIndex.Count;
       state.AddNewIndexedStream(
          6,
-         20 // Fixed size
+         25 // Fixed size
          + strByteCount // Serialized strings
          + INT_SIZE * strCount, // Each string is prepended by its 'id'
          ( array, idx ) =>
          {
             array
-               .WriteUInt32LEToBytes( ref idx, 0xFEEFFEEF ) // Signature
+               .WriteUInt32LEToBytes( ref idx, 0xEFFEEFFE ) // Signature
                .WriteUInt32LEToBytes( ref idx, 0x00000001 ) // Version
                .WriteInt32LEToBytes( ref idx, strByteCount ); // String byte count
             var afterStrIdx = idx + strByteCount;
             array.WriteByteToBytes( ref idx, 0 ); // 1 zero byte to distinguish zero indices
-            array.WriteInt32LEToBytes( ref afterStrIdx, nameIndex.Count ); // Max amount of names
+            array.WriteInt32LEToBytes( ref afterStrIdx, nameIndex.Count + 1 ); // Max amount of names
             foreach ( var kvp in nameIndex )
             {
                // Write index information first
@@ -670,7 +684,9 @@ public static partial class E_CILPhysical
                // Write string
                array.WriteZeroTerminatedString( ref idx, kvp.Key );
             }
-            array.WriteInt32LEToBytes( ref afterStrIdx, nameIndex.Count ); // Amount of names
+            array
+               .WriteInt32LEToBytes( ref afterStrIdx, 0 ) // Magic zero
+               .WriteInt32LEToBytes( ref afterStrIdx, nameIndex.Count ); // Amount of names
          },
          PDBIO.NAMES_STREAM_NAME
          );
@@ -1301,6 +1317,8 @@ public static partial class E_CILPhysical
       return streamIndex;
    }
 
+   private const Int32 GS_SYM_REF_MULTIPLIER = 16; // 16, if both PROCREFs and TOKENREFs are stored
+
    private static Int32 WriteGlobalSymbolStream(
       this PDBWritingState state,
       List<PDBIO.DBISecCon> funcSecContribs
@@ -1312,7 +1330,6 @@ public static partial class E_CILPhysical
       var streamIndex = state.DataStreams.Count;
       var gsSymAux = state.GlobalSymbolStreamInfo;
       var gsSymHashSize = GS_SYM_BUCKETS / 8 + ( gsSymAux.Count + 1 ) * 4;
-      const Int32 GS_SYM_REF_MULTIPLIER = 16; // 16, if both PROCREFs and TOKENREFs are stored
       state.AddNewIndexedStream(
          streamIndex,
          16 // Header size
@@ -1320,11 +1337,7 @@ public static partial class E_CILPhysical
          + gsSymHashSize,
          ( array, idx ) =>
          {
-            array
-               .WriteUInt32LEToBytes( ref idx, UInt32.MaxValue ) // Signature (gsi.h, GSIHashHdr struct)
-               .WriteUInt32LEToBytes( ref idx, 0xF12F091A ) // Version ( gsi.h, GSIHashSCImpvV70 )
-               .WriteInt32LEToBytes( ref idx, GS_SYM_REF_MULTIPLIER * funcSecContribs.Count ) // Byte count of references to symRecStream
-               .WriteInt32LEToBytes( ref idx, gsSymHashSize ); // Present buckets bitset + offsets
+            array.WriteGSIHashHdr( ref idx, funcSecContribs.Count, gsSymHashSize );
 
             // References to symRecStream
             var gsHashSorted = gsSymAux.Keys.ToArray();
@@ -1370,6 +1383,28 @@ public static partial class E_CILPhysical
          } );
 
       return streamIndex;
+   }
+
+   private static Int32 WritePublicSymbolStream( this PDBWritingState state )
+   {
+      var streamIndex = state.DataStreams.Count;
+      state.AddNewIndexedStream(
+         streamIndex,
+         43, // Always default size - the publics stream is always empty
+         ( array, idx ) =>
+         {
+
+         } );
+      return streamIndex;
+   }
+
+   private static Byte[] WriteGSIHashHdr( this Byte[] array, ref Int32 idx, Int32 funcSecContribCount, Int32 bucketCount )
+   {
+      return array
+         .WriteUInt32LEToBytes( ref idx, UInt32.MaxValue ) // Signature (gsi.h, GSIHashHdr struct)
+         .WriteUInt32LEToBytes( ref idx, 0xF12F091A ) // Version ( gsi.h, GSIHashSCImpvV70 )
+         .WriteInt32LEToBytes( ref idx, GS_SYM_REF_MULTIPLIER * funcSecContribCount ) // Byte count of references to symRecStream
+         .WriteInt32LEToBytes( ref idx, bucketCount ); // Present buckets bitset + offsets
    }
 
    private static Int32 SafeByteCount( this Encoding encoding, String str, Boolean zeroTerminated ) // = true )
@@ -1576,7 +1611,7 @@ public static partial class E_CILPhysical
 
    private static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope, List<Int32> usedNSCount )
    {
-      if ( usedNSCount != null && !( scope is PDBFunction ) )
+      if ( usedNSCount != null )
       {
          usedNSCount.Add( scope.UsedNamespaces.Count );
       }
