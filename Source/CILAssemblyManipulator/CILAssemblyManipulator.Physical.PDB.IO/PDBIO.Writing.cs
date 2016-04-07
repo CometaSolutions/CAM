@@ -584,10 +584,10 @@ public static partial class E_CILPhysical
       }
 
       // 2. Write GlobalSymbols stream
-      dbiHeader.gsSymStream = (UInt16) state.WriteGlobalSymbolStream( funcSecContribs );
+      dbiHeader.gsSymStream = (UInt16) state.WriteGlobalSymbolStream();
 
-      // 3. Write PublicSymbols stream (TODO)
-      dbiHeader.psSymStream = (UInt16) 0;
+      // 3. Write PublicSymbols stream
+      dbiHeader.psSymStream = (UInt16) state.WritePublicSymbolStream();
 
       // 4. Write SymbolRecord stream
       dbiHeader.symRecStream = (UInt16) state.WriteSymbolRecordStream();
@@ -1369,23 +1369,33 @@ public static partial class E_CILPhysical
    private const Int32 GS_SYM_REF_MULTIPLIER = 16; // 16, if both PROCREFs and TOKENREFs are stored
 
    private static Int32 WriteGlobalSymbolStream(
-      this PDBWritingState state,
-      List<PDBIO.DBISecCon> funcSecContribs
+      this PDBWritingState state
       )
    {
       return state.WriteGSIStream(
          state.Globals,
          null,
-         true );
+         null,
+         true
+         );
    }
 
    private static Int32 WritePublicSymbolStream( this PDBWritingState state )
    {
+      var suffixSize = state.Publics.ReferenceCount > 0 ? 4 : 0;
       return state.WriteGSIStream(
          state.Publics,
          gsiStreamSize => new TWriteAction( 28, ( array, idx ) =>
          {
-            array.WriteInt32LEToBytes( ref idx, gsiStreamSize );
+            array
+            .WriteInt32LEToBytes( ref idx, gsiStreamSize )
+            .WriteInt32LEToBytes( ref idx, suffixSize )
+            .ZeroOut( ref idx, 20 ); // Rest is just padding, maybe?
+         } ),
+         gsiStreamSize => new TWriteAction( suffixSize, ( array, idx ) =>
+         {
+            // Magic zero as suffix
+            array.WriteInt32LEToBytes( ref idx, 0 );
          } ),
          false
          );
@@ -1395,6 +1405,7 @@ public static partial class E_CILPhysical
       this PDBWritingState state,
       SymbolRecStreamRefInfo gsiStream,
       Func<Int32, TWriteAction> prefixWriterCreator,
+      Func<Int32, TWriteAction> suffixWriterCreator,
       Boolean writeNamedRefs
       )
    {
@@ -1432,7 +1443,7 @@ public static partial class E_CILPhysical
                   {
                      array
                         .WriteInt32LEToBytes( ref idx, list[i - 1] ) // Reference
-                        .WriteInt32LEToBytes( ref idx, 1 ); // magic one
+                        .WriteInt32LEToBytes( ref idx, 1 ); // Segment maybe?
                   }
                }
 
@@ -1470,7 +1481,8 @@ public static partial class E_CILPhysical
                      array.ZeroOut(ref idx, gsSymHashSize);
                   }
                }
-            })
+            }),
+            suffixWriterCreator?.Invoke(gsiStreamSize)
          } );
 
       return streamIndex;
@@ -1538,12 +1550,15 @@ public static partial class E_CILPhysical
          if ( write != null )
          {
             var curSize = write.Item1;
-            var array = state.Stream.Buffer.SetCapacityAndReturnArray( curSize );
+            if ( curSize > 0 )
+            {
+               var array = state.Stream.Buffer.SetCapacityAndReturnArray( curSize );
 
-            write.Item2( array, 0 );
-            state.Stream.Stream.Write( array, curSize );
+               write.Item2( array, 0 );
+               state.Stream.Stream.Write( array, curSize );
 
-            streamSize += curSize;
+               streamSize += curSize;
+            }
          }
       }
       return Tuple.Create( streamSize, state.PagesFromContinuousStream( startPage ) );
