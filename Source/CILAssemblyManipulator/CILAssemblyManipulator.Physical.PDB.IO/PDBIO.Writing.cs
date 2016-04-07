@@ -81,70 +81,52 @@ public static partial class E_CILPhysical
       }
    }
 
-   private sealed class PDBWritingState
+   private sealed class SymbolRecStreamRefInfo
    {
+      private readonly PDBWritingState _state;
 
-      public PDBWritingState( PDBInstance pdb, StreamHelper stream, Int32 pageSize )
+      private Int32 _refCount;
+
+      public SymbolRecStreamRefInfo( PDBWritingState state )
       {
-         this.PDB = pdb;
-         this.Stream = stream;
-         this.StreamStart = stream.Stream.Position;
-         this.PageSize = pageSize;
+         ArgumentValidator.ValidateNotNull( "State", state );
 
-         this.NameIndex = new PDBNameIndex( 1 );
-         this.DataStreams = new List<TStreamInfo>();
-         this.DataStreamNames = new Dictionary<String, Int32>();
-         this.ZeroesArray = new Byte[this.PageSize];
-
-         // Create array for the symbol record stream
-         this.SymRecStream = new Byte[pdb.Modules
-            .SelectMany( m => m.Functions )
-            .Aggregate( 0, ( cur, f ) =>
-            {
-               cur += 14 + PDBIO.NameEncoding.SafeByteCount( f.Name, true );
-               Align4( ref cur );
-               return cur + TOKENREF_FIXED_SIZE;
-            } )];
-         this.SymRecIndex = 0;
-         this.GlobalSymbolStreamInfo = new Dictionary<UInt32, List<Int32>>();
+         this._state = state;
+         this.NamedReferences = new Dictionary<UInt32, List<Int32>>();
       }
 
-      public PDBInstance PDB { get; }
+      public Dictionary<UInt32, List<Int32>> NamedReferences { get; }
 
-      public StreamHelper Stream { get; }
-
-      public Int64 StreamStart { get; }
-
-      public Int32 PageSize { get; }
-
-      public PDBNameIndex NameIndex { get; }
-
-      public List<TStreamInfo> DataStreams { get; }
-
-      public Dictionary<String, Int32> DataStreamNames { get; }
-
-      public Byte[] ZeroesArray { get; }
-
-      public Byte[] SymRecStream { get; }
-
-      public Int32 SymRecIndex;
-
-      public Dictionary<UInt32, List<Int32>> GlobalSymbolStreamInfo { get; }
-
-      public Int32 GetNameIndex( String name )
+      public Int32 ReferenceCount
       {
-         return this.NameIndex.GetNameIndex( name );
+         get
+         {
+            return this._refCount;
+         }
       }
 
-      public void AddNameHashToGlobalSymbolStream( Int32 nameStart, Int32 offsetToStructure )
+      //public void RecordSymRecReference( Int32 referenceOffset )
+      //{
+      //   this.DoRecordSymRecReference( referenceOffset );
+      //}
+
+      public void RecordNamedSymcRecReference( Int32 nameStart, Int32 referenceOffset )
       {
-         var symRecEnd = this.SymRecIndex;
-         ++offsetToStructure; // Indexing is 1-based
-         var hash = ComputeHash( this.SymRecStream, nameStart, symRecEnd - nameStart - 1, GS_SYM_BUCKETS ); // Remember terminating zero
-         this.GlobalSymbolStreamInfo
+         var hash = ComputeHash( this._state.SymRecStream, nameStart, this._state.SymRecIndex - nameStart - 1, GS_SYM_BUCKETS ); // Remember terminating zero
+         ++referenceOffset; // Indexing is 1-based
+         this.NamedReferences
             .GetOrAdd_NotThreadSafe( hash, h => new List<Int32>() )
-            .Add( offsetToStructure );
+            .Add( referenceOffset );
+         ++this._refCount;
       }
+
+      //private Int32 DoRecordSymRecReference( Int32 referenceOffset )
+      //{
+      //   ++referenceOffset; // Indexing is 1-based
+      //   var list = this.References;
+      //   list.Add( referenceOffset );
+      //   return list.Count;
+      //}
 
       // This is algorithm used to compute hashes of names in gsSymStream.
       // Ported from C to C# and modified a bit, original is available at http://code.google.com/p/pdbparser/source/browse/trunk/symeng/misc.cpp , HashPbCb function.
@@ -202,6 +184,65 @@ public static partial class E_CILPhysical
          ulHash ^= ( ulHash >> 11 );
 
          return ( ulHash ^ ( ulHash >> 16 ) ) % ulMod;
+      }
+   }
+
+   private sealed class PDBWritingState
+   {
+
+      public PDBWritingState( PDBInstance pdb, StreamHelper stream, Int32 pageSize )
+      {
+         this.PDB = pdb;
+         this.Stream = stream;
+         this.StreamStart = stream.Stream.Position;
+         this.PageSize = pageSize;
+
+         this.NameIndex = new PDBNameIndex( 1 );
+         this.DataStreams = new List<TStreamInfo>();
+         this.DataStreamNames = new Dictionary<String, Int32>();
+         this.ZeroesArray = new Byte[this.PageSize];
+
+         // Create array for the symbol record stream
+         this.SymRecStream = new Byte[pdb.Modules
+            .SelectMany( m => m.Functions )
+            .Aggregate( 0, ( cur, f ) =>
+            {
+               cur += 14 + PDBIO.NameEncoding.SafeByteCount( f.Name, true );
+               Align4( ref cur );
+               return cur + TOKENREF_FIXED_SIZE;
+            } )];
+         this.SymRecIndex = 0;
+         this.Globals = new SymbolRecStreamRefInfo( this );
+         this.Publics = new SymbolRecStreamRefInfo( this );
+      }
+
+      public PDBInstance PDB { get; }
+
+      public StreamHelper Stream { get; }
+
+      public Int64 StreamStart { get; }
+
+      public Int32 PageSize { get; }
+
+      public PDBNameIndex NameIndex { get; }
+
+      public List<TStreamInfo> DataStreams { get; }
+
+      public Dictionary<String, Int32> DataStreamNames { get; }
+
+      public Byte[] ZeroesArray { get; }
+
+      public Byte[] SymRecStream { get; }
+
+      public Int32 SymRecIndex;
+
+      public SymbolRecStreamRefInfo Globals { get; }
+
+      public SymbolRecStreamRefInfo Publics { get; }
+
+      public Int32 GetNameIndex( String name )
+      {
+         return this.NameIndex.GetNameIndex( name );
       }
    }
 
@@ -940,6 +981,7 @@ public static partial class E_CILPhysical
 
       // Then write PROCREF & TOKENREF info
       var symRecStream = state.SymRecStream;
+      var globals = state.Globals;
       foreach ( var fInfo in funcInfos )
       {
          // Record offset to module stream
@@ -959,7 +1001,7 @@ public static partial class E_CILPhysical
             symRecStream.WriteZeroTerminatedString( ref state.SymRecIndex, fInfo.function.Name ); // Function name
 
             // Hash function name
-            state.AddNameHashToGlobalSymbolStream( tmp, sRef );
+            globals.RecordNamedSymcRecReference( tmp, sRef );
 
             // Pad to 4-byte boundary
             Align4( ref state.SymRecIndex );
@@ -981,7 +1023,7 @@ public static partial class E_CILPhysical
             symRecStream.WriteZeroTerminatedString( ref state.SymRecIndex, fInfo.function.Token.ToString( "x8" ) ); // Fixed-length hexadecimal token value, with lower-case letters (upper-case won't work).
 
             // Hash tokenref textual name
-            state.AddNameHashToGlobalSymbolStream( tmp, sRef );
+            globals.RecordNamedSymcRecReference( tmp, sRef );
 
             Align4( ref state.SymRecIndex );
          } );
@@ -1331,87 +1373,107 @@ public static partial class E_CILPhysical
       List<PDBIO.DBISecCon> funcSecContribs
       )
    {
-      // Write gSymStream (only if any functions)
-      //if ( state.GlobalSymbolStreamInfo.Count > 0 )
-      //{
-      var streamIndex = state.DataStreams.Count;
-      var gsSymAux = state.GlobalSymbolStreamInfo;
-      var gsSymHashSize = GS_SYM_BUCKETS / 8 + ( gsSymAux.Count + 1 ) * 4;
-      state.AddNewIndexedStream(
-         streamIndex,
-         16 // Header size
-         + GS_SYM_REF_MULTIPLIER * funcSecContribs.Count
-         + gsSymHashSize,
-         ( array, idx ) =>
-         {
-            array.WriteGSIHashHdr( ref idx, funcSecContribs.Count, gsSymHashSize );
-
-            // References to symRecStream
-            var gsHashSorted = gsSymAux.Keys.ToArray();
-            Array.Sort( gsHashSorted, Comparer<UInt32>.Default );
-            foreach ( var gsHash in gsHashSorted )
-            {
-               var list = gsSymAux[gsHash];
-
-               // The list items are in ascending order since whenever a new value is added, it is always greater than prev values.
-               // Iterate in descending order (not sure if really required, but it is how the values are written by MS writer)
-               for ( var i = list.Count; i > 0; --i )
-               {
-                  array
-                     .WriteInt32LEToBytes( ref idx, list[i - 1] )
-                     .WriteInt32LEToBytes( ref idx, 1 );
-               }
-            }
-
-            // Hash table present buckets bitset
-            var curGSHashIdx = 0;
-            var tmpUInt32 = 0u;
-            for ( var i = 0; i < GS_SYM_BUCKETS / 32; ++i )
-            {
-               tmpUInt32 = 0u;
-               while ( curGSHashIdx < gsHashSorted.Length && gsHashSorted[curGSHashIdx] < ( i + 1 ) * 32 )
-               {
-                  tmpUInt32 |= ( 1u << (Int32) ( gsHashSorted[curGSHashIdx] % 32 ) );
-                  ++curGSHashIdx;
-               }
-               array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
-            }
-
-            // Magic zero
-            array.WriteInt32LEToBytes( ref idx, 0 );
-
-            // Write counts in each bucket
-            tmpUInt32 = 0u;
-            foreach ( var gsHash in gsHashSorted )
-            {
-               array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
-               tmpUInt32 += 12u * (UInt32) gsSymAux[gsHash].Count;
-            }
-         } );
-
-      return streamIndex;
+      return state.WriteGSIStream(
+         state.Globals,
+         null,
+         true );
    }
 
    private static Int32 WritePublicSymbolStream( this PDBWritingState state )
    {
-      var streamIndex = state.DataStreams.Count;
-      state.AddNewIndexedStream(
-         streamIndex,
-         43, // Always default size - the publics stream is always empty
-         ( array, idx ) =>
+      return state.WriteGSIStream(
+         state.Publics,
+         gsiStreamSize => new TWriteAction( 28, ( array, idx ) =>
          {
-
-         } );
-      return streamIndex;
+            array.WriteInt32LEToBytes( ref idx, gsiStreamSize );
+         } ),
+         false
+         );
    }
 
-   private static Byte[] WriteGSIHashHdr( this Byte[] array, ref Int32 idx, Int32 funcSecContribCount, Int32 bucketCount )
+   private static Int32 WriteGSIStream(
+      this PDBWritingState state,
+      SymbolRecStreamRefInfo gsiStream,
+      Func<Int32, TWriteAction> prefixWriterCreator,
+      Boolean writeNamedRefs
+      )
    {
-      return array
-         .WriteUInt32LEToBytes( ref idx, UInt32.MaxValue ) // Signature (gsi.h, GSIHashHdr struct)
-         .WriteUInt32LEToBytes( ref idx, 0xF12F091A ) // Version ( gsi.h, GSIHashSCImpvV70 )
-         .WriteInt32LEToBytes( ref idx, GS_SYM_REF_MULTIPLIER * funcSecContribCount ) // Byte count of references to symRecStream
-         .WriteInt32LEToBytes( ref idx, bucketCount ); // Present buckets bitset + offsets
+      var streamIndex = state.DataStreams.Count;
+      var namedRefs = gsiStream.NamedReferences;
+      var gsRefSize = 8 * gsiStream.ReferenceCount; // Each ref is two ints
+
+      var gsSymHashSize = writeNamedRefs && gsRefSize > 0 ? ( GS_SYM_BUCKETS / 8 + ( namedRefs.Count + 1 ) * 4 ) : 0;
+      var gsiStreamSize = 16 // Header size
+         + gsRefSize // References size
+         + gsSymHashSize; // Hash table size
+      state.AddNewIndexedStreamInPieces(
+         streamIndex,
+         new[]
+         {
+            prefixWriterCreator?.Invoke(gsiStreamSize),
+            new TWriteAction( gsiStreamSize, ( array, idx ) =>
+            {
+               array
+               .WriteUInt32LEToBytes( ref idx, UInt32.MaxValue ) // Signature (gsi.h, GSIHashHdr struct)
+               .WriteUInt32LEToBytes( ref idx, 0xF12F091A ) // Version ( gsi.h, GSIHashSCImpvV70 )
+               .WriteInt32LEToBytes( ref idx, gsRefSize ) // Byte count of references to symRecStream
+               .WriteInt32LEToBytes( ref idx, gsSymHashSize ); // Present buckets bitset + offsets
+
+               // References to symRecStream
+               var gsHashSorted = namedRefs.Keys.ToArray();
+               Array.Sort( gsHashSorted, Comparer<UInt32>.Default );
+               foreach ( var gsHash in gsHashSorted )
+               {
+                  var list = namedRefs[gsHash];
+
+                  // The list items are in ascending order since whenever a new value is added, it is always greater than prev values.
+                  // Iterate in descending order (not sure if really required, but it is how the values are written by MS writer)
+                  for ( var i = list.Count; i > 0; --i )
+                  {
+                     array
+                        .WriteInt32LEToBytes( ref idx, list[i - 1] ) // Reference
+                        .WriteInt32LEToBytes( ref idx, 1 ); // magic one
+                  }
+               }
+
+               if ( gsSymHashSize > 0 )
+               {
+                  if (writeNamedRefs)
+                  {
+                     // Hash table present buckets bitset
+                     var curGSHashIdx = 0;
+                     var tmpUInt32 = 0u;
+                     for ( var i = 0; i < GS_SYM_BUCKETS / 32; ++i )
+                     {
+                        tmpUInt32 = 0u;
+                        while ( curGSHashIdx < gsHashSorted.Length && gsHashSorted[curGSHashIdx] < ( i + 1 ) * 32 )
+                        {
+                           tmpUInt32 |= ( 1u << (Int32) ( gsHashSorted[curGSHashIdx] % 32 ) );
+                           ++curGSHashIdx;
+                        }
+                        array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+                     }
+
+                     // Magic zero
+                     array.WriteInt32LEToBytes( ref idx, 0 );
+
+                     // Write counts in each bucket
+                     tmpUInt32 = 0u;
+                     foreach ( var gsHash in gsHashSorted )
+                     {
+                        array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+                        tmpUInt32 += 12u * (UInt32) namedRefs[gsHash].Count;
+                     }
+                  } else
+                  {
+                     // Just zero out
+                     array.ZeroOut(ref idx, gsSymHashSize);
+                  }
+               }
+            })
+         } );
+
+      return streamIndex;
    }
 
    private static Int32 SafeByteCount( this Encoding encoding, String str, Boolean zeroTerminated ) // = true )
@@ -1473,13 +1535,16 @@ public static partial class E_CILPhysical
       var startPage = state.GetCurrentPage();
       foreach ( var write in writes )
       {
-         var curSize = write.Item1;
-         var array = state.Stream.Buffer.SetCapacityAndReturnArray( curSize );
+         if ( write != null )
+         {
+            var curSize = write.Item1;
+            var array = state.Stream.Buffer.SetCapacityAndReturnArray( curSize );
 
-         write.Item2( array, 0 );
-         state.Stream.Stream.Write( array, curSize );
+            write.Item2( array, 0 );
+            state.Stream.Stream.Write( array, curSize );
 
-         streamSize += curSize;
+            streamSize += curSize;
+         }
       }
       return Tuple.Create( streamSize, state.PagesFromContinuousStream( startPage ) );
    }

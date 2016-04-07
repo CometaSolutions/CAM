@@ -154,66 +154,8 @@ namespace CILAssemblyManipulator.Physical.PDB
          var nameIndex = LoadNameIndex( array, ref idx );
 
          // TEMP BEGIN
-         //stream.ReadPagedData( pageSize, dataStreamPages[7], dataStreamSizes[7], array );
-         //idx = 4;
-         //var max = array.ReadInt32LEFromBytes( ref idx );
-         //idx = 0x58;
-         //var srcHdrStrs = new List<String[]>();
-         //while ( idx < max )
-         //{
-         //   var sIdx = array.ReadInt32LEFromBytes( ref idx );
-         //   var str1 = nameIndex[sIdx];
-         //   var max2 = array.ReadInt32LEFromBytes( ref idx );
-         //   if ( max2 != 0x28 )
-         //   {
-
-         //   }
-         //   max2 += idx - 4;
-         //   idx += 8;
-         //   if ( array.ReadInt32LEFromBytes( ref idx ) != 0x58 )
-         //   {
-
-         //   }
-         //   var strs = new List<String>();
-         //   strs.Add( str1 );
-         //   while ( idx < max2 )
-         //   {
-         //      var curStr = nameIndex[array.ReadInt32LEFromBytes( ref idx )];
-         //      strs.Add( curStr );
-         //      if ( String.Equals( curStr, strs[0] ) )
-         //      {
-         //         if ( array.ReadInt32LEFromBytes( ref idx ) != 0x65 )
-         //         {
-
-         //         }
-         //         idx = max2;
-         //         break;
-         //      }
-         //   }
-         //   srcHdrStrs.Add( new String[] { "" + sIdx + " - " + ( sIdx % 52 ) + ": " + str1 } );// strs.ToArray() );
-         //}
-         //var srcHdrStr = String.Join( "\n", srcHdrStrs.Select( s => String.Join( "\n", s ) ) );
-
-         //var kekke = streamNameIndices["/src/headerblock"];
-         //streamHelper.ReadPagedData( pageSize, dataStreamPages[kekke], dataStreamSizes[kekke], array );
-         //var hashBucketCount = array.ReadInt32LEFromBytesNoRef( 68 );
-         //var entries = new List<Int32>( hashBucketCount );
-         //for ( var i = 84; i < dataStreamSizes[kekke]; i += 44 )
-         //{
-         //   entries.Add( array.ReadInt32LEFromBytesNoRef( i ) );
-         //}
-
-         //var hashBucketIndices = new HashSet<Int32>();
-         //foreach ( var entry in entries )
-         //{
-         //   var hashIdx = entry % hashBucketCount;
-         //   if ( !hashBucketIndices.Add( hashIdx ) )
-         //   {
-
-         //   }
-         //}
-
-         //var kekke = 2; // dbiHeader.psSymStream;
+         //var kekke = dbiHeader.psSymStream;
+         //array = new Byte[1024];
          //streamHelper.ReadPagedData( pageSize, dataStreamPages[kekke], dataStreamSizes[kekke], array );
 
          // TEMP END
