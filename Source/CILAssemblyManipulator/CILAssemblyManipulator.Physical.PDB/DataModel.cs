@@ -179,6 +179,12 @@ namespace CILAssemblyManipulator.Physical.PDB
       public String Name { get; set; }
 
       /// <summary>
+      /// Gets or sets the name of the object file this module originates from.
+      /// </summary>
+      /// <value>The name of the object file this module originates from.</value>
+      public String ObjectName { get; set; }
+
+      /// <summary>
       /// Creates the textual representation of this <see cref="PDBModule"/>.
       /// </summary>
       /// <returns>The textual representation of this <see cref="PDBModule"/>.</returns>

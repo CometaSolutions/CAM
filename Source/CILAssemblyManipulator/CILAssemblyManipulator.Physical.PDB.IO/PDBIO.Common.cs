@@ -98,9 +98,10 @@ namespace CILAssemblyManipulator.Physical.PDB
          internal String moduleName;
          internal String objectName;
 
-         internal DBIModuleInfo( String modName )
+         internal DBIModuleInfo( String modName, String objName )
          {
             this.moduleName = modName ?? String.Empty;
+            this.objectName = objName ?? String.Empty;
             this.section = new DBISecCon();
          }
 

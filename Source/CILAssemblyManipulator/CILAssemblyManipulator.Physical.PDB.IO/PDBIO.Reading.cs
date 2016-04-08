@@ -289,7 +289,8 @@ namespace CILAssemblyManipulator.Physical.PDB
          var thisFuncs = new List<PDBFunctionInfo>();
          var module = new PDBModule()
          {
-            Name = moduleInfo.moduleName
+            Name = moduleInfo.moduleName,
+            ObjectName = moduleInfo.objectName
          };
          while ( idx < moduleInfo.symbolByteCount )
          {

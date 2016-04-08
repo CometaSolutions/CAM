@@ -247,21 +247,19 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
-   /// 
+   /// Serializes this <see cref="PDBInstance"/> to a stream in PDB format.
    /// </summary>
    /// <param name="instance"></param>
-   /// <param name="stream"></param>
-   /// <param name="timeStamp"></param>
-   public static void WriteToStream( this PDBInstance instance, Stream stream, Int32 timeStamp = 0 )
+   /// <param name="stream">The stream to write <see cref="PDBInstance"/> to.</param>
+   /// <param name="entrypointToken">Optional one-based token of entrypoint method.</param>
+   /// <exception cref="ArgumentNullException">If <paramref name="stream"/> is <c>null</c>.</exception>
+   /// <exception cref="NullReferenceException">If this <see cref="PDBInstance"/> is <c>null</c>.</exception>
+   public static void WriteToStream( this PDBInstance instance, Stream stream, Int32? entrypointToken )
    {
-      // Some notes:
-      // Original write function set psSymStream to 9, but never emitted the psSymStream (might be the cause for not loading, altho cvdump claims no public symbols stored, but maybe the stream itself should exist?!)
       // https://github.com/Microsoft/microsoft-pdb is good place to start
-      // Also might need to emit TPI stream (which will probably always be the same) at #2
+      var state = new PDBWritingState( ArgumentValidator.ValidateNotNullReference( instance ), new StreamHelper( stream ), 0x200 );
 
-      var state = new PDBWritingState( instance, new StreamHelper( stream ), 0x200 );
-
-      // Remember to start writing from
+      // Remember to start writing from start page (3 first pages are for bookkeeping)
       state.SeekToPage( START_PAGE );
 
       // Write IPI and TPI streams first, as they always have fixed content, since managed stuff does not use it.
@@ -275,10 +273,11 @@ public static partial class E_CILPhysical
       state.WriteSourceHeaderBlock( sourceInfo );
 
       // TODO /LinkInfo ? 
+      // TODO Symbol server info!
 
       // DBI stream next.
       // This will also write all module streams, global record stream, public record stream, and symbol record stream.
-      state.WriteDBIStream();
+      state.WriteDBIStream( entrypointToken );
 
       // Name index next
       state.WriteNameIndex();
@@ -569,12 +568,26 @@ public static partial class E_CILPhysical
 
    }
 
-   private static void WriteDBIStream( this PDBWritingState state )
+   private static void WriteDBIStream( this PDBWritingState state, Int32? epToken )
    {
       var instance = state.PDB;
       var funcSecContribs = new List<PDBIO.DBISecCon>( instance.Modules.Aggregate( 0, ( cur, m ) => cur + m.Functions.Count ) );
       var moduleInfos = new List<Tuple<PDBIO.DBIModuleInfo, String[]>>();
       var dbiHeader = new PDBIO.DBIHeader();
+
+      // If entrypoint-token is supplied, write S_PUB32 first to Symbol Record stream
+      if ( epToken.HasValue )
+      {
+         state.SymRecStream
+            .WriteUInt16LEToBytes( ref state.SymRecIndex, 0x1E ) // Always same size since string is always same
+            .WriteUInt16LEToBytes( ref state.SymRecIndex, PDBIO.SYM_PUBLIC ) // S_PUB32 struct
+            .WriteInt32LEToBytes( ref state.SymRecIndex, 0 ) // Flags - 0
+            .WriteUInt16LEToBytes( ref state.SymRecIndex, 1 ) // Segment - 1
+            .WriteInt32LEToBytes( ref state.SymRecIndex, epToken.Value ) // Token
+            .WriteZeroTerminatedString( ref state.SymRecIndex, "COM+_Entry_Point" );
+         Align4( ref state.SymRecIndex );
+         state.Publics.RecordNamedSymcRecReference( 0x0E, 0 );
+      }
 
       // 1. Write all module streams
       // This will populate SymbolRecord and GlobalSymbol streams
@@ -868,7 +881,7 @@ public static partial class E_CILPhysical
       List<PDBIO.DBISecCon> funcSecContribs
       )
    {
-      var mInfo = new PDBIO.DBIModuleInfo( module.Name );
+      var mInfo = new PDBIO.DBIModuleInfo( module.Name, module.ObjectName );
       var sourceFileNames = new HashSet<String>( module.Functions
          .SelectMany( f => f.Lines.Select( l => l.Source.Name ) )
          ).ToArray();
