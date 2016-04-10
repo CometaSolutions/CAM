@@ -384,7 +384,10 @@ namespace CILAssemblyManipulator.Physical.PDB
                            src.Vendor = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
                            src.DocumentType = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
                            src.HashAlgorithm = sourceBytes.ReadGUIDFromBytes( ref tmpIdx );
-                           src.Hash = sourceBytes.CreateAndBlockCopyTo( ref tmpIdx, sourceBytes.Length - tmpIdx );
+                           var hashSize = sourceBytes.ReadInt32LEFromBytes( ref tmpIdx );
+                           // Some int32 here...
+                           tmpIdx += 4;
+                           src.Hash = sourceBytes.CreateAndBlockCopyTo( ref tmpIdx, hashSize );
                         }
                         return src;
                      } );
@@ -697,7 +700,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                   scope.UsedNamespaces.Add( array.ReadZeroTerminatedStringFromBytes( ref idx, NameEncoding ) );
                   break;
                case SYM_MANAGED_CONSTANT:
-                  // TODO
+                  scope.Constants.Add( ReadManagedConstant( array, ref idx ) );
                   break;
                default:
 #if DEBUG
@@ -725,6 +728,110 @@ namespace CILAssemblyManipulator.Physical.PDB
          {
             throw new PDBException( "PDB scope or function (" + scope.Name + ") missing END symbol." );
          }
+      }
+
+      private static PDBConstant ReadManagedConstant( Byte[] array, ref Int32 idx )
+      {
+         return new PDBConstant()
+         {
+            Token = array.ReadUInt32LEFromBytes( ref idx ),
+            Value = ReadPDBConstantValue( array, ref idx ),
+            Name = array.ReadZeroTerminatedStringFromBytes( ref idx, PDBIO.NameEncoding )
+         };
+      }
+
+      private static Object ReadPDBConstantValue( Byte[] array, ref Int32 idx )
+      {
+         const bool constBool = false;
+         const bool constBool2 = true;
+         const char constChar = 'G';
+         const byte constByte = 5;
+         const sbyte constSByte = -4;
+         const short constShort = -666;
+         const ushort constUShort = 666;
+         const int constInt = -1000000;
+         const uint constUInt = 1000000;
+         const long constLong = -5000000000;
+         const ulong constULong = 5000000000;
+         const decimal constDecimal = 0.06M;
+         const float constFloat = 0.16f;
+         const double constDobule = 0.26d;
+         const string constStringNull = null;
+         System.Diagnostics.Debug.WriteLine(
+            constBool
+            + " " + constBool2
+            + " " + constChar
+            + " " + constByte
+            + " " + constSByte
+            + " " + constShort
+            + " " + constUShort
+            + " " + constInt
+            + " " + constUInt
+            + " " + constLong
+            + " " + constULong
+            + " " + constDecimal
+            + " " + constFloat
+            + " " + constDobule
+            + " " + constStringNull
+            );
+         // Read the LEAF_ENUM_e value
+         Object retVal;
+         var valueKind = array.ReadUInt16LEFromBytes( ref idx );
+         if ( valueKind < 0x8000 )
+         {
+            // As per LEAF_ENUM_e spec, anything less than 0x8000 is value itself
+            // This does result in the loss of type information, but that's how CodeView seems to work...
+            retVal = (Int32) valueKind;
+         }
+         else
+         {
+            switch ( valueKind )
+            {
+               case 0x8000: // LF_NUMERIC | LF_CHAR
+                  retVal = array.ReadSByteFromBytes( ref idx );
+                  break;
+               case 0x8001: // LF_SHORT
+                  retVal = array.ReadInt16LEFromBytes( ref idx );
+                  break;
+               case 0x8002: // LF_USHORT
+
+                  // Notice that 'char' is serialized as ushort!
+                  retVal = array.ReadUInt16LEFromBytes( ref idx );
+                  break;
+               case 0x8003: // LF_LONG
+                  retVal = array.ReadInt32LEFromBytes( ref idx );
+                  break;
+               case 0x8004: // LF_ULONG
+                  retVal = array.ReadUInt32LEFromBytes( ref idx );
+                  break;
+               case 0x8005: // LF_REAL_32
+                  retVal = array.ReadSingleLEFromBytes( ref idx );
+                  break;
+               case 0x8006: // LF_REAL_64
+                  retVal = array.ReadDoubleLEFromBytes( ref idx );
+                  break;
+               case 0x8009: // LF_QUADWORD
+                  retVal = array.ReadInt64LEFromBytes( ref idx );
+                  break;
+               case 0x800A: // LF_UQUADWORD
+                  retVal = array.ReadUInt64LEFromBytes( ref idx );
+                  break;
+               case 0x8010: // LF_VARSTRING
+                  var len = array.ReadUInt16LEFromBytes( ref idx );
+                  retVal = PDBIO.NameEncoding.GetString( array, idx, len );
+                  idx += len;
+                  break;
+               case 0x8019: // LF_DECIMAL
+                  var intArray = array.ReadInt32ArrayLEFromBytes( ref idx, 4 );
+                  retVal = new Decimal( intArray[2], intArray[3], intArray[1], intArray[0] < 0, (byte) ( ( intArray[0] & 0x00FF0000 ) >> 16 ) );
+                  break;
+#if DEBUG
+               default:
+                  throw new PDBException( "Debyyg" );
+#endif
+            }
+         }
+         return retVal;
       }
 
       private static void HandleOEM( PDBFunction func, Byte[] array, ref Int32 idx )

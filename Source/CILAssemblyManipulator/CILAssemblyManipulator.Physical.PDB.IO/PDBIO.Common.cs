@@ -40,6 +40,17 @@ namespace CILAssemblyManipulator.Physical.PDB
       internal const UInt16 SYM_GLOBAL_MANAGED_FUNC = 0x112a;
       internal const UInt16 SYM_LOCAL_MANAGED_FUNC = 0x112b;
       internal const UInt16 SYM_MANAGED_SLOT = 0x1120;
+
+      // From cvinfo.h
+      //typedef struct CONSTSYM
+      //{
+      //   unsigned short reclen;     // Record length
+      //   unsigned short rectyp;     // S_CONSTANT or S_MANCONSTANT
+      //   CV_typ_t typind;     // Type index (containing enum if enumerate) or metadata token
+      //   unsigned short value;      // numeric leaf containing value
+      //   unsigned char name[CV_ZEROLEN];     // Length-prefixed name
+      //}
+      //CONSTSYM;
       internal const UInt16 SYM_MANAGED_CONSTANT = 0x112d;
       internal const UInt16 SYM_USED_NS = 0x1124;
       internal const UInt16 SYM_SCOPE = 0x1103;
@@ -47,6 +58,17 @@ namespace CILAssemblyManipulator.Physical.PDB
       internal const UInt16 SYM_OEM = 0x0404;
       internal const Int32 SYM_DEBUG_SOURCE_INFO = 0xF4;
       internal const Int32 SYM_DEBUG_LINE_INFO = 0xF2;
+
+      // From Roslyn, Compilers/Core/Portable/PEWriter/CustomDebugInfoConstants.cs
+      //internal const byte CdiKindUsingInfo = 0;
+      //internal const byte CdiKindForwardInfo = 1;
+      //internal const byte CdiKindForwardToModuleInfo = 2;
+      //internal const byte CdiKindStateMachineHoistedLocalScopes = 3;
+      //internal const byte CdiKindForwardIterator = 4;
+      //internal const byte CdiKindDynamicLocals = 5;
+      //internal const byte CdiKindEditAndContinueLocalSlotMap = 6;
+      //internal const byte CdiKindEditAndContinueLambdaMap = 7;
+
 
       internal const Byte MD2_USED_NAMESPACES = 0;
       internal const Byte MD2_FORWARDING_METHOD_TOKEN = 1;

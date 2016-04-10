@@ -21,6 +21,7 @@ using System.Linq;
 using System.Text;
 using CommonUtils;
 
+// TODO xform all UInt32 tokens into TableIndex!
 namespace CILAssemblyManipulator.Physical.PDB
 {
    /// <summary>
@@ -210,6 +211,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          this.Slots = new List<PDBSlot>();
          this.Scopes = new List<PDBScope>();
          this.UsedNamespaces = new List<String>();
+         this.Constants = new List<PDBConstant>();
       }
 
       /// <summary>
@@ -247,6 +249,44 @@ namespace CILAssemblyManipulator.Physical.PDB
       /// <value>The length of this <see cref="PDBScopeOrFunction"/>, in bytes.</value>
       public Int32 Length { get; set; }
 
+      /// <summary>
+      /// Gets the list of <see cref="PDBConstant"/> of this <see cref="PDBScopeOrFunction"/>.
+      /// </summary>
+      /// <value>The list of <see cref="PDBConstant"/> of this <see cref="PDBScopeOrFunction"/>.</value>
+      public List<PDBConstant> Constants { get; }
+
+   }
+
+   /// <summary>
+   /// This class represents a compile-time constant value in PDB function.
+   /// </summary>
+   /// <remarks>
+   /// This roughly corresponds to the <c>CONSTSYM</c> structure in <c>cvinfo.h</c>.
+   /// The record type will always be <c>S_MANCONSTANT</c>.
+   /// </remarks>
+   public class PDBConstant
+   {
+      /// <summary>
+      /// Gets or sets the token of this <see cref="PDBConstant"/>.
+      /// </summary>
+      /// <value>The token of this <see cref="PDBConstant"/>.</value>
+      /// <remarks>
+      /// The token should be transformable into <see cref="T:CILAssemblyManipulator.Physical.TableIndex"/> by <see cref="M:CILAssemblyManipulator.Physical.TableIndex.FromOneBasedToken(System.Int32)"/> method.
+      /// </remarks>
+      [CLSCompliant( false )]
+      public UInt32 Token { get; set; }
+
+      /// <summary>
+      /// Gets or sets the compile-time constant value.
+      /// </summary>
+      /// <value>The compile-time constant value.</value>
+      public Object Value { get; set; }
+
+      /// <summary>
+      /// Gets or sets the name of this constant.
+      /// </summary>
+      /// <value>The name of this constant.</value>
+      public String Name { get; set; }
    }
 
 
@@ -378,111 +418,6 @@ namespace CILAssemblyManipulator.Physical.PDB
          return "Scope " + this.Name + " @" + String.Format( "{0:X8}", this.Offset );
       }
    }
-
-   //public sealed class PDBConstant
-   //{
-   //   private UInt32 _token;
-   //   private String _name;
-   //   private Object _value;
-
-   //   internal PDBConstant( Byte[] array, ref Int32 idx )
-   //   {
-   //      this._token = array.ReadUInt32LEFromBytes( ref idx );
-   //      var valueKindOrByte = array.ReadByteFromBytes( ref idx );
-   //      var valueOrZero = array.ReadByteFromBytes( ref idx );
-   //      if ( valueOrZero == 0 )
-   //      {
-   //         this._value = valueKindOrByte;
-   //      }
-   //      else if ( valueOrZero == 0x80 )
-   //      {
-   //         switch ( valueKindOrByte )
-   //         {
-   //            case 0x00: // LF_NUMERIC
-   //               this._value = array.ReadSByteFromBytes( ref idx );
-   //               break;
-   //            case 0x01: // LF_SHORT
-   //               this._value = array.ReadInt16LEFromBytes( ref idx );
-   //               break;
-   //            case 0x02: // LF_USHORT
-   //               this._value = array.ReadUInt16LEFromBytes( ref idx );
-   //               break;
-   //            case 0x03: // LF_LONG
-   //               this._value = array.ReadInt32LEFromBytes( ref idx );
-   //               break;
-   //            case 0x04: // LF_ULONG
-   //               this._value = array.ReadUInt32LEFromBytes( ref idx );
-   //               break;
-   //            case 0x05: // LF_REAL32
-   //               this._value = array.ReadSingleLEFromBytes( ref idx );
-   //               break;
-   //            case 0x06: // LF_REAL64
-   //               this._value = array.ReadDoubleLEFromBytes( ref idx );
-   //               break;
-   //            case 0x09: // LF_QUADWORD
-   //               this._value = array.ReadInt64LEFromBytes( ref idx );
-   //               break;
-   //            case 0x0a: // LF_UQUADWORD
-   //               this._value = array.ReadUInt64LEFromBytes( ref idx );
-   //               break;
-   //            case 0x10: // LF_VARSTRING
-   //               this._value = array.ReadShortLenghtPrefixedString( ref idx, PDBIO.NAME_ENCODING );
-   //               break;
-   //            case 0x19: // LF_DECIMAL
-   //               var bits = array.ReadInt32ArrayLEFromBytes( ref idx, 4 );
-   //               // For some weird reason, the order is: _flags, hi, lo, mid...
-   //               this._value = new Decimal( bits[2], bits[3], bits[1], bits[0] < 0, (Byte) ( ( bits[0] & 0x00FF0000 ) >> 16 ) );
-   //               break;
-   //            default:
-   //               // TODO real80, real128, complex32, complex64, complex80, complex128, ocword, uoctword, date, utf8string
-   //               break;
-   //         }
-   //      }
-   //      else
-   //      {
-   //         // Unknown stuff?
-   //      }
-   //      this._name = array.ReadZeroTerminatedStringFromBytes( ref idx, PDBIO.NAME_ENCODING );
-   //   }
-
-   //   [CLSCompliant( false )]
-   //   public PDBConstant( String _name, UInt32 _token, Object value )
-   //   {
-   //      this._name = _name;
-   //      this._token = _token;
-   //      this._value = value;
-   //   }
-
-   //   public String Name
-   //   {
-   //      get
-   //      {
-   //         return this._name;
-   //      }
-   //      set
-   //      {
-   //         this._name = value;
-   //      }
-   //   }
-
-   //   [CLSCompliant( false )]
-   //   public UInt32 Token
-   //   {
-   //      get
-   //      {
-   //         return this._token;
-   //      }
-   //      set
-   //      {
-   //         this._token = value;
-   //      }
-   //   }
-
-   //   public override String ToString()
-   //   {
-   //      return "[" + this._token + "]: " + this._name + " = " + this._value;
-   //   }
-   //}
 
    /// <summary>
    /// This class represents a single data slot of the <see cref="PDBFunction"/>.

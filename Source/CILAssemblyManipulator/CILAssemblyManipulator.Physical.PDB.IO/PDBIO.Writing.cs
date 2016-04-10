@@ -49,6 +49,7 @@ public static partial class E_CILPhysical
    private const Int32 GS_SYM_BUCKETS = 4096;
 
    private const Int32 START_PAGE = 3; // Next two pages after the first page are for page allocation bits
+
    private sealed class PDBNameIndex
    {
       private Int32 _index;
@@ -190,7 +191,7 @@ public static partial class E_CILPhysical
    private sealed class PDBWritingState
    {
 
-      public PDBWritingState( PDBInstance pdb, StreamHelper stream, Int32 pageSize )
+      public PDBWritingState( PDBInstance pdb, StreamHelper stream, Int32 pageSize, Int32? epToken )
       {
          this.PDB = pdb;
          this.Stream = stream;
@@ -203,7 +204,10 @@ public static partial class E_CILPhysical
          this.ZeroesArray = new Byte[this.PageSize];
 
          // Create array for the symbol record stream
-         this.SymRecStream = new Byte[pdb.Modules
+         const Int32 PUBLIC_SIZE = 0x20;
+         this.SymRecStream = new Byte[
+            ( epToken.HasValue ? PUBLIC_SIZE : 0 )
+            + pdb.Modules
             .SelectMany( m => m.Functions )
             .Aggregate( 0, ( cur, f ) =>
             {
@@ -214,6 +218,19 @@ public static partial class E_CILPhysical
          this.SymRecIndex = 0;
          this.Globals = new SymbolRecStreamRefInfo( this );
          this.Publics = new SymbolRecStreamRefInfo( this );
+
+         if ( epToken.HasValue )
+         {
+            this.SymRecStream
+               .WriteUInt16LEToBytes( ref this.SymRecIndex, PUBLIC_SIZE - 0x02 ) // Always same size since string is always same
+               .WriteUInt16LEToBytes( ref this.SymRecIndex, PDBIO.SYM_PUBLIC ) // S_PUB32 struct
+               .WriteInt32LEToBytes( ref this.SymRecIndex, 0 ) // Flags - 0
+               .WriteInt32LEToBytes( ref this.SymRecIndex, epToken.Value ) // Token
+               .WriteUInt16LEToBytes( ref this.SymRecIndex, 0 ) // Segment - 1
+               .WriteZeroTerminatedString( ref this.SymRecIndex, "COM+_Entry_Point" );
+            Align4( ref this.SymRecIndex );
+            this.Publics.RecordNamedSymcRecReference( 0x0E, 0 );
+         }
       }
 
       public PDBInstance PDB { get; }
@@ -257,7 +274,7 @@ public static partial class E_CILPhysical
    public static void WriteToStream( this PDBInstance instance, Stream stream, Int32? entrypointToken )
    {
       // https://github.com/Microsoft/microsoft-pdb is good place to start
-      var state = new PDBWritingState( ArgumentValidator.ValidateNotNullReference( instance ), new StreamHelper( stream ), 0x200 );
+      var state = new PDBWritingState( ArgumentValidator.ValidateNotNullReference( instance ), new StreamHelper( stream ), 0x200, entrypointToken );
 
       // Remember to start writing from start page (3 first pages are for bookkeeping)
       state.SeekToPage( START_PAGE );
@@ -277,7 +294,7 @@ public static partial class E_CILPhysical
 
       // DBI stream next.
       // This will also write all module streams, global record stream, public record stream, and symbol record stream.
-      state.WriteDBIStream( entrypointToken );
+      state.WriteDBIStream();
 
       // Name index next
       state.WriteNameIndex();
@@ -301,7 +318,7 @@ public static partial class E_CILPhysical
       {
          streams.AddRange( Enumerable.Repeat<TStreamInfo>( null, pad ) );
       }
-
+      Int32 hashLen;
       return state.PDB.Modules
          .SelectMany( m => m.Functions )
          .SelectMany( f => f.Lines )
@@ -310,14 +327,23 @@ public static partial class E_CILPhysical
             src => src,
             src => state.AddNewNamedStream(
             PDBIO.SOURCE_FILE_PREFIX + src.Name.ToLowerInvariant(), // Use to-lower conversion so that .language etc elements in IL would appear correctly.
-            GUID_SIZE * 4 + src.Hash?.Length ?? 0,
-            ( array, idx ) => array
-               .WriteGUIDToBytes( ref idx, src.Language )
-               .WriteGUIDToBytes( ref idx, src.Vendor )
-               .WriteGUIDToBytes( ref idx, src.DocumentType )
-               .WriteGUIDToBytes( ref idx, src.HashAlgorithm )
-               .BlockCopyFrom( ref idx, src.Hash ?? Empty<Byte>.Array )
-            ),
+            GUID_SIZE * 4 + ( hashLen = src.Hash?.Length ?? 0 ) + ( hashLen > 0 ? 8 : 4 ),
+            ( array, idx ) =>
+            {
+               array
+                  .WriteGUIDToBytes( ref idx, src.Language )
+                  .WriteGUIDToBytes( ref idx, src.Vendor )
+                  .WriteGUIDToBytes( ref idx, src.DocumentType )
+                  .WriteGUIDToBytes( ref idx, src.HashAlgorithm )
+                  .WriteInt32LEToBytes( ref idx, hashLen );
+               if ( hashLen > 0 )
+               {
+                  array
+                     .WriteInt32LEToBytes( ref idx, 0 ) // flags?
+                     .BlockCopyFrom( ref idx, src.Hash );
+
+               }
+            } ),
             equalityComparer: ReferenceEqualityComparer<PDBSource>.ReferenceBasedComparer
          );
    }
@@ -568,26 +594,12 @@ public static partial class E_CILPhysical
 
    }
 
-   private static void WriteDBIStream( this PDBWritingState state, Int32? epToken )
+   private static void WriteDBIStream( this PDBWritingState state )
    {
       var instance = state.PDB;
       var funcSecContribs = new List<PDBIO.DBISecCon>( instance.Modules.Aggregate( 0, ( cur, m ) => cur + m.Functions.Count ) );
       var moduleInfos = new List<Tuple<PDBIO.DBIModuleInfo, String[]>>();
       var dbiHeader = new PDBIO.DBIHeader();
-
-      // If entrypoint-token is supplied, write S_PUB32 first to Symbol Record stream
-      if ( epToken.HasValue )
-      {
-         state.SymRecStream
-            .WriteUInt16LEToBytes( ref state.SymRecIndex, 0x1E ) // Always same size since string is always same
-            .WriteUInt16LEToBytes( ref state.SymRecIndex, PDBIO.SYM_PUBLIC ) // S_PUB32 struct
-            .WriteInt32LEToBytes( ref state.SymRecIndex, 0 ) // Flags - 0
-            .WriteUInt16LEToBytes( ref state.SymRecIndex, 1 ) // Segment - 1
-            .WriteInt32LEToBytes( ref state.SymRecIndex, epToken.Value ) // Token
-            .WriteZeroTerminatedString( ref state.SymRecIndex, "COM+_Entry_Point" );
-         Align4( ref state.SymRecIndex );
-         state.Publics.RecordNamedSymcRecReference( 0x0E, 0 );
-      }
 
       // 1. Write all module streams
       // This will populate SymbolRecord and GlobalSymbol streams
@@ -1388,8 +1400,7 @@ public static partial class E_CILPhysical
       return state.WriteGSIStream(
          state.Globals,
          null,
-         null,
-         true
+         null
          );
    }
 
@@ -1409,8 +1420,7 @@ public static partial class E_CILPhysical
          {
             // Magic zero as suffix
             array.WriteInt32LEToBytes( ref idx, 0 );
-         } ),
-         false
+         } )
          );
    }
 
@@ -1418,15 +1428,14 @@ public static partial class E_CILPhysical
       this PDBWritingState state,
       SymbolRecStreamRefInfo gsiStream,
       Func<Int32, TWriteAction> prefixWriterCreator,
-      Func<Int32, TWriteAction> suffixWriterCreator,
-      Boolean writeNamedRefs
+      Func<Int32, TWriteAction> suffixWriterCreator
       )
    {
       var streamIndex = state.DataStreams.Count;
       var namedRefs = gsiStream.NamedReferences;
       var gsRefSize = 8 * gsiStream.ReferenceCount; // Each ref is two ints
 
-      var gsSymHashSize = writeNamedRefs && gsRefSize > 0 ? ( GS_SYM_BUCKETS / 8 + ( namedRefs.Count + 1 ) * 4 ) : 0;
+      var gsSymHashSize = gsRefSize > 0 ? ( GS_SYM_BUCKETS / 8 + ( namedRefs.Count + 1 ) * 4 ) : 0;
       var gsiStreamSize = 16 // Header size
          + gsRefSize // References size
          + gsSymHashSize; // Hash table size
@@ -1462,36 +1471,29 @@ public static partial class E_CILPhysical
 
                if ( gsSymHashSize > 0 )
                {
-                  if (writeNamedRefs)
+                  // Hash table present buckets bitset
+                  var curGSHashIdx = 0;
+                  var tmpUInt32 = 0u;
+                  for ( var i = 0; i < GS_SYM_BUCKETS / 32; ++i )
                   {
-                     // Hash table present buckets bitset
-                     var curGSHashIdx = 0;
-                     var tmpUInt32 = 0u;
-                     for ( var i = 0; i < GS_SYM_BUCKETS / 32; ++i )
-                     {
-                        tmpUInt32 = 0u;
-                        while ( curGSHashIdx < gsHashSorted.Length && gsHashSorted[curGSHashIdx] < ( i + 1 ) * 32 )
-                        {
-                           tmpUInt32 |= ( 1u << (Int32) ( gsHashSorted[curGSHashIdx] % 32 ) );
-                           ++curGSHashIdx;
-                        }
-                        array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
-                     }
-
-                     // Magic zero
-                     array.WriteInt32LEToBytes( ref idx, 0 );
-
-                     // Write counts in each bucket
                      tmpUInt32 = 0u;
-                     foreach ( var gsHash in gsHashSorted )
+                     while ( curGSHashIdx < gsHashSorted.Length && gsHashSorted[curGSHashIdx] < ( i + 1 ) * 32 )
                      {
-                        array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
-                        tmpUInt32 += 12u * (UInt32) namedRefs[gsHash].Count;
+                        tmpUInt32 |= ( 1u << (Int32) ( gsHashSorted[curGSHashIdx] % 32 ) );
+                        ++curGSHashIdx;
                      }
-                  } else
+                     array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+                  }
+                  
+                  // Magic zero
+                  array.WriteInt32LEToBytes( ref idx, 0 );
+
+                  // Write counts in each bucket
+                  tmpUInt32 = 0u;
+                  foreach ( var gsHash in gsHashSorted )
                   {
-                     // Just zero out
-                     array.ZeroOut(ref idx, gsSymHashSize);
+                     array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
+                     tmpUInt32 += 12u * (UInt32) namedRefs[gsHash].Count;
                   }
                }
             }),
