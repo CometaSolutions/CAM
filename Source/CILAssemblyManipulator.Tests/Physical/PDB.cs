@@ -113,10 +113,16 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.IsTrue( Comparers.PDBInstanceEqualityComparer.Equals( pdb, pdb2 ), "PDB after writing and reading must still have same content." );
 
          // Test that reading using native API results in same PDB instance
-         // TODO
-
-         // Make sure that what we read using native reader matches what we read using our reader.
-         Assert.IsTrue( Equality_PDBInstance( pdb, pdb2 ), "PDB instance created from native reader must equal the one read from .pdb file." );
+         using ( var stream = new MemoryStream( bytez ) )
+         {
+            var comStream = new COMStreamWrapper( stream );
+            using ( var readerHolder = new SymUnmanagedReaderHolder( module, imageInfo, comStream ) )
+            {
+               pdb2 = readerHolder.Reader.CreateInstanceFromNativeReader( module, out ep );
+            }
+         }
+         // Make sure that what we read using native reader matches what we write using our writer.
+         Assert.IsTrue( Equality_PDBInstance( pdb, pdb2 ), "Managed writing should have same data as seen from native reader." );
 
          // Use native writer to write to stream
          using ( var stream = new MemoryStream() )
@@ -1480,6 +1486,20 @@ namespace CILAssemblyManipulator.Tests.Physical
             );
       }
 
+      public SymUnmanagedReaderHolder(
+         CILAssemblyManipulator.Physical.CILMetaData module,
+         ImageInformation imageInfo,
+         ct.IStream stream
+         )
+      {
+         var binder = (ISymUnmanagedBinder) Activator.CreateInstance( Type.GetTypeFromCLSID( new Guid( "0A29FF9E-7F9C-4437-8B11-F424491E3931" ) ) );
+         ISymUnmanagedReader reader;
+         binder.GetReaderFromStream( new MDHelper( module, imageInfo ), stream, out reader );
+         Marshal.ReleaseComObject( binder );
+         ArgumentValidator.ValidateNotNull( "Reader from binder", reader );
+         this.Reader = reader;
+      }
+
       ~SymUnmanagedReaderHolder()
       {
          this.Dispose( false );
@@ -1514,8 +1534,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       public void Seek( Int64 dlibMove, Int32 dwOrigin, System.IntPtr plibNewPosition )
       {
-         var newPos = this._stream.Seek( dlibMove, (SeekOrigin) dwOrigin );
-         Marshal.WriteInt64( plibNewPosition, newPos ); // .WriteInt32( plibNewPosition, newPos );
+         Marshal.WriteInt64( plibNewPosition, this._stream.Seek( dlibMove, (SeekOrigin) dwOrigin ) );
       }
 
       public void Write( byte[] pv, int cb, IntPtr pcbWritten )

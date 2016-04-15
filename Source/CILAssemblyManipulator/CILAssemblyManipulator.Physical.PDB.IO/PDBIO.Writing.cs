@@ -913,6 +913,7 @@ public static partial class E_CILPhysical
       moduleInfos.Add( Tuple.Create( mInfo, sourceFileNames ) );
    }
 
+
    private static IEnumerable<TWriteAction> GetWriteActionsForModule(
       this PDBWritingState state,
       PDBModule module,
@@ -940,11 +941,11 @@ public static partial class E_CILPhysical
 
          List<Int32> usedNSCount;
          var funcBlockLen = func.CalculateSymbolByteCount( out usedNSCount );
-         var size = preludeLength + funcBlockLen + 4;
+         var size = preludeLength + funcBlockLen;
          Align4( ref size );
          yield return new TWriteAction( size, ( array, idx ) =>
          {
-            func.WritePDBFunction( moduleIndex, array, preludeLength, funcBlockLen, usedNSCount, funcPointer, funcOffset );
+            func.WritePDBFunction( moduleIndex, array, preludeLength, funcBlockLen, usedNSCount, funcPointer, funcOffset ); // Subtract 4 from block length, since we need to point to END_SYM instead of position after END_SYM
             var funcLen = (UInt32) func.Length;
             funcSecContribs.Add( new PDBIO.DBISecCon()
             {
@@ -1137,8 +1138,11 @@ public static partial class E_CILPhysical
       // Block length + SYM (global managed function) + function fixed data
       array
          .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_GLOBAL_MANAGED_FUNC ) // global managed function
-         .WriteInt32LEToBytes( ref idx, 0 ) // parent
-         .WriteUInt32LEToBytes( ref idx, funcPointer + (UInt32) preludeLength + (UInt32) funcBlockLen ) // function end pointer
+         .WriteInt32LEToBytes( ref idx, 0 ); // parent
+      var endIdx = idx;
+      idx += 4;
+      array
+         //.WriteUInt32LEToBytes( ref idx, funcPointer + (UInt32) preludeLength + (UInt32) funcBlockLen ) // function end pointer
          .WriteInt32LEToBytes( ref idx, 0 ) // next
          .WriteUInt32LEToBytes( ref idx, (UInt32) func.Length ) // length
          .WriteInt32LEToBytes( ref idx, 0 ) // debug start
@@ -1156,12 +1160,28 @@ public static partial class E_CILPhysical
 
       WriteScopeOrFunctionBlocks( func, array, ref idx, funcPointer, funcOffset, funcPointer );
       WriteOEM( func, array, ref idx, usedNSCount );
+      array.Align4( ref idx );
+      array.WriteInt32LEToBytes( ref endIdx, (Int32) funcPointer + idx );
       WriteENDSym( array, ref idx );
    }
 
    private static void WriteScopeOrFunctionBlocks( PDBScopeOrFunction scope, Byte[] array, ref Int32 idx, UInt32 funcPointer, UInt32 functionAddress, UInt32 parentPointer )
    {
       var startIdx = idx;
+
+      // Used namespaces
+      foreach ( var un in scope.UsedNamespaces )
+      {
+         var lenIdx = idx;
+         array
+            .Skip( ref idx, 2 ) // Block size
+            .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_USED_NS ) // UNAMESPACE
+            .WriteZeroTerminatedString( ref idx, un ) // namespace
+            .Align4( ref idx ); // 4-byte border
+                                // Revisit size
+         array.WriteBlockLength( lenIdx, idx );
+      }
+
       // Slots
       foreach ( var slot in scope.Slots )
       {
@@ -1180,17 +1200,10 @@ public static partial class E_CILPhysical
          array.WriteBlockLength( lenIdx, idx );
       }
 
-      // Used namespaces
-      foreach ( var un in scope.UsedNamespaces )
+      // Constants
+      foreach ( var constant in scope.Constants )
       {
-         var lenIdx = idx;
-         array
-            .Skip( ref idx, 2 ) // Block size
-            .WriteUInt16LEToBytes( ref idx, PDBIO.SYM_USED_NS ) // UNAMESPACE
-            .WriteZeroTerminatedString( ref idx, un ) // namespace
-            .Align4( ref idx ); // 4-byte border
-                                // Revisit size
-         array.WriteBlockLength( lenIdx, idx );
+         WritePDBConstant( constant, array, ref idx );
       }
 
       // Scopes
@@ -1213,18 +1226,16 @@ public static partial class E_CILPhysical
                                 // Revisit size
          array.WriteBlockLength( lenIdx, idx );
          // Revisit end pointer
-         array.WriteUInt32LEToBytes( ref endIdx, funcPointer + (UInt32) idx + (UInt32) CalculateByteCountFromLists( innerScope ) );
+         //array.WriteUInt32LEToBytes( ref endIdx, funcPointer + (UInt32) idx + (UInt32) CalculateByteCountFromLists( innerScope ) );
          // Write inner scope's lists
          WriteScopeOrFunctionBlocks( innerScope, array, ref idx, funcPointer, functionAddress, thisPointer );
          // Write END sym
+         array.Align4( ref idx );
+         array.WriteInt32LEToBytes( ref endIdx, (Int32) funcPointer + idx );
          WriteENDSym( array, ref idx );
       }
 
-      // Constants
-      foreach ( var constant in scope.Constants )
-      {
-         WritePDBConstant( constant, array, ref idx );
-      }
+
    }
 
    private static void WritePDBConstant( PDBConstant constant, Byte[] array, ref Int32 idx )
@@ -1579,6 +1590,13 @@ public static partial class E_CILPhysical
       array.WriteUInt16LEToBytes( ref lenIdx, (UInt16) ( idx - lenIdx - 2 ) );
    }
 
+   private static void AddENDSym( ref Int32 idx )
+   {
+      Align4( ref idx );
+      idx += 4; // Length + END
+      Align4( ref idx );
+   }
+
    private static Int32 WriteSymbolRecordStream( this PDBWritingState state )
    {
       System.Diagnostics.Debug.Assert( state.SymRecIndex == state.SymRecStream.Length, "The symbol record stream should've been written completely." );
@@ -1815,8 +1833,8 @@ public static partial class E_CILPhysical
          + CalculateByteCountAsyncMethodInfo( func.AsyncMethodInfo ) // Async OEM
          + CalculateByteCountMD2Info( func, ref usedNSCount ) // MD2 OEM
          + CalculateByteCountENCInfo( func ); // ENC OEM
-      Align4( ref result ); // 4-byte boundary
-      return result; // No END SYM
+      AddENDSym( ref result ); // END
+      return result;
    }
 #if DEBUG
    public
@@ -1941,8 +1959,9 @@ public static partial class E_CILPhysical
       result += PDBIO.NameEncoding.SafeByteCount( scope.Name, true );
       Align4( ref result );
       result += scope.CalculateByteCountFromLists( usedNSCount );
-      Align4( ref result );
-      return result + 4; // END SYM
+      //Align4( ref result );
+      AddENDSym( ref result );
+      return result;
    }
 
 

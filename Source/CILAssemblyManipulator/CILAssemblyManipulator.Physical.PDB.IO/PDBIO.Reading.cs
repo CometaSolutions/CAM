@@ -687,7 +687,7 @@ namespace CILAssemblyManipulator.Physical.PDB
                   UInt32 scopeAddress; UInt16 scopeSegment;
                   Int32 end;
                   scope.Scopes.Add( NewPDBScope( array, ref idx, funcOffset, blockEndIdx, out scopeAddress, out scopeSegment, out end ) );
-                  idx = end;
+                  //idx = end;
                   setIdx = false;
                   break;
                case SYM_MANAGED_SLOT:
