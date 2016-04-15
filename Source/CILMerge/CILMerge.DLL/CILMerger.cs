@@ -16,9 +16,22 @@
  * limitations under the License. 
  */
 extern alias CAMPhysicalR;
+extern alias CAMPhysicalP;
+extern alias CAMPhysicalIO;
+extern alias CAMPhysicalM;
 
 using CAMPhysicalR;
 using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
+
+using CAMPhysicalP;
+using CAMPhysicalP::CILAssemblyManipulator.Physical.PDB;
+
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.Loading;
+
+using CAMPhysicalM;
+using CAMPhysicalM::CILAssemblyManipulator.Physical.MResources;
 
 using System;
 using System.Collections.Concurrent;
@@ -2770,7 +2783,6 @@ namespace CILMerge
                {
                   this._targetTableIndexMappings.Add( targetIndex, Tuple.Create( md, i ) );
                   thisMappings.Add( inputIndex, targetIndex );
-
                   targetTable.Add( copyFunc( md, inputTable[i], inputIndex, targetIndex ) );
                }
             }

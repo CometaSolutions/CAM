@@ -18,6 +18,7 @@
 extern alias CAMPhysicalP;
 extern alias CAMPhysicalIO;
 extern alias CAMPhysicalIOD;
+extern alias CAMPhysicalPIO;
 
 using CAMPhysicalP;
 using CAMPhysicalP::CILAssemblyManipulator.Physical.PDB;
@@ -27,7 +28,9 @@ using CAMPhysicalIO;
 
 using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
 
-using CILAssemblyManipulator.Physical.PDB;
+using CAMPhysicalPIO;
+using CAMPhysicalPIO::CILAssemblyManipulator.Physical.PDB;
+
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -38,8 +41,9 @@ using System.Runtime.InteropServices;
 using CommonUtils;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 using System.Diagnostics.SymbolStore;
-using System.Runtime.InteropServices.ComTypes;
+using ct = System.Runtime.InteropServices.ComTypes;
 using CILAssemblyManipulator.Tests.Physical;
+using Microsoft.DiaSymReader;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
@@ -50,7 +54,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       public void TestPDB()
       {
          PerformPDBTest(
-            Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILAssemblyManipulator.Physical.PDB.IO.pdb" )
+            Path.Combine( Path.GetDirectoryName( CILMergeLocation ), "CILAssemblyManipulator.Physical.PDB.IO.dll" )
             );
       }
 
@@ -83,19 +87,20 @@ namespace CILAssemblyManipulator.Tests.Physical
          {
             module = fs.ReadModule( readingArgs );
          }
+         var imageInfo = readingArgs.ImageInformation;
          Int32? ep;
-         using ( var readerHolder = new SymUnmanagedReaderHolder( mdFile, module, readingArgs.ImageInformation ) )
+         using ( var readerHolder = new SymUnmanagedReaderHolder( mdFile, module, imageInfo ) )
          {
             pdb2 = readerHolder.Reader.CreateInstanceFromNativeReader( module, out ep );
          }
-         // TODO this will throw, since native API does not expose everything needed...
-         Assert.IsTrue( Comparers.PDBInstanceEqualityComparer.Equals( pdb, pdb2 ), "PDB instance created from native reader must equal the one read from .pdb file." );
+         // Make sure that what we read using native reader matches what we read using our reader.
+         Assert.IsTrue( Equality_PDBInstance( pdb, pdb2 ), "PDB instance created from native reader must equal the one read from .pdb file." );
 
          // Test writing
          Byte[] bytez;
          using ( var mem = new MemoryStream() )
          {
-            pdb.WriteToStream( mem, 0x06000001 );
+            pdb.WriteToStream( mem, ep );
             bytez = mem.ToArray();
          }
 
@@ -104,13 +109,175 @@ namespace CILAssemblyManipulator.Tests.Physical
          {
             pdb2 = mem.ReadPDBInstance();
          }
+
          Assert.IsTrue( Comparers.PDBInstanceEqualityComparer.Equals( pdb, pdb2 ), "PDB after writing and reading must still have same content." );
 
-         // We must write the bytes by original file, since the reference to that file is in the meta-data information.
-         //File.Move( pdbFile, Path.ChangeExtension( pdbFile, ".original.pdb" ) );
-         File.WriteAllBytes( pdbFile, bytez );
+         // Test that reading using native API results in same PDB instance
+         // TODO
 
+         // Make sure that what we read using native reader matches what we read using our reader.
+         Assert.IsTrue( Equality_PDBInstance( pdb, pdb2 ), "PDB instance created from native reader must equal the one read from .pdb file." );
 
+         // Use native writer to write to stream
+         using ( var stream = new MemoryStream() )
+         {
+            var comStream = new COMStreamWrapper( stream );
+            using ( var writerHolder = new SymUnmanagedWriterHolder( module, imageInfo, comStream ) )
+            {
+               writerHolder.ProcessPDB( pdb );
+            }
+            bytez = stream.ToArray();
+         }
+
+         // Read the PDB written by native writer
+         using ( var stream = new MemoryStream( bytez ) )
+         {
+            pdb2 = stream.ReadPDBInstance();
+         }
+
+         Assert.IsTrue( Equality_PDBInstance( pdb, pdb2 ), "PDB after writing and reading must still have same content." );
+
+      }
+
+      private static Boolean Equality_PDBInstance( PDBInstance x, PDBInstance y )
+      {
+         // Native reader does not expose DebugGUID, TimeStamp, nor Age
+         return ListEqualityComparer<List<PDBModule>, PDBModule>.ListEquality( x.Modules, y.Modules, Equality_PDBModule );
+      }
+
+      private static Boolean Equality_PDBModule( PDBModule x, PDBModule y )
+      {
+         // Native reader does not expose anything about the PDBModule, actually, but we get the name from meta-data.
+         var retVal = String.Equals( x.Name, y.Name )
+            && ListEqualityComparer<List<PDBFunction>, PDBFunction>.ListEquality( x.Functions, y.Functions, Equality_PDBFunction );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBFunction( PDBFunction x, PDBFunction y )
+      {
+         var retVal = Equality_PDBScopeOrFunction( x, y )
+            && String.Equals( x.Name, y.Name )
+            && x.Token == y.Token
+            && Equality_PDBAsyncInfo( x.AsyncMethodInfo, y.AsyncMethodInfo )
+            && x.ENCID == y.ENCID
+            && x.ForwardingMethodToken == y.ForwardingMethodToken
+            && x.ModuleForwardingMethodToken == y.ModuleForwardingMethodToken
+            && String.Equals( x.IteratorClass, y.IteratorClass )
+            && ListEqualityComparer<List<PDBLocalScope>, PDBLocalScope>.ListEquality( x.LocalScopes, y.LocalScopes, Equality_PDBLocalScope )
+            && ListEqualityComparer<List<PDBLine>, PDBLine>.ListEquality( x.Lines, y.Lines, Equality_PDBLine );
+
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBAsyncInfo( PDBAsyncMethodInfo x, PDBAsyncMethodInfo y )
+      {
+         // Native API exposes all data of async method info
+         var retVal = Comparers.PDBAsyncMethodInfoEqualityComparer.Equals( x, y );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBLocalScope( PDBLocalScope x, PDBLocalScope y )
+      {
+         var retVal = x.Offset == y.Offset
+            && x.Length == y.Length;
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBScopeOrFunction( PDBScopeOrFunction x, PDBScopeOrFunction y )
+      {
+         var retVal = x.Length == y.Length
+            && ListEqualityComparer<List<String>, String>.ListEquality( x.UsedNamespaces, y.UsedNamespaces )
+            && ListEqualityComparer<List<PDBSlot>, PDBSlot>.ListEquality( x.Slots, y.Slots, Equality_PDBSlot )
+            && ListEqualityComparer<List<PDBConstant>, PDBConstant>.ListEquality( x.Constants, y.Constants, Equality_PDBConstant )
+            && ListEqualityComparer<List<PDBScope>, PDBScope>.ListEquality( x.Scopes, y.Scopes, Equality_PDBScope );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBScope( PDBScope x, PDBScope y )
+      {
+         var retVal = Equality_PDBScopeOrFunction( x, y )
+            && x.Offset == y.Offset;
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBSlot( PDBSlot x, PDBSlot y )
+      {
+         // Type token is not obtaineable through native API
+         var retVal = x.Flags == y.Flags
+            && String.Equals( x.Name, y.Name )
+            && x.SlotIndex == y.SlotIndex;
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBConstant( PDBConstant x, PDBConstant y )
+      {
+         // Token not obtaineable through native API
+         var retVal = String.Equals( x.Name, y.Name )
+            && Comparers.PDBConstantValueEqualityComparer.Equals( x.Value, y.Value );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBLine( PDBLine x, PDBLine y )
+      {
+         var retVal = x.LineStart == y.LineStart
+            && x.LineEnd == y.LineEnd
+            && x.ColumnStart.Equals( y.ColumnStart )
+            && x.ColumnEnd.Equals( y.ColumnEnd )
+            && x.Offset == y.Offset
+            //&& x.IsStatement == y.IsStatement
+            && Equality_PDBSource( x.Source, y.Source );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBSource( PDBSource x, PDBSource y )
+      {
+         var retVal = x.DocumentType == y.DocumentType
+            && x.Vendor == y.Vendor
+            && x.Language == y.Language
+            && x.HashAlgorithm == y.HashAlgorithm
+            && String.Equals( x.Name, y.Name )
+            && ArrayEqualityComparer<Byte>.ArrayEquality( x.Hash, y.Hash );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
       }
    }
 
@@ -118,35 +285,6 @@ namespace CILAssemblyManipulator.Tests.Physical
 
    internal class PDBHelper
    {
-
-
-
-
-      internal const String SYM_WRITER_GUID_STR = "0B97726E-9E6D-4f05-9A26-424022093CAA";
-      internal const String SYM_READER_GUID_STR = "B4CE6286-2A6B-3712-A3B7-1EE1DAD467B5"; // "A09E53B2-2A57-4cca-8F63-B84F7C35D4AA";
-      internal const String DOC_WRITER_GUID_STR = "B01FAFEB-C450-3A4D-BEEC-B4CEEC01E006";
-      internal const String UNMANAGED_WRITER_GUID_STR = "108296C1-281E-11D3-BD22-0000F80849BD"; // SxS version: 0AE2DEB0-F901-478b-BB9F-881EE8066788
-      internal const String UNMANAGED_READER_GUID_STR = "0A3976C5-4529-4ef8-B0B0-42EED37082CD"; // SxS version: 0A3976C5-4529-4ef8-B0B0-42EED37082CD, deprectated: 108296C2-281E-11d3-BD22-0000F80849BD
-      internal const String METADATA_EMIT_GUID_STR = "BA3FEE4C-ECB9-4e41-83B7-183FA41CD859";
-      internal const String METADATA_IMPORT_GUID_STR = "7DAC8207-D3AE-4c75-9B67-92801A497D44";
-
-
-
-
-      internal static Guid UNMANAGED_WRITER_GUID = new Guid( UNMANAGED_WRITER_GUID_STR );
-      internal static Guid UNMANAGED_READER_GUID = new Guid( UNMANAGED_READER_GUID_STR );
-      internal static Guid SYM_WRITER_GUID = new Guid( SYM_WRITER_GUID_STR );
-      internal static Guid SYM_READER_GUID = new Guid( SYM_READER_GUID_STR );
-
-      [DllImport( "ole32.dll" )]
-      public static extern int CoCreateInstance(
-         [In] ref Guid rclsid,
-         [In, MarshalAs( UnmanagedType.IUnknown )] Object pUnkOuter,
-         [In] uint dwClsContext,
-         [In] ref Guid riid,
-         [Out, MarshalAs( UnmanagedType.Interface )] out Object ppv
-         );
-
       internal static UInt32 WriteStringUnmanaged( IntPtr bufferPtr, UInt32 buffSize, String str )
       {
          var maxLen = str.Length + 1 >= buffSize ? buffSize - 1 : (UInt32) str.Length;
@@ -179,17 +317,34 @@ namespace CILAssemblyManipulator.Tests.Physical
       public SymUnmanagedWriterHolder(
          CILAssemblyManipulator.Physical.CILMetaData module,
          ImageInformation imageInfo,
+         ct.IStream stream
+         ) : this( module, imageInfo, null, null, stream )
+      {
+
+      }
+
+      public SymUnmanagedWriterHolder(
+         CILAssemblyManipulator.Physical.CILMetaData module,
+         ImageInformation imageInfo,
          String fn,
          String tmpFN = null
+         ) : this( module, imageInfo, fn, tmpFN, null )
+      {
+      }
+
+      private SymUnmanagedWriterHolder(
+         CILAssemblyManipulator.Physical.CILMetaData module,
+         ImageInformation imageInfo,
+         String fn,
+         String tmpFN,
+         ct.IStream stream
          )
       {
          this._imageInfo = imageInfo;
          this._fn = fn;
          this._tmpFN = tmpFN;
 
-         Object instance;
-         PDBHelper.CoCreateInstance( ref PDBHelper.UNMANAGED_WRITER_GUID, null, 1u, ref PDBHelper.SYM_WRITER_GUID, out instance );
-         var writer = (ISymUnmanagedWriter2) instance;
+         var writer = (ISymUnmanagedWriter2) Activator.CreateInstance( Type.GetTypeFromCLSID( new Guid( "0AE2DEB0-F901-478b-BB9F-881EE8066788" ) ) );
          // Initialize writer
          var emitter = new MDHelper( module, imageInfo );
          if ( !String.IsNullOrEmpty( tmpFN ) )
@@ -197,7 +352,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             writer.Initialize2(
                emitter, // Emitter
                tmpFN, // Temporary file name
-               null, // IStream
+               stream, // IStream
                true, // isFullBuild
                fn // Final file name
                );
@@ -207,7 +362,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             writer.Initialize(
                emitter, // Emitter
                fn, // Final file name
-               null, // IStream
+               stream, // IStream
                true // isFullBuild
                );
          }
@@ -235,6 +390,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             var vendor = s.Vendor;
             ISymUnmanagedDocumentWriter uDoc;
             this.Writer.DefineDocument( name, ref lang, ref vendor, ref docType, out uDoc );
+            uDoc.SetCheckSum( s.HashAlgorithm, s.Hash.Length, s.Hash );
             return uDoc;
          } );
       }
@@ -260,11 +416,15 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
          finally
          {
-            // Copy tmp-PDB to new location
-            var tmpFN = this._tmpFN;
-            if ( !String.IsNullOrEmpty( tmpFN ) )
+            var fn = this._fn;
+            if ( !String.IsNullOrEmpty( fn ) )
             {
-               System.IO.File.Copy( this._tmpFN, this._fn, true );
+               // Copy tmp-PDB to new location
+               var tmpFN = this._tmpFN;
+               if ( !String.IsNullOrEmpty( tmpFN ) )
+               {
+                  System.IO.File.Copy( this._tmpFN, fn, true );
+               }
             }
          }
       }
@@ -272,7 +432,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
 
    // See http://msdn.microsoft.com/en-us/library/ms231406%28v=vs.110%29.aspx
-   [Guid( PDBHelper.SYM_WRITER_GUID_STR ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
+   [Guid( "0B97726E-9E6D-4f05-9A26-424022093CAA" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
    internal interface ISymUnmanagedWriter2
    {
       void DefineDocument(
@@ -371,7 +531,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       void Initialize(
          [In, MarshalAs( UnmanagedType.IUnknown )] Object emitter,
          [In, MarshalAs( UnmanagedType.LPWStr )] String filename,
-         [In] IStream pIStream,
+         [In] ct.IStream pIStream,
          [In] Boolean fFullBuild );
 
       void GetDebugInfo(
@@ -398,7 +558,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       void Initialize2(
          [In, MarshalAs( UnmanagedType.IUnknown )] Object emitter,
          [In, MarshalAs( UnmanagedType.LPWStr )] String tempFileName,
-         [In] IStream pIStream,
+         [In] ct.IStream pIStream,
          [In] Boolean fFullBuild,
          [In, MarshalAs( UnmanagedType.LPWStr )] String finalFileName
          );
@@ -446,9 +606,64 @@ namespace CILAssemblyManipulator.Tests.Physical
          );
    }
 
-   [Guid( PDBHelper.DOC_WRITER_GUID_STR ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
+   [Guid( "B01FAFEB-C450-3A4D-BEEC-B4CEEC01E006" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
    internal interface ISymUnmanagedDocumentWriter
    {
+      /*
+       * Sets embedded source for a document being written.
+       */
+      void SetSource( [In] Int32 sourceSize,
+                      [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Byte[] source
+                  );
+
+      /*
+       * Sets check sum info.
+       */
+      void SetCheckSum( [In] Guid algorithmId,
+                        [In] Int32 checkSumSize,
+                        [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 1 )] Byte[] checkSum
+         );
+   }
+
+   internal interface ISymUnmanagedAsyncMethodPropertiesWriter
+   {
+      /*
+       * Sets the starting method that initiates the async operation.
+       *
+       * When performing a step-out of an async method, if the caller matches
+       * the kickoff method, we will step out synchronously.  Otherwise, an
+       * async step-out will occur.
+       *
+       * This works in C#/VB because there is an initial method stub that
+       * creates the state machine object and starts if off, hence "kickoff"
+       * Still have to determine if this will work with F#.
+       */
+      void DefineKickoffMethod( [In] SymbolToken kickoffMethod );
+
+      /*
+      * Sets the IL offset for the compiler generated catch handler that wraps
+      * an async method.
+      *
+      * The IL offset of the generated catch is used by the debugger to handle
+      * the catch as though it were non-user code even though it may occur in
+      * a user code method.  In particular it is used in response to a
+      * CatchHandlerFound exception event.
+      */
+      void DefineCatchHandlerILOffset( [In] Int32 catchHandlerOffset );
+
+      /*
+       * Define a group of async scopes within the current method.
+       *
+       * Each yield offset matches an await's return instruction,
+       * identifying a potential yield.  Each breakpointMethod/breakpointOffset
+       * pair tells us where the asynchronous operation will resume
+       * (which may be in a different method).
+       */
+      void DefineAsyncStepInfo( [In] Int32 count,
+                                  [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Int32[] yieldOffsets,
+                                  [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Int32[] breakpointOffset,
+                                  [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] SymbolToken[] breakpointMethod
+         );
    }
 
    // Needed for ISymUnmanagedWriter2
@@ -465,7 +680,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       public Int32 PointerToRawData;
    }
 
-   [ComImport, InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), Guid( PDBHelper.METADATA_EMIT_GUID_STR )]
+   [ComImport, InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), Guid( "BA3FEE4C-ECB9-4e41-83B7-183FA41CD859" )]
    internal interface IMetaDataEmit
    {
       void SetModuleProps( string szName );
@@ -523,7 +738,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       void MergeEnd();
    }
 
-   [ComImport, InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), Guid( PDBHelper.METADATA_IMPORT_GUID_STR )]
+   [ComImport, InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), Guid( "7DAC8207-D3AE-4c75-9B67-92801A497D44" )]
    internal interface IMetaDataImport
    {
       [PreserveSig]
@@ -632,7 +847,6 @@ namespace CILAssemblyManipulator.Tests.Physical
             typeEnclosingTypes[nc.NestedClass.Index] = nc.EnclosingClass.Index;
          }
          this._typeEnclosingTypes = typeEnclosingTypes;
-
       }
 
       #region IMetaDataEmit Members
@@ -939,7 +1153,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          if ( tIdx.Index < tDefs.Count )
          {
             var tDef = tDefs[tIdx.Index];
-            pchTypeDef = PDBHelper.WriteStringUnmanaged( szTypeDef, cchTypeDef, tDef.Name );
+            pchTypeDef = PDBHelper.WriteStringUnmanaged( szTypeDef, cchTypeDef, CILAssemblyManipulator.Physical.Miscellaneous.CombineNamespaceAndType( tDef.Namespace, tDef.Name ) );
             PDBHelper.WriteInt32Unmanaged( pdwTypeDefFlags, (Int32) tDef.Attributes );
             baseType = tDef.BaseType;
          }
@@ -1251,13 +1465,12 @@ namespace CILAssemblyManipulator.Tests.Physical
 
    internal class SymUnmanagedReaderHolder : AbstractDisposable
    {
-      internal SymUnmanagedReaderHolder(
+      public SymUnmanagedReaderHolder(
          String mdFile,
          CILAssemblyManipulator.Physical.CILMetaData module,
          ImageInformation imageInfo
          )
       {
-         //var reader = (ISymUnmanagedReader) ( new CorSymReader_SxS() );
          this.Reader = (ISymUnmanagedReader) Activator.CreateInstance( Type.GetTypeFromCLSID( new Guid( "0A3976C5-4529-4ef8-B0B0-42EED37082CD" ) ) );
          this.Reader.Initialize(
             new MDHelper( module, imageInfo ),
@@ -1280,570 +1493,89 @@ namespace CILAssemblyManipulator.Tests.Physical
       }
    }
 
-   [Guid( "0A3976C5-4529-4ef8-B0B0-42EED37082CD" ), ComImport,]
-   internal class CorSymReader_SxS
+   #endregion
+
+   #region Generic COM stuff
+   public class COMStreamWrapper : ct.IStream
    {
 
-   }
-
-   //[Guid( PDBHelper.SYM_READER_GUID_STR ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   [
-      //Guid( "B4CE6286-2A6B-3712-A3B7-1EE1DAD467B5" ),
-      Guid( PDBHelper.SYM_READER_GUID_STR ),
-      InterfaceType( ComInterfaceType.InterfaceIsIUnknown ),
-      CoClass( typeof( CorSymReader_SxS ) ),
-      ComImport
-   ]
-   public interface ISymUnmanagedReader
-   {
-      /*
-     * Find a document. Language, vendor, and document type are optional.
-     */
-      void GetDocument( [In, MarshalAs( UnmanagedType.LPWStr )] String url,
-                        [In] Guid language,
-                        [In] Guid languageVendor,
-                        [In] Guid documentType,
-                        [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedDocument pRetVal
-                        );
-
-      /*
-       * Return an array of all the documents defined in the symbol store.
-       */
-      void GetDocuments( [In] UInt32 cDocs,
-                         [Out] out UInt32 pcDocs,
-                         [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedDocument[] pDocs
-                        );
-
-      /*
-       * Return the method that was specified as the user entry point
-       * for the module, if any. This would be, perhaps, the user's main
-       * method rather than compiler generated stubs before main.
-       */
-      void GetUserEntryPoint( [Out] out SymbolToken pToken );
-
-      /*
-       * Get a symbol reader method given a method token.
-       */
-      void GetMethod( [In] SymbolToken token,
-                      [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedMethod pRetVal
-                    );
-
-      /*
-       * Get a symbol reader method given a method token and an E&C
-       * version number. Version numbers start at 1 and are incremented
-       * each time the method is changed due to an E&C operation.
-       */
-      void GetMethodByVersion( [In] SymbolToken token,
-                               [In] Int32 version,
-                               [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedMethod pRetVal
-                              );
-
-      /*
-       * Return a non-local variable given its parent and name.
-       */
-      void GetVariables( [In] SymbolToken parent,
-                         [In] UInt32 cVars,
-                         [Out] out UInt32 pcVars,
-                         [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 1, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedVariable[] pVars
-                       );
-      /*
-       * Return all global variables.
-       */
-      void GetGlobalVariables( [In] UInt32 cVars,
-                               [Out] out UInt32 pcVars,
-                               [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedVariable[] pVars
-                             );
-
-      /*
-       * Given a position in a document, return the ISymUnmanagedMethod that
-       * contains that position.
-       */
-      void GetMethodFromDocumentPosition( [In, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedDocument document,
-                                            [In] UInt32 line,
-                                            [In] UInt32 column,
-                                            [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedMethod pRetVal );
-
-      /*
-       * Gets a custom attribute based upon its name. Not to be
-       * confused with Metadata custom attributes, these attributes are
-       * held in the symbol store.
-       */
-      void GetSymAttribute( [In] SymbolToken parent,
-                              [In, MarshalAs( UnmanagedType.LPWStr )] String name,
-                              [In] UInt32 cBuffer,
-                              [Out] out UInt32 pcBuffer,
-                              [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 2 )] Byte[] buffer
-                          );
-
-      /*
-       * Get the namespaces defined at global scope within this symbol store.
-       */
-      void GetNamespaces( [In] UInt32 cNameSpaces,
-                          [Out] out UInt32 pcNameSpaces,
-                          [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedNamespace[] namespaces
-                        );
-
-      /*
-       * Initialize the symbol reader with the metadata importer interface
-       * that this reader will be associated with, along with the filename
-       * of the module. This can only be called once, and must be called
-       * before any other reader methods are called.
-       *
-       * Note: you need only specify one of the filename or the pIStream,
-       * not both. The searchPath parameter is optional.
-       */
-      void Initialize( [In, MarshalAs( UnmanagedType.IUnknown )] object importer,
-                       [In, MarshalAs( UnmanagedType.LPWStr )] String filename,
-                       [In, MarshalAs( UnmanagedType.LPWStr )] String searchPath,
-                       [In, MarshalAs( UnmanagedType.Interface )] IStream pIStream
-                      );
-
-      /*
-       * Update the existing symbol reader with a delta symbol store. This
-       * is used in EnC scenarios as a way to update the symbol store to
-       * match deltas to the original PE file.
-       *
-       * Only one of the filename or pIStream parameters need be specified.
-       * If a filename is specified, the symbol store will be updated with
-       * the symbols in that file. If a IStream is specified, the store will
-       * be updated with the data from the IStream.
-       */
-      void UpdateSymbolStore( [In, MarshalAs( UnmanagedType.LPWStr )] String filename,
-                              [In, MarshalAs( UnmanagedType.Interface )] IStream pIStream
-                            );
-
-      /*
-       * Update the existing symbol reader with a delta symbol
-       * store. This is much like UpdateSymbolStore, but the given detla
-       * acts as a complete replacement rather than an update.
-       *
-       * Only one of the filename or pIStream parameters need be specified.
-       * If a filename is specified, the symbol store will be updated with
-       * the symbols in that file. If a IStream is specified, the store will
-       * be updated with the data from the IStream.
-       */
-      void ReplaceSymbolStore( [In, MarshalAs( UnmanagedType.LPWStr )] String filename,
-                               [In, MarshalAs( UnmanagedType.Interface )] IStream pIStream
-                             );
-
-      /*
-       * Provides the on disk filename of the symbol store.
-       */
-
-      void GetSymbolStoreFileName( [In] UInt32 cchName,
-                                   [Out] out UInt32 pcchName,
-                                   [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Char[] szName
-                                 );
-
-      /*
-       * Given a position in a document, return the ISymUnmanagedMethods that
-       * contains that position.
-       */
-      void GetMethodsFromDocumentPosition( [In, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedDocument document,
-                                           [In] UInt32 line,
-                                           [In] UInt32 column,
-                                           [In] UInt32 cMethod,
-                                           [Out] out UInt32 pcMethod,
-                                           [In, Out, MarshalAs( UnmanagedType.LPWStr, SizeParamIndex = 3, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedMethod[] pRetVal
-                                          );
-
-      /*
-       * Get the given version of the given document.
-      * The document version starts at 1 and is incremented each time
-       * the document is updated via UpdateSymbols.
-       * bCurrent is true is this is the latest version of the document.
-       */
-      void GetDocumentVersion( [In, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedDocument pDoc,
-                               [Out] out Int32 version,
-                               [Out, MarshalAs( UnmanagedType.Bool )] out Boolean pbCurrent
-                             );
-
-      /*
-       * The method version starts at 1 and is incremented each time
-       * the method is recompiled.  (This can happen without changes to the method.)
-       */
-      void GetMethodVersion( [In, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedMethod pMethod,
-                             [Out] out Int32 version
-                           );
-
-      ///////////////////////////////
-      // ISymUnamangedReader2 methods
-      ///////////////////////////////
-
-      ///*
-      // * Get a symbol reader method given a method token and an E&C
-      // * version number. Version numbers start at 1 and are incremented
-      // * each time the method is changed due to an E&C operation.
-      // */
-      //void GetMethodByVersionPreRemap( [In] SymbolToken token,
-      //                                 [In] Int32 version,
-      //                                 [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedMethod pRetVal
-      //                                );
-      ///*
-      // * Gets a custom attribute based upon its name. Not to be
-      // * confused with Metadata custom attributes, these attributes are
-      // * held in the symbol store.
-      // */
-      //void GetSymAttributePreRemap( [In] SymbolToken parent,
-      //                              [In, MarshalAs( UnmanagedType.LPWStr )] String name,
-      //                              [In] UInt32 cBuffer,
-      //                              [Out] out UInt32 pcBuffer,
-      //                              [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 2 )] Byte[] buffer
-      //                            );
-
-      ///*
-      // * Gets every method that has line information in the provided Document.  
-      // */
-      //void GetMethodsInDocument( [In, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedDocument document,
-      //                           [In] UInt32 cMethod,
-      //                           [Out] out UInt32 pcMethod,
-      //                           [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 1, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedMethod[] pRetVal
-      //                         );
-   }
-
-   [Guid( "40DE4037-7C81-3E1E-B022-AE1ABFF2CA08" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   public interface ISymUnmanagedDocument
-   {
-      /*
- * Return the URL for this document.
- */
-      void GetURL( [In] UInt32 cchUrl,
-                   [Out] out UInt32 pcchUrl,
-                   [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Char[] szUrl
-                 );
-
-      /*
-       * Get the document type of this document.
-       */
-      void GetDocumentType( [Out] out Guid pRetVal );
-
-      /*
-       * Get the language id of this document.
-       */
-      void GetLanguage( [Out] out Guid pRetVal );
-
-      /*
-       * Get the language vendor of this document.
-       */
-      void GetLanguageVendor( [Out] out Guid pRetVal );
-
-      /*
-       * Get the check sum algorithm id. Returns a guid of all zeros if
-       * there is no checksum.
-       */
-      void GetCheckSumAlgorithmId( [Out] out Guid pRetVal );
-
-      /*
-       * Get the check sum.
-       */
-      void GetCheckSum( [In] UInt32 cData,
-                        [Out] out UInt32 pcData,
-                        [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Byte[] data
-                      );
-
-      /*
-       * Given a line in this document that may or may not be a sequence
-       * point, return the closest line that is a sequence point.  */
-      void FindClosestLine( [In] UInt32 line,
-                            [Out] out UInt32 pRetVal );
-
-      /*
-       * Returns true if the document has source embedded in the
-       * debugging symbols.
-       */
-      void HasEmbeddedSource( [Out, MarshalAs( UnmanagedType.Bool )] out Boolean pRetVal );
-
-      /*
-       * Returns the length, in bytes, of the embedded source.
-       */
-      void GetSourceLength( [Out] out UInt32 pRetVal );
-
-      /*
-       * Returns the embedded source into the given buffer. The buffer must
-       * be large enough to hold the source.
-       */
-      void GetSourceRange( [In] UInt32 startLine,
-                           [In] UInt32 startColumn,
-                           [In] UInt32 endLine,
-                           [In] UInt32 endColumn,
-                           [In] UInt32 cSourceBytes,
-                           [Out] out UInt32 pcSourceBytes,
-                           [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 4 )] Byte[] source
-                          );
-   }
-
-   [Guid( "B62B923C-B500-3158-A543-24F307A8B7E1" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   public interface ISymUnmanagedMethod
-   {
-      /*
- * Return the metadata token for this method.
- */
-      void GetToken( [Out] out SymbolToken pToken );
-
-      /*
-       * Get the count of sequence points within this method.
-       */
-      void GetSequencePointCount( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the root lexical scope within this method.
-      * This scope encloses the entire method.
-       */
-      void GetRootScope( [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedScope pRetVal );
-
-      /*
-       * Get the most enclosing lexical scope within this method that
-       * encloses the given offset. This can be used to start
-      * local variable searches.
-       */
-      void GetScopeFromOffset( [In] UInt32 offset,
-                               [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedScope pRetVal
-                             );
-
-      /*
-       * Given a position within a document, return the offset within
-       * this method that cooresponds to the position.
-       */
-      void GetOffset( [In, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedDocument document,
-                        [In] UInt32 line,
-                        [In] UInt32 column,
-                        [Out] out UInt32 pRetVal
-                    );
-
-      /*
-       * Given a position in a document, return an array of start/end
-       * offset paris that correspond to the ranges of IL that the
-       * position covers within this method. The array is an array of
-       * integers and is [start,end,start,end]. The number of range
-       * pairs is the length of the array / 2.
-       */
-      void GetRanges( [In, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedDocument document,
-                        [In] UInt32 line,
-                        [In] UInt32 column,
-                        [In] UInt32 cRanges,
-                        [Out] out UInt32 pcRanges,
-                        [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 3 )] UInt32[] ranges
-                     );
-
-      /*
-       * Get the parameters for this method. The parameters are returned
-       * in the order they are defined within the method's signature.
-       */
-      void GetParameters( [In] UInt32 cParams,
-                            [Out] out UInt32 pcParams,
-                            [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 1, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedVariable[] paramz
-                        );
-
-      /*
-       * Get the namespace that this method is defined within.
-       */
-      void GetNamespace( [Out, MarshalAs( UnmanagedType.Interface )] ISymUnmanagedNamespace pRetVal );
-
-      /*
-       * Get the start/end document positions for the source of this
-       * method. The first array position is the start while the second
-       * is the end. Returns true if positions were defined, false
-       * otherwise.
-       */
-      void GetSourceStartEnd( [In, MarshalAs( UnmanagedType.LPArray, SizeConst = 2, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedDocument[] docs,
-                              [In, MarshalAs( UnmanagedType.LPArray, SizeConst = 2 )] UInt32[] lines,
-                              [In, MarshalAs( UnmanagedType.LPArray, SizeConst = 2 )] UInt32[] columns,
-                              [Out, MarshalAs( UnmanagedType.Bool )] out Boolean pRetVal
-                            );
-
-      /*
-       * Get all the sequence points within this method.
-       */
-      void GetSequencePoints( [In] UInt32 cPoints,
-                                [Out] out UInt32 pcPoints,
-                                [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] UInt32[] offsets,
-                                [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedDocument[] documents,
-                                [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] UInt32[] lines,
-                                [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] UInt32[] columns,
-                                [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] UInt32[] endLines,
-                                [In, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] UInt32[] endColumns
-                            );
-   }
-
-   [Guid( "9F60EEBE-2D9A-3F7C-BF58-80BC991C60BB" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   public interface ISymUnmanagedVariable
-   {
-      /*
-       * Get the name of this variable.
-      */
-      void GetName( [In] UInt32 cchName,
-                      [Out] out UInt32 pcchName,
-                      [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Char[] szName
-                  );
-
-      /*
-       * Get the attribute flags for this variable.
-       */
-      void GetAttributes( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the signature of this variable.
-       */
-      void GetSignature( [In] UInt32 cSig,
-                           [Out] out UInt32 pcSig,
-                           [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Byte[] sig
-                        );
-
-      /*
-       * Get the kind of address of this variable
-      * The retval will be one of the CorSymAddrKind constants.
-       */
-      void GetAddressKind( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the first address field for this variable. Its meaning depends
-       * on the address kind.
-       */
-      void GetAddressField1( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the second address field for this variable. Its meaning depends
-       * on the address kind.
-       */
-      void GetAddressField2( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the third address field for this variable. Its meaning depends
-       * on the address kind.
-       */
-      void GetAddressField3( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the start offset of this variable within its parent. If this is
-       * a local variable within a scope, this will fall within the offsets
-       * defined for the scope.
-       */
-      void GetStartOffset( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the end offset of this variable within its parent. If this is
-       * a local variable within a scope, this will fall within the offsets
-       * defined for the scope.
-       */
-      void GetEndOffset( [Out] out UInt32 pRetVal );
-   }
-
-   [Guid( "0DFF7289-54F8-11d3-BD28-0000F80849BD" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   public interface ISymUnmanagedNamespace
-   {
-      /*
-       * Get the name of this namespace.
-       */
-      void GetName( [In] UInt32 cchName,
-                      [Out] out UInt32 pcchName,
-                      [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Char[] szName
-                   );
-
-      /*
-       * Get the children of this namespace.
-       */
-      void GetNamespaces( [In] UInt32 cNameSpaces,
-                            [Out] out UInt32 pcNameSpaces,
-                            [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedNamespace[] namespaces
-                        );
-
-      /*
-       * Return all variables defined at global scope within this namespace.
-       */
-      void GetVariables( [In] UInt32 cVars,
-                           [Out] out UInt32 pcVars,
-                           [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedVariable[] pVars
-                       );
-   }
-
-   [Guid( "68005D0F-B8E0-3B01-84D5-A11A94154942" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   public interface ISymUnmanagedScope
-   {
-      /*
-       * Get the method that contains this scope.
-       */
-      void GetMethod( [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedMethod pRetVal );
-
-      /*
-       * Get the parent scope of this scope.
-       */
-      void GetParent( [Out, MarshalAs( UnmanagedType.Interface )] out ISymUnmanagedScope pRetVal );
-
-      /*
-       * Get the children of this scope.
-       */
-      void GetChildren( [In] UInt32 cChildren,
-                          [Out] out UInt32 pcChildren,
-                          [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedScope[] children
-         );
-
-      /*
-       * Get the start offset for this scope,
-       */
-      void GetStartOffset( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the end offset for this scope.
-       */
-      void GetEndOffset( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get a count of the number of local variables defined within this
-       * scope.
-       */
-      void GetLocalCount( [Out] out UInt32 pRetVal );
-
-      /*
-       * Get the local variables defined within this scope.
-       */
-      void GetLocals( [In] UInt32 cLocals,
-                        [Out] out UInt32 pcLocals,
-                        [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedVariable[] locals );
-
-      /*
-       * Get the namespaces that are being "used" within this scope.
-       */
-      void GetNamespaces( [In] UInt32 cNameSpaces,
-                            [Out] out UInt32 pcNameSpaces,
-                            [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedNamespace[] namespaces
-         );
-
-   }
-
-   [Guid( "AE932FBA-3FD8-4dba-8232-30A2309B02DB" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   public interface ISymUnmanagedScope2 : ISymUnmanagedScope
-   {
-      /*
-       * Get a count of the number of constants defined within this
-       * scope.
-       */
-      void GetConstantCount( [Out] out UInt32 pRetVal );
-      /*
-       * Get the local constants defined within this scope.
-       */
-      void GetConstants( [In] UInt32 cConstants,
-                         [Out] out UInt32 pcConstants,
-                         [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0, ArraySubType = UnmanagedType.Interface )] ISymUnmanagedConstant[] constants
-                       );
-   }
-
-   [Guid( "48B25ED8-5BAD-41bc-9CEE-CD62FABC74E9" ), InterfaceType( ComInterfaceType.InterfaceIsIUnknown ), ComImport]
-   public interface ISymUnmanagedConstant
-   {
-      /*
-       * Get the name of this constant.
-       */
-      void GetName( [In] UInt32 cchName,
-                    [Out] out UInt32 pcchName,
-                    [In, Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Char[] szName
-                  );
-
-      void GetValue( [In] IntPtr pValue ); // VARIANT*
-
-      void GetSignature( [In] UInt32 cSig,
-                         [Out] out UInt32 pcSig,
-                         [Out, MarshalAs( UnmanagedType.LPArray, SizeParamIndex = 0 )] Byte[] sig
-                       );
+      private readonly Stream _stream;
+
+      public COMStreamWrapper( Stream stream )
+      {
+         this._stream = ArgumentValidator.ValidateNotNull( "Stream", stream );
+      }
+
+
+      public void Read( Byte[] pv, int cb, System.IntPtr pcbRead )
+      {
+         Marshal.WriteInt32( pcbRead, (Int32) _stream.Read( pv, 0, cb ) );
+      }
+
+      public void Seek( Int64 dlibMove, Int32 dwOrigin, System.IntPtr plibNewPosition )
+      {
+         var newPos = this._stream.Seek( dlibMove, (SeekOrigin) dwOrigin );
+         Marshal.WriteInt64( plibNewPosition, newPos ); // .WriteInt32( plibNewPosition, newPos );
+      }
+
+      public void Write( byte[] pv, int cb, IntPtr pcbWritten )
+      {
+         this._stream.Write( pv, cb );
+         Marshal.WriteInt32( pcbWritten, cb );
+      }
+
+      public void SetSize( long libNewSize )
+      {
+         this._stream.SetLength( libNewSize );
+      }
+
+      public void CopyTo( ct.IStream pstm, long cb, IntPtr pcbRead, IntPtr pcbWritten )
+      {
+         throw new NotImplementedException();
+      }
+
+      public void Commit( int grfCommitFlags )
+      {
+         if ( grfCommitFlags != 0 )
+         {
+            throw new NotImplementedException();
+         }
+      }
+
+      public void Revert()
+      {
+         throw new NotImplementedException();
+      }
+
+      public void LockRegion( long libOffset, long cb, int dwLockType )
+      {
+         throw new NotImplementedException();
+      }
+
+      public void UnlockRegion( long libOffset, long cb, int dwLockType )
+      {
+         throw new NotImplementedException();
+      }
+
+      public void Stat( out ct.STATSTG pstatstg, int grfStatFlag )
+      {
+         if ( grfStatFlag != 1 )
+         {
+            throw new NotImplementedException();
+         }
+         pstatstg = new ct.STATSTG()
+         {
+            cbSize = this._stream.Length,
+            type = 2, // STGTY_STREAM
+            grfMode = 0x00000002, // STGM_READWRITE
+         };
+
+      }
+
+      public void Clone( out ct.IStream ppstm )
+      {
+         throw new NotImplementedException();
+      }
    }
 
    #endregion
@@ -1858,9 +1590,13 @@ public static partial class E_CILPhysicalTests
       foreach ( var func in pdb.Modules.SelectMany( m => m.Functions ) )
       {
          writer.OpenMethod( new SymbolToken( (Int32) func.Token ) );
-         Int32 dummy;
-         writer.OpenScope( 0, out dummy );
 
+
+         // 1. Handle OEM stuff
+         func.ProcessAsyncInfo( writer );
+         func.HandleAllOEM( writer );
+
+         // 2. Handle lines
          var lineDic = new Dictionary<ISymUnmanagedDocumentWriter, List<PDBLine>>( ReferenceEqualityComparer<ISymUnmanagedDocumentWriter>.ReferenceBasedComparer );
          foreach ( var line in func.Lines )
          {
@@ -1883,17 +1619,35 @@ public static partial class E_CILPhysicalTests
                lines.Select( l => (Int32) l.ColumnEnd.Value ).ToArray() );
          }
 
-         holder.ProcessPDBScopeOrFunc( func, 0, func.Length );
-
+         // 3. Handle the scopes
+         // Internally, each function has a root scope, which is visible as one PDBScope in PDBFunction.Scopes
+         var scopes = func.Scopes;
+         Int32 dummy;
+         writer.OpenScope( 0, out dummy );
+         if ( scopes.Count > 0 )
+         {
+            writer.ProcessPDBScope( scopes[0], 0, func.Length );
+         }
          writer.CloseScope( func.Length );
+
+         // 4. We're done
          writer.CloseMethod();
       }
 
    }
 
-   internal static void ProcessPDBScopeOrFunc( this SymUnmanagedWriterHolder holder, PDBScopeOrFunction scp, Int32 startOffset, Int32 endOffset )
+   internal static void ProcessAsyncInfo( this PDBFunction func, ISymUnmanagedWriter2 writer )
    {
-      var writer = holder.Writer;
+      var asyncInfo = func.AsyncMethodInfo;
+      if ( asyncInfo != null )
+      {
+         var asyncWriter = (ISymUnmanagedAsyncMethodPropertiesWriter) writer;
+         throw new NotImplementedException();
+      }
+   }
+
+   internal static void ProcessPDBScope( this ISymUnmanagedWriter2 writer, PDBScope scp, Int32 startOffset, Int32 endOffset )
+   {
       foreach ( var slot in scp.Slots )
       {
          // For some reason, even if correct .Flags are given to the local variable, the flags are not persisted. I don't know why.
@@ -1910,22 +1664,58 @@ public static partial class E_CILPhysicalTests
             endOffset
             );
       }
+
       foreach ( var un in scp.UsedNamespaces )
       {
          writer.UsingNamespace( un );
+      }
+
+      foreach ( var constant in scp.Constants )
+      {
+         writer.DefineConstant2( constant.Name, constant.Value, new SymbolToken( (Int32) constant.Token ) );
       }
 
       foreach ( var ss in scp.Scopes )
       {
          Int32 dummy;
          writer.OpenScope( ss.Offset, out dummy );
-         holder.ProcessPDBScopeOrFunc( ss, ss.Offset, ss.Offset + ss.Length );
+         writer.ProcessPDBScope( ss, ss.Offset, ss.Offset + ss.Length );
          writer.CloseScope( ss.Offset + ss.Length );
+      }
+
+
+   }
+
+   private delegate Int32 OEMHandlerWriterSizeDelegate( PDBFunction func );
+   private delegate void OEMHandlerWriterDelegate( PDBFunction func, Byte[] array, ref Int32 idx );
+
+   private static void HandleAllOEM( this PDBFunction func, ISymUnmanagedWriter2 writer )
+   {
+      func.HandleCustomOEM( writer, PDBIO.ENC_OEM_NAME, CAMPhysicalPIO::E_CILPhysical.CalculateByteCountENCInfo, CAMPhysicalPIO::E_CILPhysical.WriteOEMENCID );
+      var nsList = new List<Int32>();
+      func.HandleCustomOEM( writer, PDBIO.MD_OEM_NAME, f =>
+      {
+         CAMPhysicalPIO::E_CILPhysical.CalculateByteCountFromLists( f, nsList );
+         return CAMPhysicalPIO::E_CILPhysical.CalculateByteCountMD2Info( f, ref nsList );
+      },
+      ( PDBFunction f, Byte[] array, ref Int32 idx ) => CAMPhysicalPIO::E_CILPhysical.WriteOEMMD2( f, array, ref idx, nsList )
+      );
+   }
+
+   private static void HandleCustomOEM( this PDBFunction func, ISymUnmanagedWriter2 writer, String oemName, OEMHandlerWriterSizeDelegate size, OEMHandlerWriterDelegate writerAction )
+   {
+      var bytez = new Byte[size( func )];
+      if ( bytez.Length > 0 )
+      {
+         var idx = 0;
+         writerAction( func, bytez, ref idx );
+         var actualBytez = bytez.Skip( CAMPhysicalPIO::E_CILPhysical.GetFixedOEMSize( oemName ) ).ToArray();
+         writer.SetSymAttribute( new SymbolToken( (Int32) func.Token ), oemName, actualBytez.Length, actualBytez );
       }
    }
 
 
-   // Not set: PDBScope.Name, PDBLine.IsStatement, PDBFunction.Slots (but PDBScope.Slots are ok), PDBSlot.TypeToken, PDBFunction.LocalScopes (?)
+   // Not set: PDBScope.Name, PDBFunction.Slots (but PDBScope.Slots are ok), PDBSlot.TypeToken, PDBConstant.Token
 
    internal static PDBInstance CreateInstanceFromNativeReader(
       this ISymUnmanagedReader reader,
@@ -1934,116 +1724,129 @@ public static partial class E_CILPhysicalTests
       )
    {
       var retVal = new PDBInstance();
-      SymbolToken epToken;
-      reader.GetUserEntryPoint( out epToken );
-      ep = epToken.GetToken() == 0 ? (Int32?) null : epToken.GetToken();
+
+      Int32 epToken;
+      ep = reader.GetUserEntryPoint( out epToken ) == 0 ? epToken : (Int32?) null;
+      var typeDefs = md.TypeDefinitions.TableContents;
       var methods = md.MethodDefinitions.TableContents;
 
       var sources = new Dictionary<String, PDBSource>();
 
-
-      for ( var i = 0; i < methods.Count; ++i )
+      var curTDef = 0;
+      foreach ( var fullName in md.GetTypeDefinitionsFullNames() )
       {
-         var token = new SymbolToken( new CILAssemblyManipulator.Physical.TableIndex( CILAssemblyManipulator.Physical.Tables.MethodDef, i ).GetOneBasedToken() );
-         ISymUnmanagedMethod method;
-         reader.GetMethod( token, out method );
-         if ( method != null )
+         var module = new PDBModule()
          {
-            method.GetToken( out token );
-            var func = new PDBFunction()
-            {
-               //AsyncMethodInfo =
-               //ENCID = 
-               //ForwardingMethodToken
-               //IteratorClass
-               //ModuleForwardingMethodToken =
-               Name = methods[i].Name,
-               Token = (UInt32) token.GetToken()
-            };
-            ISymUnmanagedScope scope;
-            method.GetRootScope( out scope );
-            UInt32 length;
-            if ( scope != null )
-            {
-               func.Scopes.Add( ( (ISymUnmanagedScope2) scope ).CreateScopeFromNativeScope() );
-               scope.GetEndOffset( out length );
-               func.Length = (Int32) length;
-            }
-            else
-            {
-               // Breakpoint
-            }
+            Name = fullName.Replace( '+', '.' ) // PDB stores class names with only dot separators.
+         };
+         foreach ( var i in md.GetTypeMethodIndices( curTDef ) )
+         {
+            var token = new CILAssemblyManipulator.Physical.TableIndex( CILAssemblyManipulator.Physical.Tables.MethodDef, i ).GetOneBasedToken();
+            ISymUnmanagedMethod theMethod = null;
+            reader.GetMethod( token, out theMethod );
 
-            // Lines
-            method.GetSequencePointCount( out length );
-            var offsets = new UInt32[length];
-            var docs = new ISymUnmanagedDocument[length];
-            var lines = new UInt32[length];
-            var cols = new UInt32[length];
-            var endLines = new UInt32[length];
-            var endCols = new UInt32[length];
-            method.GetSequencePoints( length, out length, offsets, docs, lines, cols, endLines, endCols );
-            func.Lines.AddRange( docs.Select( ( doc, j ) =>
+            UseCOMObject( theMethod, method =>
             {
-               UInt32 urlCount;
-               doc.GetURL( 0, out urlCount, null );
-               var charz = new Char[urlCount];
-               doc.GetURL( urlCount, out urlCount, charz );
-               return new PDBLine()
+               method.GetToken( out token );
+               var func = new PDBFunction()
                {
-                  LineStart = (Int32) lines[j],
-                  LineEnd = (Int32) endLines[j],
-                  ColumnStart = (UInt16) cols[j],
-                  ColumnEnd = (UInt16) endCols[j],
-                  Offset = (Int32) offsets[j],
-                  Source = sources.GetOrAdd_NotThreadSafe( new String( charz.Take( (Int32) urlCount - 1 ).ToArray() ), url => doc.CreateSource( url ) ) // Count has terminating zero included)
+                  AsyncMethodInfo = method.CreateAsyncInfo(),
+                  Name = methods[i].Name,
+                  Token = (UInt32) token
                };
-            } ) );
+
+               func.HandleAllOEM( reader );
+
+               ISymUnmanagedScope scope;
+               method.GetRootScope( out scope );
+               Int32 length;
+               UseCOMObject( scope, s =>
+               {
+                  ( (ISymUnmanagedScope2) s ).CreateScopeFromNativeScope( func );
+               } );
+
+               // Lines
+               method.GetSequencePointCount( out length );
+               var offsets = new Int32[length];
+               var docs = new ISymUnmanagedDocument[length];
+               var lines = new Int32[length];
+               var cols = new Int32[length];
+               var endLines = new Int32[length];
+               var endCols = new Int32[length];
+               method.GetSequencePoints( length, out length, offsets, docs, lines, cols, endLines, endCols );
+               docs.UseCOMObjectArray( ( doc, j ) =>
+               {
+                  Int32 urlCount;
+                  doc.GetUrl( 0, out urlCount, null );
+                  var charz = new Char[urlCount];
+                  doc.GetUrl( urlCount, out urlCount, charz );
+                  func.Lines.Add( new PDBLine()
+                  {
+                     LineStart = (Int32) lines[j],
+                     LineEnd = (Int32) endLines[j],
+                     ColumnStart = (UInt16) cols[j],
+                     ColumnEnd = (UInt16) endCols[j],
+                     Offset = (Int32) offsets[j],
+                     Source = sources.GetOrAdd_NotThreadSafe( charz.CreateStringFromCOMChars(), url => doc.CreateSource( url ) ),
+                     //IsStatement = ( lines[j] == 0x00FEEFEE ) // IsHidden... ?
+                  } );
+               } );
 
 
-            // LocalScopes
-            // Slots (are not exposed... ?)
+               // Slots (are not exposed... ?)
 
-            // Used namespaces are not exposed
+               // Used namespaces are not exposed
+               module.Functions.Add( func );
+            } );
          }
-         else
+
+         if ( module.Functions.Count > 0 )
          {
-            // Breakpoint
+            retVal.Modules.Add( module );
          }
+
+         ++curTDef;
       }
 
       return retVal;
    }
 
 
-   private static PDBScope CreateScopeFromNativeScope( this ISymUnmanagedScope2 scope )
+   private static void CreateScopeFromNativeScope( this ISymUnmanagedScope2 scope, PDBScopeOrFunction retVal )
    {
-      // Name
-      var retVal = new PDBScope();
-      UInt32 tmp;
-      scope.GetStartOffset( out tmp );
-      retVal.Offset = (Int32) tmp;
+      Int32 tmp;
+      var curScope = retVal as PDBScope;
+      Int32 start;
+      if ( curScope != null )
+      {
+         scope.GetStartOffset( out tmp );
+         curScope.Offset = (Int32) tmp;
+         start = curScope.Offset;
+      }
+      else
+      {
+         start = 0;
+      }
       scope.GetEndOffset( out tmp );
-      retVal.Length = (Int32) tmp - retVal.Offset;
+      retVal.Length = (Int32) tmp - start;
 
       // Used namespaces
       scope.GetNamespaces( 0, out tmp, null );
       var nss = new ISymUnmanagedNamespace[tmp];
       scope.GetNamespaces( tmp, out tmp, nss );
-      foreach ( var ns in nss )
+      nss.UseCOMObjectArray( ns =>
       {
          ns.GetName( 0, out tmp, null );
-         var chars = new Char[tmp];
-         ns.GetName( tmp, out tmp, chars );
-         retVal.UsedNamespaces.Add( new String( chars.Take( (Int32) tmp - 1 ).ToArray() ) );
-         Marshal.ReleaseComObject( ns );
-      }
+         var charz = new Char[tmp];
+         ns.GetName( tmp, out tmp, charz );
+         retVal.UsedNamespaces.Add( charz.CreateStringFromCOMChars() );
+      } );
 
       // Locals
       scope.GetLocals( 0, out tmp, null );
       var locals = new ISymUnmanagedVariable[tmp];
       scope.GetLocals( tmp, out tmp, locals );
-      retVal.Slots.AddRange( locals.Select( local =>
+      locals.UseCOMObjectArray( local =>
       {
          var slot = new PDBSlot();
          local.GetAttributes( out tmp );
@@ -2054,24 +1857,37 @@ public static partial class E_CILPhysicalTests
          slot.Name = new String( chars.Take( (Int32) tmp - 1 ).ToArray() );
          local.GetAddressField1( out tmp );
          slot.SlotIndex = (Int32) tmp;
-         local.GetSignature( 0, out tmp, null );
-         // TODO type token!!
-         Marshal.ReleaseComObject( local );
-         return slot;
-      } ) );
+         retVal.Slots.Add( slot );
+      } );
+
+      // Constants
+      scope.GetConstants( 0, out tmp, null );
+      var consts = new ISymUnmanagedConstant[tmp];
+      scope.GetConstants( tmp, out tmp, consts );
+      consts.UseCOMObjectArray( aConst =>
+      {
+         var pdbConst = new PDBConstant();
+         aConst.GetName( 0, out tmp, null );
+         var chars = new Char[tmp];
+         aConst.GetName( tmp, out tmp, chars );
+         pdbConst.Name = chars.CreateStringFromCOMChars();
+         Object val;
+         aConst.GetValue( out val );
+         pdbConst.Value = val;
+         retVal.Constants.Add( pdbConst );
+      } );
 
       // Sub-scopes
       scope.GetChildren( 0, out tmp, null );
       var children = new ISymUnmanagedScope[tmp];
       scope.GetChildren( tmp, out tmp, children );
-      retVal.Scopes.AddRange( children.Select( child =>
+      children.UseCOMObjectArray( child =>
       {
-         var subScope = ( (ISymUnmanagedScope2) child ).CreateScopeFromNativeScope();
-         Marshal.ReleaseComObject( child );
-         return subScope;
-      } ) );
+         var childScope = new PDBScope();
+         ( (ISymUnmanagedScope2) child ).CreateScopeFromNativeScope( childScope );
+         retVal.Scopes.Add( childScope );
+      } );
 
-      return retVal;
    }
 
    private static PDBSource CreateSource( this ISymUnmanagedDocument doc, String url )
@@ -2080,19 +1896,131 @@ public static partial class E_CILPhysicalTests
       {
          Name = url
       };
-      Guid guid;
-      doc.GetDocumentType( out guid );
+      Guid guid = default( Guid );
+      doc.GetDocumentType( ref guid );
       src.DocumentType = guid;
-      doc.GetLanguage( out guid );
+      doc.GetLanguage( ref guid );
       src.Language = guid;
-      doc.GetLanguageVendor( out guid );
+      doc.GetLanguageVendor( ref guid );
       src.Vendor = guid;
-      doc.GetCheckSumAlgorithmId( out guid );
+      doc.GetChecksumAlgorithmId( ref guid );
       src.HashAlgorithm = guid;
-      UInt32 count;
-      doc.GetCheckSum( 0, out count, null );
+      Int32 count;
+      doc.GetChecksum( 0, out count, null );
       src.Hash = new Byte[count];
-      doc.GetCheckSum( count, out count, src.Hash );
+      doc.GetChecksum( count, out count, src.Hash );
       return src;
+   }
+
+   private static PDBAsyncMethodInfo CreateAsyncInfo( this ISymUnmanagedMethod method )
+   {
+      var asyncInfo = (ISymUnmanagedAsyncMethod) method;
+
+      Int32 tmp;
+      asyncInfo.GetAsyncStepInfoCount( out tmp );
+      PDBAsyncMethodInfo retVal;
+      if ( tmp == 0 )
+      {
+         retVal = null;
+      }
+      else
+      {
+         retVal = new PDBAsyncMethodInfo();
+         var yieldOffsets = new Int32[tmp];
+         var breakpointOffsets = new Int32[tmp];
+         var breakpointMethods = new Int32[tmp];
+         asyncInfo.GetAsyncStepInfo( tmp, out tmp, yieldOffsets, breakpointOffsets, breakpointMethods );
+         for ( var i = 0; i < yieldOffsets.Length; ++i )
+         {
+            retVal.SynchronizationPoints.Add( new PDBSynchronizationPoint()
+            {
+               SyncOffset = yieldOffsets[i],
+               ContinuationOffset = breakpointOffsets[i],
+               ContinuationMethodToken = (UInt32) breakpointMethods[i]
+            } );
+         }
+
+         asyncInfo.GetCatchHandlerILOffset( out tmp );
+         retVal.CatchHandlerOffset = tmp;
+
+         asyncInfo.GetKickoffMethod( out tmp );
+         retVal.KickoffMethodToken = (UInt32) tmp;
+      }
+
+      return retVal;
+   }
+
+   private delegate void OEMHandlerReaderDelegate( PDBFunction func, Byte[] array, ref Int32 idx );
+
+   private static void HandleAllOEM( this PDBFunction func, ISymUnmanagedReader reader )
+   {
+      HandleCustomOEM( func, reader, PDBIO.ENC_OEM_NAME, PDBIO.HandleENCOEM );
+      HandleCustomOEM( func, reader, PDBIO.MD_OEM_NAME, PDBIO.HandleMD2OEM );
+   }
+
+   private static void HandleCustomOEM( this PDBFunction func, ISymUnmanagedReader reader, String oemName, OEMHandlerReaderDelegate handler )
+   {
+      Int32 tmp;
+      reader.GetSymAttribute( (Int32) func.Token, oemName, 0, out tmp, null );
+      if ( tmp > 0 )
+      {
+         var bytez = new Byte[tmp];
+         reader.GetSymAttribute( (Int32) func.Token, oemName, tmp, out tmp, bytez );
+         var idx = 0;
+         handler( func, bytez, ref idx );
+      }
+   }
+
+   private static void UseCOMObject<T>( T comObj, Action<T> action )
+      where T : class
+   {
+      if ( comObj != null )
+      {
+         try
+         {
+            action( comObj );
+         }
+         finally
+         {
+            Marshal.ReleaseComObject( comObj );
+         }
+      }
+   }
+   private static void UseCOMObjectArray<T>( this T[] array, Action<T> action )
+      where T : class
+   {
+      array.UseCOMObjectArray( ( elem, idx ) => action( elem ) );
+   }
+
+   private static void UseCOMObjectArray<T>( this T[] array, Action<T, Int32> action )
+      where T : class
+   {
+      try
+      {
+         for ( var i = 0; i < array.Length; ++i )
+         {
+            action( array[i], i );
+         }
+      }
+      finally
+      {
+         foreach ( var elem in array )
+         {
+            try
+            {
+               Marshal.ReleaseComObject( elem );
+            }
+            catch
+            {
+               // Ignore
+            }
+         }
+      }
+   }
+
+   private static String CreateStringFromCOMChars( this Char[] chars )
+   {
+      // Remember terminating zero
+      return new String( chars.Take( chars.Length - 1 ).ToArray() );
    }
 }

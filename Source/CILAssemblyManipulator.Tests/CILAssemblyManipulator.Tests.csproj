@@ -33,6 +33,9 @@
     <Reference Include="nunit.framework">
       <HintPath>..\..\Packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.DiaSymReader">
+      <HintPath>..\..\Packages\Microsoft.DiaSymReader.1.0.7\lib\net20\Microsoft.DiaSymReader.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -90,6 +93,7 @@
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB.IO\CILAssemblyManipulator.Physical.PDB.IO.csproj">
       <Project>{f4c562b5-a26a-44c2-b5b0-9de29eb5ca40}</Project>
       <Name>CILAssemblyManipulator.Physical.PDB.IO</Name>
+      <Aliases>CAMPhysicalPIO</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB\CILAssemblyManipulator.Physical.PDB.csproj">
       <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>

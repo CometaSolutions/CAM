@@ -100,8 +100,9 @@ namespace CILAssemblyManipulator.Physical
       /// <item><description><see cref="PDBScopeOrFunction.Length"/> are equal,</description></item>
       /// <item><description><see cref="PDBScopeOrFunction.Name"/> are equal,</description></item>
       /// <item><description><see cref="PDBScopeOrFunction.UsedNamespaces"/> match exactly using <see cref="String.Equals(String, String)"/>,</description></item>
-      /// <item><description><see cref="PDBScopeOrFunction.Slots"/> match exactly using <see cref="PDBSlotEqualityComparer"/>, and</description></item>
-      /// <item><description><see cref="PDBScopeOrFunction.Scopes"/> match exactly using <see cref="PDBScopeEqualityComparer"/>.</description></item>
+      /// <item><description><see cref="PDBScopeOrFunction.Slots"/> match exactly using <see cref="PDBSlotEqualityComparer"/>,</description></item>
+      /// <item><description><see cref="PDBScopeOrFunction.Scopes"/> match exactly using <see cref="PDBScopeEqualityComparer"/>, and</description></item>
+      /// <item><description><see cref="PDBScopeOrFunction.Constants"/> match exactly using <see cref="PDBConstantEqualityComparer"/>.</description></item>
       /// </list>
       /// </remarks>
       public static IEqualityComparer<PDBScopeOrFunction> PDBScopeOrFunctionEqualityComparer { get; }
@@ -197,6 +198,34 @@ namespace CILAssemblyManipulator.Physical
       /// </remarks>
       public static IEqualityComparer<PDBSource> PDBSourceEqualityComparer { get; }
 
+      /// <summary>
+      /// Gets the equality comparer to check whether two instances of <see cref="PDBConstant"/> are equal.
+      /// </summary>
+      /// <value>The equality compare to check whether two instances of <see cref="PDBConstant"/> are equal.</value>
+      /// <remarks>
+      /// Two instances of <see cref="PDBConstant"/> are considered to be equaly by this equality comparer when:
+      /// <list type="bullet">
+      /// <item><description><see cref="PDBConstant.Token"/> are equal,</description></item>
+      /// <item><description><see cref="PDBConstant.Name"/> are equal, and</description></item>
+      /// <item><description><see cref="PDBConstant.Value"/>s are equal using <see cref="PDBConstantValueEqualityComparer"/>.</description></item>
+      /// </list>
+      /// </remarks>
+      public static IEqualityComparer<PDBConstant> PDBConstantEqualityComparer { get; }
+
+      /// <summary>
+      /// Gets the equality comparer to check whether two values of <see cref="PDBConstant.Value"/> are equal.
+      /// </summary>
+      /// <value>The equality comparer to check whether two values of <see cref="PDBConstant.Value"/> are equal.</value>
+      /// <remarks>
+      /// The values are considered to be equal when:
+      /// <list type="bullet">
+      /// <item><description>both values are numerical values and equal ignoring their type, or</description></item>
+      /// <item><description>both values are strings and are equal with <see cref="string.Equals(string, string)"/> method, or</description></item>
+      /// <item><description>both values are <c>null</c>.</description></item>
+      /// </list>
+      /// </remarks>
+      public static IEqualityComparer<Object> PDBConstantValueEqualityComparer { get; }
+
       static Comparers()
       {
          PDBInstanceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PDBInstance>( Equality_PDBInstance, HashCode_PDBInstance );
@@ -210,6 +239,8 @@ namespace CILAssemblyManipulator.Physical
          PDBSynchronizationPointEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PDBSynchronizationPoint>( Equality_PDBSynchronizationPoint, HashCode_PDBSynchronizationPoint );
          PDBLineEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PDBLine>( Equality_PDBLine, HashCode_PDBLine );
          PDBSourceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PDBSource>( Equality_PDBSource, HashCode_PDBSource );
+         PDBConstantEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PDBConstant>( Equality_PDBConstant, HashCode_PDBConstant );
+         PDBConstantValueEqualityComparer = ComparerFromFunctions.NewEqualityComparer<Object>( Equality_PDBConstantValue, HashCode_PDBConstantValue );
       }
 
 
@@ -269,11 +300,18 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_PDBScopeOrFunction_NoReferenceOrNullCheck( PDBScopeOrFunction x, PDBScopeOrFunction y )
       {
-         return x.Length == y.Length
+         var retVal = x.Length == y.Length
             && String.Equals( x.Name, y.Name )
             && ListEqualityComparer<List<String>, String>.ListEquality( x.UsedNamespaces, y.UsedNamespaces )
             && ListEqualityComparer<List<PDBSlot>, PDBSlot>.ListEquality( x.Slots, y.Slots, Equality_PDBSlot )
-            && ListEqualityComparer<List<PDBScope>, PDBScope>.ListEquality( x.Scopes, y.Scopes, Equality_PDBScope );
+            && ListEqualityComparer<List<PDBScope>, PDBScope>.ListEquality( x.Scopes, y.Scopes, Equality_PDBScope )
+            && ListEqualityComparer<List<PDBConstant>, PDBConstant>.ListEquality( x.Constants, y.Constants, Equality_PDBConstant );
+         if ( !retVal )
+         {
+
+         }
+
+         return retVal;
       }
 
       private static Boolean Equality_PDBSlot( PDBSlot x, PDBSlot y )
@@ -343,6 +381,110 @@ namespace CILAssemblyManipulator.Physical
             );
       }
 
+      private static Boolean Equality_PDBConstant( PDBConstant x, PDBConstant y )
+      {
+         var retVal = ReferenceEquals( x, y ) ||
+            ( x != null && y != null
+            && x.Token == y.Token
+            && String.Equals( x.Name, y.Name )
+            && Equality_PDBConstantValue( x.Value, y.Value )
+            );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_PDBConstantValue( Object x, Object y )
+      {
+         var retVal = ReferenceEquals( x, y );
+         if ( !retVal && x != null && y != null )
+         {
+            // Anything that has same numerical value should be the same
+            Object numX, numY;
+            TypeCode tcX, tcY;
+            if ( TryGetNumericalValue( x, out numX )
+               && TryGetNumericalValue( x, out numY )
+               && (
+                  ( tcX = Type.GetTypeCode( numX.GetType() ) ) == ( tcY = Type.GetTypeCode( numY.GetType() ) )
+                  || ( tcX == TypeCode.Int64 && tcY == TypeCode.UInt64 )
+                  || ( tcX == TypeCode.UInt64 && tcY == TypeCode.Int64 )
+                  )
+               )
+            {
+               switch ( tcX )
+               {
+                  case TypeCode.Int64:
+                     retVal = tcY == TypeCode.Int64 ? ( (Int64) numX == (Int64) numY ) : ( (Int64) numX == unchecked((Int64) (UInt64) numY) );
+                     break;
+                  case TypeCode.UInt64:
+                     retVal = tcY == TypeCode.UInt64 ? ( (UInt64) numX == (UInt64) numY ) : ( (UInt64) numX == unchecked((UInt64) (Int64) numY) );
+                     break;
+                  case TypeCode.Single:
+                     retVal = (Single) numX == (Single) numY;
+                     break;
+                  case TypeCode.Double:
+                     retVal = (Double) numX == (Double) numY;
+                     break;
+                  case TypeCode.Decimal:
+                     retVal = (Decimal) numX == (Decimal) numY;
+                     break;
+               }
+
+            }
+            else
+            {
+               retVal = String.Equals( x as String, y as String );
+            }
+         }
+         return retVal;
+      }
+
+      // num will be either Int64, UInt64, Single, Double, or Decimal, if this returns true
+      private static Boolean TryGetNumericalValue( Object x, out Object num )
+      {
+         switch ( Type.GetTypeCode( x.GetType() ) )
+         {
+            case TypeCode.Boolean:
+               num = (Boolean) x ? 1UL : 0UL;
+               break;
+            case TypeCode.Char:
+               num = (UInt64) (Char) x;
+               break;
+            case TypeCode.SByte:
+               num = (Int64) (SByte) x;
+               break;
+            case TypeCode.Byte:
+               num = (UInt64) (Byte) x;
+               break;
+            case TypeCode.Int16:
+               num = (Int64) (Int16) x;
+               break;
+            case TypeCode.UInt16:
+               num = (UInt64) (UInt16) x;
+               break;
+            case TypeCode.Int32:
+               num = (Int64) (Int32) x;
+               break;
+            case TypeCode.UInt32:
+               num = (UInt64) (UInt32) x;
+               break;
+            case TypeCode.Int64:
+            case TypeCode.UInt64:
+            case TypeCode.Single:
+            case TypeCode.Double:
+            case TypeCode.Decimal:
+               num = x;
+               break;
+            default:
+               num = null;
+               break;
+         }
+
+         return num != null;
+      }
+
       private static Int32 HashCode_PDBInstance( PDBInstance x )
       {
          return x == null ? 0 : x.DebugGUID.GetHashCode();
@@ -401,6 +543,16 @@ namespace CILAssemblyManipulator.Physical
       private static Int32 HashCode_PDBSource( PDBSource x )
       {
          return x == null ? 0 : ( 17 * 23 + x.Name.GetHashCodeSafe( 1 ) );
+      }
+
+      private static Int32 HashCode_PDBConstant( PDBConstant x )
+      {
+         return x == null ? 0 : ( ( 17 * 23 + unchecked((Int32) x.Token) ) * 23 + HashCode_PDBConstantValue( x.Value ) );
+      }
+
+      private static Int32 HashCode_PDBConstantValue( Object x )
+      {
+         return x.GetHashCodeSafe( 1 );
       }
    }
 }

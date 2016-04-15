@@ -22,6 +22,41 @@ using System.Text;
 using CommonUtils;
 
 // TODO xform all UInt32 tokens into TableIndex!
+
+// TODO refactor into something like this:
+// public class PDBFunction
+// {
+//   IDictionary<Guid, Object> OEMData { get; }
+// }
+// 
+// public class PDBMSILOEMData
+// {
+//   IDictionary<String, Object> MSILData { get; }
+// }
+// 
+// public class PDBMD2OEM
+// {
+//   IDictionary<Int32, Object> MDData { get; }
+// }
+//
+// Things to keep: PDBScopeOrFunction.Slots, Scopes, UsedNamespaces, Constants.
+//
+// public static class E_CILPhysical
+// {
+//    public static PDBAsyncMethodInfo GetAsyncMethodInfoOrNull( this PDBFunction func )
+//    {
+//       return func.OEMData.GetOrDefault[GUIDS.MSILOEM]?.GetOrDefault( "asyncMethodInfo" );
+//    }
+//
+//    public static List<PDBLocalScope> GetOrCreateLocalScopeInfo( this PDBFunction func )
+//    {
+//       return func.OEMData
+//          .GetOrAdd_NotThreadSafe( GUIDS.MSILOEM, g => new PDBMSILOEMData() )
+//          .GetOrAdd_NotThreadSafe( "MD2", s => new PDBMD2OEM() )
+//          .MDData
+//          .GetOrAdd_NotThreadSafe( 3, id => new List<PDBLocalScope>() );
+//    }
+// }
 namespace CILAssemblyManipulator.Physical.PDB
 {
    /// <summary>

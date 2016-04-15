@@ -101,10 +101,12 @@
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.MResources\CILAssemblyManipulator.Physical.MResources.csproj">
       <Project>{99fcb99e-c7eb-49d0-980f-86e61f874fcb}</Project>
       <Name>CILAssemblyManipulator.Physical.MResources</Name>
+      <Aliases>CAMPhysicalM</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB\CILAssemblyManipulator.Physical.PDB.csproj">
       <Project>{5f874824-aea5-45a0-a0a2-408210397b08}</Project>
       <Name>CILAssemblyManipulator.Physical.PDB</Name>
+      <Aliases>CAMPhysicalP</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
       <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
@@ -113,6 +115,7 @@
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
       <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
       <Name>CILAssemblyManipulator.Physical.IO</Name>
+      <Aliases>CAMPhysicalIO</Aliases>
     </ProjectReference>
     <ProjectReference Include="..\..\TabularMetaData\TabularMetaData.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>

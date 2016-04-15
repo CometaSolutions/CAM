@@ -59,6 +59,43 @@ namespace CILAssemblyManipulator.Physical.PDB
       internal const Int32 SYM_DEBUG_SOURCE_INFO = 0xF4;
       internal const Int32 SYM_DEBUG_LINE_INFO = 0xF2;
 
+      internal const Int64 MAX_PDB_CONSTANT_NUMERIC = 0x7FFF;
+      // LEAF_ENUM_e, cvinfo.h
+      internal const UInt16 CONST_LF_CHAR = 0x8000;
+      internal const UInt16 CONST_LF_SHORT = 0x8001;
+      internal const UInt16 CONST_LF_USHORT = 0x8002;
+      internal const UInt16 CONST_LF_LONG = 0x8003;
+      internal const UInt16 CONST_LF_ULONG = 0x8004;
+      internal const UInt16 CONST_LF_REAL_32 = 0x8005;
+      internal const UInt16 CONST_LF_REAL_64 = 0x8006;
+      internal const UInt16 CONST_LF_QUADWORD = 0x8009;
+      internal const UInt16 CONST_LF_UQUADWORD = 0x800A;
+      internal const UInt16 CONST_LF_VARSTRING = 0x8010;
+      internal const UInt16 CONST_LF_DECIMAL = 0x8019;
+#pragma warning disable 1591
+
+#if DEBUG
+      public
+#else
+      internal
+#endif
+         const String MD_OEM_NAME = "MD2";
+
+#if DEBUG
+      public
+#else
+      internal
+#endif
+         const String ASYNC_METHOD_OEM_NAME = "asyncMethodInfo";
+#if DEBUG
+      public
+#else
+      internal
+#endif
+         const String ENC_OEM_NAME = "ENC";
+
+#pragma warning restore 1591
+
       // From Roslyn, Compilers/Core/Portable/PEWriter/CustomDebugInfoConstants.cs
       //internal const byte CdiKindUsingInfo = 0;
       //internal const byte CdiKindForwardInfo = 1;

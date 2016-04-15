@@ -15,6 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysicalIO;
+extern alias CAMPhysicalP;
+
+using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+
+using CAMPhysicalP;
+using CAMPhysicalP::CILAssemblyManipulator.Physical.PDB;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.SymbolStore;
@@ -24,7 +33,6 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using CILAssemblyManipulator.Physical.PDB;
 using CommonUtils;
-using CILAssemblyManipulator.Physical.IO;
 
 namespace CILMerge
 {

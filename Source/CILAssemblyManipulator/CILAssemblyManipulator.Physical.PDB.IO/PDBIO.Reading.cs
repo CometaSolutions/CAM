@@ -44,10 +44,6 @@ namespace CILAssemblyManipulator.Physical.PDB
 
       private const String SOURCE_SERVER_STREAM_NAME = "srcsrv";
 
-      internal const String MD_OEM_NAME = "MD2";
-      internal const String ASYNC_METHOD_OEM_NAME = "asyncMethodInfo";
-      internal const String ENC_OEM_NAME = "ENC";
-
       /// <summary>
       /// Reads the <see cref="PDBInstance"/> from the given <see cref="Stream"/>.
       /// </summary>
@@ -576,7 +572,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          };
       }
 
-      private static PDBAsyncMethodInfo NewPDBAsyncMethodInfo( Byte[] array, ref Int32 idx )
+      private static void HandleAsyncOEM( PDBFunction func, Byte[] array, ref Int32 idx )
       {
          var result = new PDBAsyncMethodInfo()
          {
@@ -588,7 +584,7 @@ namespace CILAssemblyManipulator.Physical.PDB
          {
             result.SynchronizationPoints.Add( NewPDBSynchronizationPoint( array, ref idx ) );
          }
-         return result;
+         func.AsyncMethodInfo = result;
       }
 
       private static PDBSlot NewPDBSlot( Byte[] array, ref Int32 idx )
@@ -674,7 +670,8 @@ namespace CILAssemblyManipulator.Physical.PDB
             }
 #endif
             var setIdx = true;
-            switch ( array.ReadUInt16LEFromBytes( ref idx ) )
+            var sym = array.ReadUInt16LEFromBytes( ref idx );
+            switch ( sym )
             {
                case SYM_OEM:
                   if ( scope is PDBFunction )
@@ -704,8 +701,6 @@ namespace CILAssemblyManipulator.Physical.PDB
                   break;
                default:
 #if DEBUG
-                  idx -= 2;
-                  var sym = array.ReadUInt16LEFromBytes( ref idx );
                   if ( SYM_END != sym )
                   {
                      throw new PDBException( "Debyyg" );
@@ -738,15 +733,29 @@ namespace CILAssemblyManipulator.Physical.PDB
             Value = ReadPDBConstantValue( array, ref idx ),
             Name = array.ReadZeroTerminatedStringFromBytes( ref idx, PDBIO.NameEncoding )
          };
+         //var token = array.ReadUInt32LEFromBytes( ref idx );
+         //var startIdx = idx;
+         //var value = ReadPDBConstantValue( array, ref idx );
+         //var size = idx - startIdx;
+         //var name = array.ReadZeroTerminatedStringFromBytes( ref idx, PDBIO.NameEncoding );
+         //System.Diagnostics.Debug.WriteLine( "CONSTANT NAMED " + name + " took " + size + " bytes ( " + array.ReadUInt16LEFromBytesNoRef( startIdx ).ToString( "X4" ) + ")." );
+         //return new PDBConstant()
+         //{
+         //   Token = token,
+         //   Value = value,
+         //   Name = name
+         //};
       }
 
       private static Object ReadPDBConstantValue( Byte[] array, ref Int32 idx )
       {
+#if DEBUG
          const bool constBool = false;
          const bool constBool2 = true;
          const char constChar = 'G';
          const byte constByte = 5;
          const sbyte constSByte = -4;
+         const sbyte constSByte2 = 100;
          const short constShort = -666;
          const ushort constUShort = 666;
          const int constInt = -1000000;
@@ -763,6 +772,7 @@ namespace CILAssemblyManipulator.Physical.PDB
             + " " + constChar
             + " " + constByte
             + " " + constSByte
+            + " " + constSByte2
             + " " + constShort
             + " " + constUShort
             + " " + constInt
@@ -774,10 +784,11 @@ namespace CILAssemblyManipulator.Physical.PDB
             + " " + constDobule
             + " " + constStringNull
             );
+#endif
          // Read the LEAF_ENUM_e value
          Object retVal;
          var valueKind = array.ReadUInt16LEFromBytes( ref idx );
-         if ( valueKind < 0x8000 )
+         if ( valueKind <= MAX_PDB_CONSTANT_NUMERIC )
          {
             // As per LEAF_ENUM_e spec, anything less than 0x8000 is value itself
             // This does result in the loss of type information, but that's how CodeView seems to work...
@@ -787,47 +798,48 @@ namespace CILAssemblyManipulator.Physical.PDB
          {
             switch ( valueKind )
             {
-               case 0x8000: // LF_NUMERIC | LF_CHAR
+               case PDBIO.CONST_LF_CHAR:
                   retVal = array.ReadSByteFromBytes( ref idx );
                   break;
-               case 0x8001: // LF_SHORT
+               case PDBIO.CONST_LF_SHORT:
                   retVal = array.ReadInt16LEFromBytes( ref idx );
                   break;
-               case 0x8002: // LF_USHORT
-
-                  // Notice that 'char' is serialized as ushort!
-                  retVal = array.ReadUInt16LEFromBytes( ref idx );
+               case PDBIO.CONST_LF_USHORT:
+                  retVal = array.ReadUInt16LEFromBytes( ref idx ); // Notice that 'char' is serialized as ushort!
                   break;
-               case 0x8003: // LF_LONG
+               case PDBIO.CONST_LF_LONG:
                   retVal = array.ReadInt32LEFromBytes( ref idx );
                   break;
-               case 0x8004: // LF_ULONG
+               case PDBIO.CONST_LF_ULONG:
                   retVal = array.ReadUInt32LEFromBytes( ref idx );
                   break;
-               case 0x8005: // LF_REAL_32
+               case PDBIO.CONST_LF_REAL_32:
                   retVal = array.ReadSingleLEFromBytes( ref idx );
                   break;
-               case 0x8006: // LF_REAL_64
+               case PDBIO.CONST_LF_REAL_64:
                   retVal = array.ReadDoubleLEFromBytes( ref idx );
                   break;
-               case 0x8009: // LF_QUADWORD
+               case PDBIO.CONST_LF_QUADWORD:
                   retVal = array.ReadInt64LEFromBytes( ref idx );
                   break;
-               case 0x800A: // LF_UQUADWORD
+               case PDBIO.CONST_LF_UQUADWORD:
                   retVal = array.ReadUInt64LEFromBytes( ref idx );
                   break;
-               case 0x8010: // LF_VARSTRING
+               case PDBIO.CONST_LF_VARSTRING:
                   var len = array.ReadUInt16LEFromBytes( ref idx );
                   retVal = PDBIO.NameEncoding.GetString( array, idx, len );
                   idx += len;
                   break;
-               case 0x8019: // LF_DECIMAL
+               case PDBIO.CONST_LF_DECIMAL:
                   var intArray = array.ReadInt32ArrayLEFromBytes( ref idx, 4 );
-                  retVal = new Decimal( intArray[2], intArray[3], intArray[1], intArray[0] < 0, (byte) ( ( intArray[0] & 0x00FF0000 ) >> 16 ) );
+                  retVal = new Decimal( intArray[2], intArray[3], intArray[1], intArray[0] < 0, (Byte) ( ( intArray[0] & 0x00FF0000 ) >> 16 ) );
                   break;
-#if DEBUG
                default:
+#if DEBUG
                   throw new PDBException( "Debyyg" );
+#else
+                  retVal = null;
+                  break;
 #endif
             }
          }
@@ -844,19 +856,13 @@ namespace CILAssemblyManipulator.Physical.PDB
             switch ( oemName )
             {
                case MD_OEM_NAME:
-                  ReadMD2OEM( func, array, ref idx );
+                  HandleMD2OEM( func, array, ref idx );
                   break;
                case ASYNC_METHOD_OEM_NAME:
-                  func.AsyncMethodInfo = NewPDBAsyncMethodInfo( array, ref idx );
+                  HandleAsyncOEM( func, array, ref idx );
                   break;
                case ENC_OEM_NAME:
-#if DEBUG
-                  if ( func.ENCID != 0 )
-                  {
-                     throw new PDBException( "Debyyg" );
-                  }
-#endif
-                  func.ENCID = array.ReadUInt32LEFromBytes( ref idx );
+                  HandleENCOEM( func, array, ref idx );
                   break;
                default:
 #if DEBUG
@@ -871,8 +877,24 @@ namespace CILAssemblyManipulator.Physical.PDB
             throw new PDBException( "Unknown OEM guid: " + guid + " with type index " + typeIdx + " in " + func.Name + "." );
          }
       }
+#pragma warning disable 1591
+#if DEBUG
 
-      private static void ReadMD2OEM( PDBFunction func, Byte[] array, ref Int32 idx )
+      public
+#else
+      private
+#endif
+         static void HandleENCOEM( PDBFunction func, Byte[] array, ref Int32 idx )
+      {
+         func.ENCID = array.ReadUInt32LEFromBytes( ref idx );
+      }
+
+#if DEBUG
+      public
+#else
+      private
+#endif
+         static void HandleMD2OEM( PDBFunction func, Byte[] array, ref Int32 idx )
       {
          ++idx; // Skip version byte
          var amountOfMDInfos = array.ReadByteFromBytes( ref idx );
@@ -901,11 +923,6 @@ namespace CILAssemblyManipulator.Physical.PDB
                   //for ( var i = 0; i < uSize; ++i )
                   //{
                   //   arrrr[i] = array.ReadUInt16LEFromBytes( ref idx );
-                  //}
-                  //func.UsingCounts.Capacity = uSize;
-                  //for ( UInt16 i = 0; i < uSize; ++i )
-                  //{
-                  //   func.UsingCounts.Add( array.ReadUInt16LEFromBytes( ref idx ) );
                   //}
                   break;
                case MD2_FORWARDING_METHOD_TOKEN:
@@ -951,6 +968,7 @@ namespace CILAssemblyManipulator.Physical.PDB
             --amountOfMDInfos;
          }
       }
+#pragma warning restore 1591
 
       private static readonly IComparer<PDBFunctionInfo> PDB_FUNC_ADDRESS_AND_TOKEN_BASED = ComparerFromFunctions.NewComparer<PDBFunctionInfo>( ( x, y ) =>
       {

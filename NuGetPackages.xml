@@ -10,5 +10,11 @@
         <VersionFile>Dependencies/NUnitVersion.txt</VersionFile>
       </Versions>
     </Package>
+    <Package>
+      <ID>Microsoft.DiaSymReader</ID>
+      <Versions>
+        <VersionFile>Dependencies/Microsoft.DiaSymReader.txt</VersionFile>
+      </Versions>
+    </Package>
   </Packages>
 </NuGetManagement>

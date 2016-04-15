@@ -3,3 +3,4 @@
 
 @E_CILPhysical+<>c
 @CILAssemblyManipulator.Physical.Comparers+<>c
+<PrivateImplementationDetails>\+.*

@@ -339,7 +339,7 @@ public static partial class E_CILPhysical
                if ( hashLen > 0 )
                {
                   array
-                     .WriteInt32LEToBytes( ref idx, 0 ) // flags?
+                     .WriteInt32LEToBytes( ref idx, 0 ) // flags? Embedded source length?
                      .BlockCopyFrom( ref idx, src.Hash );
 
                }
@@ -1219,9 +1219,176 @@ public static partial class E_CILPhysical
          // Write END sym
          WriteENDSym( array, ref idx );
       }
+
+      // Constants
+      foreach ( var constant in scope.Constants )
+      {
+         WritePDBConstant( constant, array, ref idx );
+      }
+   }
+
+   private static void WritePDBConstant( PDBConstant constant, Byte[] array, ref Int32 idx )
+   {
+      // Remember block length start
+      var startIdx = idx;
+      idx += sizeof( UInt16 );
+
+      // SYM_MANAGED_CONSTANT
+      array.WriteUInt16LEToBytes( ref idx, PDBIO.SYM_MANAGED_CONSTANT );
+
+      // Token
+      array.WriteUInt32LEToBytes( ref idx, constant.Token );
+
+      // Value
+      var val = constant.Value;
+      if ( val == null )
+      {
+         array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_LONG )
+            .WriteInt32LEToBytes( ref idx, 0 );
+      }
+      else
+      {
+         switch ( Type.GetTypeCode( val.GetType() ) )
+         {
+            case TypeCode.Boolean:
+               array.WriteUInt16LEToBytes( ref idx, (UInt16) ( (Boolean) val ? 1 : 0 ) );
+               break;
+            case TypeCode.Char:
+               array
+                  .WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_USHORT )
+                  .WriteUInt16LEToBytes( ref idx, (UInt16) (Char) val );
+               break;
+            case TypeCode.SByte:
+               var i1 = (SByte) val;
+               if ( i1 < 0 )
+               {
+                  array
+                     .WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_CHAR )
+                     .WriteSByteToBytes( ref idx, i1 );
+               }
+               else
+               {
+                  array.WriteUInt16LEToBytes( ref idx, (UInt16) i1 );
+               }
+               break;
+            case TypeCode.Byte:
+               array.WriteUInt16LEToBytes( ref idx, (Byte) val );
+               break;
+            case TypeCode.Int16:
+               var i16 = (Int16) val;
+               //if ( i16 < 0 || i16 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               array
+                  .WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_SHORT );
+
+               //}
+               array.WriteInt16LEToBytes( ref idx, i16 );
+               break;
+            case TypeCode.UInt16:
+               var u16 = (UInt16) val;
+               //if ( u16 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_USHORT );
+               //}
+               array.WriteUInt16LEToBytes( ref idx, u16 );
+               break;
+            case TypeCode.Int32:
+               var i32 = (Int32) val;
+               //if ( i32 < 0 || i32 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_LONG )
+                  .WriteInt32LEToBytes( ref idx, i32 );
+               //}
+               //else
+               //{
+               //array.WriteUInt16LEToBytes( ref idx, (UInt16) i32 );
+               //}
+               break;
+            case TypeCode.UInt32:
+               var u32 = (UInt32) val;
+               //if ( u32 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_ULONG )
+                  .WriteUInt32LEToBytes( ref idx, u32 );
+               //}
+               //else
+               //{
+               //   array.WriteUInt16LEToBytes( ref idx, (UInt16) u32 );
+               //}
+               break;
+            case TypeCode.Int64:
+               var i64 = (Int64) val;
+               //if ( i64 < 0 || i64 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_QUADWORD )
+                  .WriteInt64LEToBytes( ref idx, i64 );
+               //}
+               //else
+               //{
+               //   array.WriteUInt16LEToBytes( ref idx, (UInt16) i64 );
+               //}
+               break;
+            case TypeCode.UInt64:
+               var u64 = (UInt64) val;
+               //if ( u64 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_UQUADWORD )
+                  .WriteUInt64LEToBytes( ref idx, u64 );
+               //}
+               //else
+               //{
+               //   array.WriteUInt16LEToBytes( ref idx, (UInt16) u64 );
+               //}
+               break;
+            case TypeCode.Single:
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_REAL_32 )
+                  .WriteSingleLEToBytes( ref idx, (Single) val );
+               break;
+            case TypeCode.Double:
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_REAL_64 )
+                  .WriteDoubleLEToBytes( ref idx, (Double) val );
+               break;
+            case TypeCode.String:
+               var str = (String) val;
+               array.WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_VARSTRING )
+                  .WriteUInt16LEToBytes( ref idx, (UInt16) ( str?.Length ?? 0 ) )
+                  .WriteStringToBytes( ref idx, PDBIO.NameEncoding, str );
+               break;
+            case TypeCode.Decimal:
+               var decimalBits = Decimal.GetBits( (Decimal) val );
+               array
+                  .WriteUInt16LEToBytes( ref idx, PDBIO.CONST_LF_DECIMAL )
+                  .WriteInt32LEToBytes( ref idx, decimalBits[3] )
+                  .WriteInt32LEToBytes( ref idx, decimalBits[2] )
+                  .WriteInt32LEToBytes( ref idx, decimalBits[0] )
+                  .WriteInt32LEToBytes( ref idx, decimalBits[1] );
+               break;
+         }
+      }
+
+      // Name
+      array.WriteZeroTerminatedString( ref idx, constant.Name )
+         .Align4( ref idx ); // Align
+
+      // Revisit length
+      array.WriteBlockLength( startIdx, idx );
    }
 
    private static void WriteOEM( PDBFunction func, Byte[] array, ref Int32 idx, List<Int32> usedNSCount )
+   {
+      WriteOEMAsyncMethod( func, array, ref idx );
+      WriteOEMENCID( func, array, ref idx );
+      WriteOEMMD2( func, array, ref idx, usedNSCount );
+   }
+
+#pragma warning disable 1591
+#if DEBUG
+
+   public
+#else
+      private
+#endif
+      static void WriteOEMAsyncMethod( PDBFunction func, Byte[] array, ref Int32 idx )
    {
       var am = func.AsyncMethodInfo;
       if ( am != null )
@@ -1240,12 +1407,44 @@ public static partial class E_CILPhysical
                .WriteInt32LEToBytes( ref idx, sp.ContinuationOffset );
          }
          array.Align4( ref idx );
+
          // Revisit length
          array.WriteBlockLength( lenIdx, idx );
       }
+   }
 
+#if DEBUG
+
+   public
+#else
+      private
+#endif
+      static void WriteOEMENCID( PDBFunction func, Byte[] array, ref Int32 idx )
+   {
+      if ( func.ENCID != 0 )
+      {
+         var lenIdx = idx;
+         WriteOEMHeader( array, ref idx, PDBIO.ENC_OEM_NAME );
+
+         array.WriteUInt32LEToBytes( ref idx, func.ENCID );
+         array.Align4( ref idx );
+
+         array.WriteBlockLength( lenIdx, idx );
+
+      }
+   }
+
+#if DEBUG
+
+   public
+#else
+      private
+#endif
+      static void WriteOEMMD2( PDBFunction func, Byte[] array, ref Int32 idx, List<Int32> usedNSCount )
+   {
       Byte count = 0;
-      if ( usedNSCount != null )
+      var hasNS = ( usedNSCount?.Count ?? 0 ) > 0;
+      if ( hasNS )
       {
          ++count;
       }
@@ -1269,11 +1468,12 @@ public static partial class E_CILPhysical
       {
          var lenIdx = idx;
          WriteOEMHeader( array, ref idx, PDBIO.MD_OEM_NAME );
+
          array
             .WriteByteToBytes( ref idx, 4 ) // version
             .WriteByteToBytes( ref idx, count ) // MD item count
             .Align4( ref idx ); // 4-byte boundary
-         if ( usedNSCount != null )
+         if ( hasNS )
          {
             // Used namespaces info
             var startIdx = idx;
@@ -1390,8 +1590,6 @@ public static partial class E_CILPhysical
          );
       return streamIndex;
    }
-
-   private const Int32 GS_SYM_REF_MULTIPLIER = 16; // 16, if both PROCREFs and TOKENREFs are stored
 
    private static Int32 WriteGlobalSymbolStream(
       this PDBWritingState state
@@ -1604,6 +1802,7 @@ public static partial class E_CILPhysical
 
    private const Int32 SLOT_FIXED_SIZE = 16;
    private const Int32 SCOPE_FIXED_SIZE = 18;
+
    private const Int32 FIXED_OEM_SIZE = GUID_SIZE + 8; // Block len + sym + GUID + type index
    private const Int32 INT_SIZE = sizeof( Int32 );
    private const Int32 SHORT_SIZE = sizeof( Int16 );
@@ -1614,26 +1813,67 @@ public static partial class E_CILPhysical
       usedNSCount = new List<Int32>();
       var result = func.CalculateByteCountFromLists( usedNSCount )
          + CalculateByteCountAsyncMethodInfo( func.AsyncMethodInfo ) // Async OEM
-         + CalculateByteCountMD2Info( func, ref usedNSCount ); // MD2 OEM
+         + CalculateByteCountMD2Info( func, ref usedNSCount ) // MD2 OEM
+         + CalculateByteCountENCInfo( func ); // ENC OEM
       Align4( ref result ); // 4-byte boundary
       return result; // No END SYM
    }
+#if DEBUG
+   public
+#else
+      private
+#endif
+      static Int32 GetFixedOEMSize( String oemName )
+   {
+      return FIXED_OEM_SIZE // Required OEM info
+         + PDBIO.UTF16.GetByteCount( oemName ) + 2; // OEM name + zero double-byte
+   }
 
-   private static Int32 CalculateByteCountAsyncMethodInfo( PDBAsyncMethodInfo asyncInfo )
+#if DEBUG
+
+   public
+#else
+      private
+#endif
+      static Int32 CalculateByteCountAsyncMethodInfo( PDBAsyncMethodInfo asyncInfo )
    {
       // Async info OEM is needed
-      var result = asyncInfo == null ? 0 : ( FIXED_OEM_SIZE // Required OEM info
-         + PDBIO.UTF16.GetByteCount( PDBIO.ASYNC_METHOD_OEM_NAME ) + 2 // OEM name
+      var result = asyncInfo == null ? 0 : ( GetFixedOEMSize( PDBIO.ASYNC_METHOD_OEM_NAME )
          + INT_SIZE * 3 // Kickoff method token, catch handler offset, sync point count
          + asyncInfo.SynchronizationPoints.Count * INT_SIZE * 3 ); // For each sync point, sync offset, continuation method token, continuation offset
       Align4( ref result );
       return result;
    }
 
-   private static Int32 CalculateByteCountMD2Info( PDBFunction func, ref List<Int32> usedNSCount )
+#if DEBUG
+
+   public
+#else
+      private
+#endif
+      static Int32 CalculateByteCountENCInfo( PDBFunction func )
    {
       var size = 0;
-      var hasUsedNS = usedNSCount.Any( c => c > 0 );
+      if ( func.ENCID != 0u )
+      {
+         size += GetFixedOEMSize( PDBIO.ENC_OEM_NAME ); // OEM name
+         size += sizeof( UInt32 );
+         Align4( ref size );
+      }
+
+      return size;
+   }
+
+#if DEBUG
+
+   public
+#else
+      private
+#endif
+      static Int32 CalculateByteCountMD2Info( PDBFunction func, ref List<Int32> usedNSCount )
+   {
+      var size = 0;
+      var hasUsedNS = usedNSCount != null && usedNSCount.Any( c => c > 0 );
       if ( !hasUsedNS )
       {
          usedNSCount = null;
@@ -1646,8 +1886,7 @@ public static partial class E_CILPhysical
          )
       {
          // MD2 OEM is needed
-         size += FIXED_OEM_SIZE // Required OEM info
-            + PDBIO.UTF16.GetByteCount( PDBIO.MD_OEM_NAME ) + 2 // OEM name
+         size += GetFixedOEMSize( PDBIO.MD_OEM_NAME ) // OEM name
             + 2; // Version byte, OEM MD2 infos count
          Align4( ref size );
          if ( hasUsedNS )
@@ -1706,12 +1945,115 @@ public static partial class E_CILPhysical
       return result + 4; // END SYM
    }
 
+
+
+   private static Int32 CalculateByteCount( this PDBConstant constant )
+   {
+      var retVal = sizeof( UInt16 ) // Block length
+         + sizeof( UInt16 ) // SYM_MANAGED_CONSTANT
+         + sizeof( Int32 ) // Token size
+         + sizeof( UInt16 ); // Size of LEAF_ENUM_e
+      var val = constant.Value;
+      if ( val == null )
+      {
+         // Null (string) = LF_LONG + zero
+         retVal += 4;
+      }
+      else
+      {
+         switch ( Type.GetTypeCode( val.GetType() ) )
+         {
+            case TypeCode.Boolean:
+               // Booleans require no more information than the prefix
+               break;
+            case TypeCode.Char:
+               // Chars are serialized as LF_SHORTs
+               retVal += sizeof( UInt16 );
+               break;
+            case TypeCode.SByte:
+               // Positive SBytes are serialized right away, negative SBytes are serialized as LF_CHAR + value
+               if ( (SByte) val < 0 )
+               {
+                  retVal += sizeof( SByte );
+               }
+               break;
+            case TypeCode.Byte:
+               // Bytes are serialized right away, since they are never greater than 0x8001
+               break;
+            case TypeCode.Int16:
+               // Positive Int16s which are less than 0x8000 are serialized right away, negative Int16s are serialized as LF_SHORT + value
+               var i16 = (Int16) val;
+               //if ( i16 < 0 || i16 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               retVal += sizeof( Int16 );
+               //}
+               break;
+            case TypeCode.UInt16:
+               //if ( (UInt16) val > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               retVal += sizeof( UInt16 );
+               //}
+               break;
+            case TypeCode.Int32:
+               var i32 = (Int32) val;
+               //if ( i32 < 0 || i32 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               retVal += sizeof( Int32 );
+               //}
+               break;
+            case TypeCode.UInt32:
+               //if ( (UInt32) val > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               retVal += sizeof( UInt32 );
+               //}
+               break;
+            case TypeCode.Int64:
+               var i64 = (Int64) val;
+               //if ( i64 < 0 || i64 > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               retVal += sizeof( Int64 );
+               //}
+               break;
+            case TypeCode.UInt64:
+               //if ( (UInt64) val > PDBIO.MAX_PDB_CONSTANT_NUMERIC )
+               //{
+               retVal += sizeof( UInt64 );
+               //}
+               break;
+            case TypeCode.Single:
+               retVal += sizeof( Single );
+               break;
+            case TypeCode.Double:
+               retVal += sizeof( Double );
+               break;
+            case TypeCode.String:
+               retVal += sizeof( UInt16 ) + PDBIO.NameEncoding.SafeByteCount( (String) val, false );
+               break;
+            case TypeCode.Decimal:
+               retVal += sizeof( Int32 ) * 4;
+               break;
+
+         }
+      }
+
+      retVal += PDBIO.NameEncoding.SafeByteCount( constant.Name, true );
+      Align4( ref retVal );
+
+      return retVal;
+   }
+
    private static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope )
    {
       return scope.CalculateByteCountFromLists( null );
    }
 
-   private static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope, List<Int32> usedNSCount )
+#if DEBUG
+
+   public
+#else
+      private
+#endif
+      static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope, List<Int32> usedNSCount )
    {
       if ( usedNSCount != null )
       {
@@ -1729,7 +2071,8 @@ public static partial class E_CILPhysical
             Align4( ref result );
             return result;
          } )
-         + scope.Scopes.Aggregate( 0, ( cur, scp ) => cur + scp.CalculateByteCount( usedNSCount ) );
+         + scope.Scopes.Aggregate( 0, ( cur, scp ) => cur + scp.CalculateByteCount( usedNSCount ) )
+         + scope.Constants.Aggregate( 0, ( cur, constant ) => cur + constant.CalculateByteCount() );
       return retVal;
    }
 
