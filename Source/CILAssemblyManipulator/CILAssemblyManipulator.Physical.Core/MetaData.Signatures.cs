@@ -1259,27 +1259,6 @@ namespace CILAssemblyManipulator.Physical
 
          return result;
       }
-
-
-#if !CAM_PHYSICAL_IS_PORTABLE
-
-      /// <summary>
-      /// Creates <see cref="AbstractMarshalingInfo"/> with all information specified in <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>.
-      /// </summary>
-      /// <param name="attr">The <see cref="System.Runtime.InteropServices.MarshalAsAttribute"/>. If <c>null</c>, then the result will be <c>null</c> as well.</param>
-      /// <returns>A new <see cref="AbstractMarshalingInfo"/> with given information, or <c>null</c> if <paramref name="attr"/> is <c>null</c>.</returns>
-      /// <remarks>
-      /// This is a wrapper around <see cref="FromAttributeInfo"/> method.
-      /// </remarks>
-      public static AbstractMarshalingInfo FromAttribute( System.Runtime.InteropServices.MarshalAsAttribute attr )
-      {
-         return attr == null ?
-            null :
-            FromAttributeInfo( (UnmanagedType) attr.Value, attr.SizeConst, attr.IidParameterIndex, attr.SizeParamIndex, (UnmanagedType) attr.ArraySubType, (VarEnum) attr.SafeArraySubType, attr.SafeArrayUserDefinedSubType, attr.MarshalType, attr.MarshalCookie );
-      }
-
-#endif
-
    }
 
    /// <summary>

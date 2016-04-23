@@ -726,6 +726,20 @@ namespace CILAssemblyManipulator.Physical
                && equality( kvp.Value, val );
          } );
       }
+
+      // For some reason, this method is missing from PCL
+      public static Int32 FindIndex<T>( this IList<T> list, Predicate<T> match )
+      {
+         var max = list.Count;
+         for ( var i = 0; i < max; ++i )
+         {
+            if ( match( list[i] ) )
+            {
+               return i;
+            }
+         }
+         return -1;
+      }
    }
 
 #pragma warning restore 1591

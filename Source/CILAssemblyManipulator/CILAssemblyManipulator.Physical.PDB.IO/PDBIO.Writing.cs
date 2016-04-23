@@ -40,6 +40,7 @@ using CILAssemblyManipulator.Physical.PDB;
 using TStreamInfo = System.Tuple<System.Int32, System.Int32[]>;
 using TSourceHeaderInfo = System.Tuple<System.Int32, System.Int32, System.Int32, CILAssemblyManipulator.Physical.PDB.PDBSource>;
 using TWriteAction = System.Tuple<System.Int32, System.Action<System.Byte[], System.Int32>>;
+using CILAssemblyManipulator.Physical.IO;
 
 #pragma warning disable 1591
 public static partial class E_CILPhysical
@@ -97,7 +98,6 @@ public static partial class E_CILPhysical
       }
 
       public Dictionary<UInt32, List<Int32>> NamedReferences { get; }
-
       public Int32 ReferenceCount
       {
          get
@@ -131,7 +131,7 @@ public static partial class E_CILPhysical
 
       // This is algorithm used to compute hashes of names in gsSymStream.
       // Ported from C to C# and modified a bit, original is available at http://code.google.com/p/pdbparser/source/browse/trunk/symeng/misc.cpp , HashPbCb function.
-      private static UInt32 ComputeHash( Byte[] pb, Int32 startIdx, Int32 count, UInt32 ulMod )
+      internal static UInt32 ComputeHash( Byte[] pb, Int32 startIdx, Int32 count, UInt32 ulMod )
       {
          var ulHash = 0u;
 
@@ -1181,6 +1181,11 @@ public static partial class E_CILPhysical
                                 // Revisit size
          array.WriteBlockLength( lenIdx, idx );
       }
+      // Constants
+      foreach ( var constant in scope.Constants )
+      {
+         WritePDBConstant( constant, array, ref idx );
+      }
 
       // Slots
       foreach ( var slot in scope.Slots )
@@ -1198,12 +1203,6 @@ public static partial class E_CILPhysical
             .Align4( ref idx ); // 4-byte border
                                 // Revisit size
          array.WriteBlockLength( lenIdx, idx );
-      }
-
-      // Constants
-      foreach ( var constant in scope.Constants )
-      {
-         WritePDBConstant( constant, array, ref idx );
       }
 
       // Scopes
@@ -1475,6 +1474,18 @@ public static partial class E_CILPhysical
       {
          ++count;
       }
+      var enc = func.ENCInfo;
+      if ( enc != null )
+      {
+         if ( enc.LocalSlots.Count > 0 )
+         {
+            ++count;
+         }
+         if ( enc.Lambdas.Count > 0 || enc.Closures.Count > 0 )
+         {
+            ++count;
+         }
+      }
       if ( count > 0 )
       {
          var lenIdx = idx;
@@ -1551,6 +1562,79 @@ public static partial class E_CILPhysical
                .WriteZeroTerminatedString( ref idx, func.IteratorClass, false )
                .Align4( ref idx )
                .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );
+         }
+
+         if ( enc != null )
+         {
+            if ( enc.LocalSlots.Count > 0 )
+            {
+               var sOffsetBase = Math.Min( -1, enc.LocalSlots.Min( ls => ls.SyntaxOffset ) );
+               var startIdx = idx;
+               Int32 mdLenIdx;
+               array
+                  .WriteOEMItemKind( ref idx, PDBIO.MD2_ENC_LOCALS, out mdLenIdx );
+               if ( sOffsetBase < -1 )
+               {
+                  array.WriteByteToBytes( ref idx, PDBIO.CUSTOM_SYNTAX_OFFSET_BASELINE )
+                     .CompressUInt32( ref idx, -sOffsetBase );
+               }
+
+               foreach ( var ls in enc.LocalSlots )
+               {
+                  var kind = ls.SynthesizedKind;
+                  if ( kind.HasValue )
+                  {
+                     Byte b = (Byte) ( kind.Value + 1 );
+                     var hasIndex = ls.LocalIndex > 0;
+                     if ( hasIndex )
+                     {
+                        b |= 0x80;
+                     }
+                     array.WriteByteToBytes( ref idx, b )
+                        .CompressUInt32( ref idx, ls.SyntaxOffset - sOffsetBase );
+                     if ( hasIndex )
+                     {
+                        array.CompressUInt32( ref idx, ls.LocalIndex );
+                     }
+                  }
+                  else
+                  {
+                     // Just write zero
+                     array.WriteByteToBytes( ref idx, 0 );
+                  }
+               }
+               array.Align4( ref idx )
+                  .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );
+            }
+
+            if ( enc.Lambdas.Count > 0 || enc.Closures.Count > 0 )
+            {
+               var closures = enc.Closures;
+               var sOffsetBase = Math.Min( -1, enc.Lambdas.Select( l => l.SyntaxOffset ).Concat( closures.Select( c => c.SyntaxOffset ) ).Min() );
+               var startIdx = idx;
+               Int32 mdLenIdx;
+               array
+                  .WriteOEMItemKind( ref idx, PDBIO.MD2_ENC_LAMBDAS, out mdLenIdx )
+                  .CompressUInt32( ref idx, enc.MethodOrdinal + 1 )
+                  .CompressUInt32( ref idx, -sOffsetBase )
+                  .CompressUInt32( ref idx, closures.Count );
+               foreach ( var c in closures )
+               {
+                  array.CompressUInt32( ref idx, c.SyntaxOffset - sOffsetBase );
+               }
+               foreach ( var l in enc.Lambdas )
+               {
+                  array.CompressUInt32( ref idx, l.SyntaxOffset - sOffsetBase );
+                  var ci = l.ClosureIndex;
+                  if ( ci.HasValue )
+                  {
+                     array.CompressUInt32( ref idx, ci.Value - PDBIO.LAMBDA_MIN_CLOSURE_INDEX );
+                  }
+               }
+
+               array.Align4( ref idx )
+                  .WriteInt32LEToBytes( ref mdLenIdx, idx - startIdx );
+            }
          }
 
          // The size of whole OEM block
@@ -1649,6 +1733,7 @@ public static partial class E_CILPhysical
    {
       var streamIndex = state.DataStreams.Count;
       var namedRefs = gsiStream.NamedReferences;
+      var hashez = state.PDB.Modules.Select( m => SymbolRecStreamRefInfo.ComputeHash( Encoding.UTF8.GetBytes( m.Name ), 0, Encoding.UTF8.GetByteCount( m.Name ), 4096 ) ).ToArray();
       var gsRefSize = 8 * gsiStream.ReferenceCount; // Each ref is two ints
 
       var gsSymHashSize = gsRefSize > 0 ? ( GS_SYM_BUCKETS / 8 + ( namedRefs.Count + 1 ) * 4 ) : 0;
@@ -1675,6 +1760,12 @@ public static partial class E_CILPhysical
                {
                   var list = namedRefs[gsHash];
 
+                  // Logic:
+                  // Within a single module, all the colliding PROCREF entries are in descending order (According to their offset within module stream).
+                  // ???? WHAT ABOUT TOKENREF (PDB.IO module has no colliding TOKENREFs, so need to test with other modules)
+                  
+                  // If there are multiple modules with the same colliding entry, then
+
                   // The list items are in ascending order since whenever a new value is added, it is always greater than prev values.
                   // Iterate in descending order (not sure if really required, but it is how the values are written by MS writer)
                   for ( var i = list.Count; i > 0; --i )
@@ -1683,6 +1774,11 @@ public static partial class E_CILPhysical
                         .WriteInt32LEToBytes( ref idx, list[i - 1] ) // Reference
                         .WriteInt32LEToBytes( ref idx, 1 ); // Segment maybe?
                   }
+                  //for (var i = 0; i < list.Count; ++i )
+                  //{
+                  //   array.WriteInt32LEToBytes(ref idx, list[i])
+                  //   .WriteInt32LEToBytes(ref idx, 1);
+                  //}
                }
 
                if ( gsSymHashSize > 0 )
@@ -1896,11 +1992,13 @@ public static partial class E_CILPhysical
       {
          usedNSCount = null;
       }
+      var enc = func.ENCInfo;
       if ( !String.IsNullOrEmpty( func.IteratorClass )
            || func.ForwardingMethodToken != 0u
            || func.ModuleForwardingMethodToken != 0u
            || func.LocalScopes.Count > 0
            || hasUsedNS
+           || ( enc != null && ( enc.LocalSlots.Count > 0 || enc.Lambdas.Count > 0 || enc.Closures.Count > 0 ) )
          )
       {
          // MD2 OEM is needed
@@ -1947,6 +2045,70 @@ public static partial class E_CILPhysical
                + PDBIO.UTF16.GetByteCount( func.IteratorClass )// Iterator class name
                + 2; // Zero padding
             Align4( ref size );
+         }
+         if ( enc != null )
+         {
+            if ( enc.LocalSlots.Count > 0 )
+            {
+               size += 2; // version + MD2 kind
+               Align4( ref size ); // 4-byte boundary
+               size += INT_SIZE; // OEM entry byte size
+               var sOffsetBase = Math.Min( -1, enc.LocalSlots.Min( ls => ls.SyntaxOffset ) );
+               if ( sOffsetBase < -1 )
+               {
+                  size += 1 // Byte CUSTOM_SYNTAX_OFFSET_BASELINE
+                     + BitUtils.GetEncodedUIntSize( -sOffsetBase );
+               }
+               foreach ( var ls in enc.LocalSlots )
+               {
+                  var kind = ls.SynthesizedKind;
+                  if ( kind.HasValue )
+                  {
+                     size += 1 // Byte for kind + whether it has ordinal
+                        + BitUtils.GetEncodedUIntSize( ls.SyntaxOffset - sOffsetBase ); // Syntax offset delta
+                     if ( ls.LocalIndex > 0 )
+                     {
+                        // Local index
+                        size += BitUtils.GetEncodedUIntSize( ls.LocalIndex );
+                     }
+                  }
+                  else
+                  {
+                     // Just write zero
+                     ++size;
+                  }
+               }
+
+               Align4( ref size );
+            }
+
+            if ( enc.Lambdas.Count > 0 || enc.Closures.Count > 0 )
+            {
+               size += 2; // version + MD2 kind
+               Align4( ref size ); // 4-byte boundary
+               var closures = enc.Closures;
+               var sOffsetBase = Math.Min( -1, enc.Lambdas.Select( l => l.SyntaxOffset ).Concat( closures.Select( c => c.SyntaxOffset ) ).Min() );
+
+               size += INT_SIZE // OEM entry byte size
+                  + BitUtils.GetEncodedUIntSize( enc.MethodOrdinal + 1 )
+               + BitUtils.GetEncodedUIntSize( -sOffsetBase )
+               + BitUtils.GetEncodedUIntSize( closures.Count );
+               foreach ( var c in closures )
+               {
+                  size += BitUtils.GetEncodedUIntSize( c.SyntaxOffset - sOffsetBase );
+               }
+               foreach ( var l in enc.Lambdas )
+               {
+                  size += BitUtils.GetEncodedUIntSize( l.SyntaxOffset - sOffsetBase );
+                  var ci = l.ClosureIndex;
+                  if ( ci.HasValue )
+                  {
+                     size += BitUtils.GetEncodedUIntSize( ci.Value - PDBIO.LAMBDA_MIN_CLOSURE_INDEX );
+                  }
+               }
+
+               Align4( ref size );
+            }
          }
 
       }
@@ -2074,7 +2236,7 @@ public static partial class E_CILPhysical
 #endif
       static Int32 CalculateByteCountFromLists( this PDBScopeOrFunction scope, List<Int32> usedNSCount )
    {
-      if ( usedNSCount != null )
+      if ( usedNSCount != null && !( scope is PDBFunction ) )
       {
          usedNSCount.Add( scope.UsedNamespaces.Count );
       }

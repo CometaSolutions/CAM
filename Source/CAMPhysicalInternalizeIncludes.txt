@@ -4,3 +4,4 @@
 @CILAssemblyManipulator.Physical.Crypto.CryptoUtils
 @CILAssemblyManipulator.Physical.CAMCoreInternals
 @CILAssemblyManipulator.Physical.IO.CAMIOInternals
+@CILAssemblyManipulator.Physical.IO.BitUtils

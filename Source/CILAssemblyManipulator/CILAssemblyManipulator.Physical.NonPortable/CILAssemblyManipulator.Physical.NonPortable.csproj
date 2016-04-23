@@ -1,21 +1,21 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
-    <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{C891754E-7698-4F7B-92D9-C28921EBF746}</ProjectGuid>
+    <ProjectGuid>{3AFD5732-18AD-47A2-93F9-4A55D1E50B44}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CILAssemblyManipulator.Physical.Resolving</RootNamespace>
-    <AssemblyName>CILAssemblyManipulator.Physical.Resolving</AssemblyName>
-    <DefaultLanguage>en-US</DefaultLanguage>
-    <FileAlignment>512</FileAlignment>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <RootNamespace>CILAssemblyManipulator.Physical.NonPortable</RootNamespace>
+    <AssemblyName>CILAssemblyManipulator.Physical.NonPortable</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != ''">
     <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
@@ -25,7 +25,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\Output\Debug\SL\</OutputPath>
+    <OutputPath>..\..\..\Output\Debug\dotNET\</OutputPath>
     <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -42,7 +42,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\..\Output\Release\SL\</OutputPath>
+    <OutputPath>..\..\..\Output\Release\dotNET\</OutputPath>
     <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -59,6 +59,9 @@
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
@@ -66,9 +69,19 @@
     <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
     </Reference>
+    <Reference Include="CollectionsWithRoles_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <!-- A reference to the entire .NET Framework is automatically included -->
+    <Compile Include="Core\Verification.cs" />
+    <Compile Include="Crypto\CryptoCallbacks.DotNET.cs" />
+    <Compile Include="IO\API.cs" />
+    <Compile Include="IO\API.DotNET.cs" />
+    <Compile Include="Loading\Loading.DotNET.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>CollectionsWithRoles</Name>
@@ -86,17 +99,32 @@
       <Name>CILAssemblyManipulator.Physical.Core</Name>
       <Aliases>CAMPhysical</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
+      <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
+      <Name>CILAssemblyManipulator.Physical.Crypto</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO.Defaults\CILAssemblyManipulator.Physical.IO.Defaults.csproj">
+      <Project>{c444fb53-6a71-4ff2-b412-8b1c88595955}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Defaults</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
+      <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO</Name>
+      <Aliases>CAMPhysicalIO</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Loading\CILAssemblyManipulator.Physical.Loading.csproj">
+      <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
+      <Name>CILAssemblyManipulator.Physical.Loading</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Resolving\CILAssemblyManipulator.Physical.Resolving.csproj">
+      <Project>{c891754e-7698-4f7b-92d9-c28921ebf746}</Project>
+      <Name>CILAssemblyManipulator.Physical.Resolving</Name>
+      <Aliases>CAMPhysicalR</Aliases>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="MetaData.cs" />
-    <Compile Include="MetaDataResolver.cs" />
-    <Compile Include="MetaDataResolver.Default.cs" />
-    <Compile Include="MetaDataResolver.Events.cs" />
-    <Compile Include="Meta\ResolvingProvider.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="System" />
-  </ItemGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->
+  <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
+    <Delete Files="$(OutputPath)$(AssemblyName).dll" />
+  </Target>
 </Project>

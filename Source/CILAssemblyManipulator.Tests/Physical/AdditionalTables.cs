@@ -26,6 +26,7 @@ using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.IO;
 using CommonUtils;
 using NUnit.Framework;
 using System;

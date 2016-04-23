@@ -72,6 +72,10 @@ namespace CILAssemblyManipulator.Physical.PDB
       internal const UInt16 CONST_LF_UQUADWORD = 0x800A;
       internal const UInt16 CONST_LF_VARSTRING = 0x8010;
       internal const UInt16 CONST_LF_DECIMAL = 0x8019;
+
+      internal const Byte CUSTOM_SYNTAX_OFFSET_BASELINE = 0xFF;
+      internal const Int32 LAMBDA_MIN_CLOSURE_INDEX = -2;
+
 #pragma warning disable 1591
 
 #if DEBUG
@@ -112,9 +116,9 @@ namespace CILAssemblyManipulator.Physical.PDB
       internal const Byte MD2_FORWARDING_MODULE_METHOD_TOKEN = 2;
       internal const Byte MD2_LOCAL_SCOPES = 3;
       internal const Byte MD2_ITERATOR_CLASS = 4;
-      internal const Byte MD2_YET_UNKNOWN = 5;
-      internal const Byte MD2_YET_UNKNOWN_2 = 6;
-      internal const Byte MD2_YET_UNKNOWN_3 = 7;
+      internal const Byte MD2_DYNAMICS = 5;
+      internal const Byte MD2_ENC_LOCALS = 6;
+      internal const Byte MD2_ENC_LAMBDAS = 7;
 
       internal const Int32 LINE_MULTIPLIER = 8; // Offset (int32), flags (uint32)
       internal const Int32 COLUMN_MULTIPLIER = 4; // Column start (uint16), column end (uint16)

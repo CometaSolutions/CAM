@@ -23,6 +23,7 @@ using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CAMPhysicalIO;
+using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CommonUtils;
 using CILAssemblyManipulator.Physical;

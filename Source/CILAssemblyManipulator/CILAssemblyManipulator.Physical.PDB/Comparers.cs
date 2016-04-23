@@ -29,6 +29,8 @@ namespace CILAssemblyManipulator.Physical
    public static class Comparers
 #pragma warning restore 1591
    {
+      // TODO expose ENCInfo as equality comparers!
+
       /// <summary>
       /// Gets the equality comparer to check whether two instances of <see cref="PDBInstance"/> are equal.
       /// </summary>
@@ -278,6 +280,7 @@ namespace CILAssemblyManipulator.Physical
             && ListEqualityComparer<List<PDBLocalScope>, PDBLocalScope>.ListEquality( x.LocalScopes, y.LocalScopes, Equality_PDBLocalScope )
             && Equality_PDBAsyncMethodInfo( x.AsyncMethodInfo, y.AsyncMethodInfo )
             && ListEqualityComparer<List<PDBLine>, PDBLine>.ListEquality( x.Lines, y.Lines, Equality_PDBLine )
+            && Equality_ENCInfo( x.ENCInfo, y.ENCInfo )
             );
       }
 
@@ -300,18 +303,12 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_PDBScopeOrFunction_NoReferenceOrNullCheck( PDBScopeOrFunction x, PDBScopeOrFunction y )
       {
-         var retVal = x.Length == y.Length
+         return x.Length == y.Length
             && String.Equals( x.Name, y.Name )
             && ListEqualityComparer<List<String>, String>.ListEquality( x.UsedNamespaces, y.UsedNamespaces )
             && ListEqualityComparer<List<PDBSlot>, PDBSlot>.ListEquality( x.Slots, y.Slots, Equality_PDBSlot )
             && ListEqualityComparer<List<PDBScope>, PDBScope>.ListEquality( x.Scopes, y.Scopes, Equality_PDBScope )
             && ListEqualityComparer<List<PDBConstant>, PDBConstant>.ListEquality( x.Constants, y.Constants, Equality_PDBConstant );
-         if ( !retVal )
-         {
-
-         }
-
-         return retVal;
       }
 
       private static Boolean Equality_PDBSlot( PDBSlot x, PDBSlot y )
@@ -383,17 +380,12 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_PDBConstant( PDBConstant x, PDBConstant y )
       {
-         var retVal = ReferenceEquals( x, y ) ||
+         return ReferenceEquals( x, y ) ||
             ( x != null && y != null
             && x.Token == y.Token
             && String.Equals( x.Name, y.Name )
             && Equality_PDBConstantValue( x.Value, y.Value )
             );
-         if ( !retVal )
-         {
-
-         }
-         return retVal;
       }
 
       private static Boolean Equality_PDBConstantValue( Object x, Object y )
@@ -483,6 +475,64 @@ namespace CILAssemblyManipulator.Physical
          }
 
          return num != null;
+      }
+
+      private static Boolean Equality_ENCInfo( EditAndContinueMethodDebugInformation x, EditAndContinueMethodDebugInformation y )
+      {
+         var retVal = ReferenceEquals( x, y ) || (
+            x != null && y != null
+            && x.MethodOrdinal == y.MethodOrdinal
+            && ListEqualityComparer<List<LocalSlotDebugInfo>, LocalSlotDebugInfo>.ListEquality( x.LocalSlots, y.LocalSlots, Equality_LocalSlotDebugInfo )
+            && ListEqualityComparer<List<LambdaDebugInfo>, LambdaDebugInfo>.ListEquality( x.Lambdas, y.Lambdas, Equality_LambdaDebugInfo )
+            && ListEqualityComparer<List<ClosureDebugInfo>, ClosureDebugInfo>.ListEquality( x.Closures, y.Closures, Equality_ClosureDebugInfo )
+            );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_LocalSlotDebugInfo( LocalSlotDebugInfo x, LocalSlotDebugInfo y )
+      {
+         var retVal = ReferenceEquals( x, y ) || (
+            x != null && y != null
+            && x.LocalIndex == y.LocalIndex
+            && x.SyntaxOffset == y.SyntaxOffset
+            && x.SynthesizedKind == y.SynthesizedKind
+            );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_LambdaDebugInfo( LambdaDebugInfo x, LambdaDebugInfo y )
+      {
+         var retVal = ReferenceEquals( x, y ) || (
+            x != null && y != null
+            && x.SyntaxOffset == y.SyntaxOffset
+            && x.ClosureIndex == y.ClosureIndex
+            );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
+      }
+
+      private static Boolean Equality_ClosureDebugInfo( ClosureDebugInfo x, ClosureDebugInfo y )
+      {
+         var retVal = ReferenceEquals( x, y ) || (
+            x != null && y != null
+            && x.SyntaxOffset == y.SyntaxOffset
+            );
+         if ( !retVal )
+         {
+
+         }
+         return retVal;
       }
 
       private static Int32 HashCode_PDBInstance( PDBInstance x )

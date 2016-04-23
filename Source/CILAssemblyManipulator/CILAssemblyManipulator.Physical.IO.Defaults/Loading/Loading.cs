@@ -42,7 +42,7 @@ namespace CILAssemblyManipulator.Physical.Loading
 {
 
    /// <summary>
-   /// This is the delegate for callback used by <see cref="AbstractCILMetaDataBinaryLoader{TDictionary}"/> to create instance of <see cref="ReadingArguments"/> to be used by <see cref="CILMetaDataIO.ReadModule(Stream, ReadingArguments)"/> method.
+   /// This is the delegate for callback used by <see cref="AbstractCILMetaDataBinaryLoader{TDictionary}"/> to create instance of <see cref="ReadingArguments"/> to be used by <see cref="M:CILAssemblyManipulator.Physical.IO.CILMetaDataIO.ReadModule(System.IO.Stream,CILAssemblyManipulator.Physical.IO.ReadingArguments)"/> method.
    /// </summary>
    /// <param name="resourceToLoad">The textual resource (e.g. file path) of module being loaded.</param>
    /// <param name="pathForModuleBeingResolved">The optional path of the module currently being resolved by <see cref="CILMetaDataLoader.ResolveMetaData"/> method. This separates the situations when module is loaded directly by <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method and when modules are being loaded indirectly by <see cref="CILMetaDataLoader.ResolveMetaData"/> method.</param>
@@ -50,7 +50,7 @@ namespace CILAssemblyManipulator.Physical.Loading
    public delegate ReadingArguments ReadingArgumentsFactoryDelegate( String resourceToLoad, String pathForModuleBeingResolved );
 
    /// <summary>
-   /// This class extends <see cref="AbstractCILMetaDataLoader{TDictionary}"/> and implements <see cref="CILMetaDataBinaryLoader"/> in order to provide implementation for common things needed when loading <see cref="CILMetaData"/> from binary stream with <see cref="CILMetaDataIO.ReadModule"/> method.
+   /// This class extends <see cref="AbstractCILMetaDataLoader{TDictionary}"/> and implements <see cref="CILMetaDataBinaryLoader"/> in order to provide implementation for common things needed when loading <see cref="CILMetaData"/> from binary stream with <see cref="M:CILAssemblyManipulator.Physical.IO.CILMetaDataIO.ReadModule(System.IO.Stream,CILAssemblyManipulator.Physical.IO.ReadingArguments)"/> method.
    /// </summary>
    /// <typeparam name="TDictionary"></typeparam>
    public abstract class AbstractCILMetaDataBinaryLoader<TDictionary> : AbstractCILMetaDataLoader<TDictionary>, CILMetaDataBinaryLoader
@@ -77,7 +77,7 @@ namespace CILAssemblyManipulator.Physical.Loading
       }
 
       /// <summary>
-      /// This method will use <see cref="CILMetaDataIO.ReadModule"/> method to read the <see cref="CILMetaData"/> from file path represented by given textual resource.
+      /// This method will use <see cref="M:CILAssemblyManipulator.Physical.IO.CILMetaDataIO.ReadModule(System.IO.Stream,CILAssemblyManipulator.Physical.IO.ReadingArguments)"/> method to read the <see cref="CILMetaData"/> from file path represented by given textual resource.
       /// </summary>
       /// <param name="sanitizedResource">The file path.</param>
       /// <param name="pathForModuleBeingResolved">The optional path of the module currently being resolved by <see cref="CILMetaDataLoader.ResolveMetaData"/> method. This separates the situations when module is loaded directly by <see cref="CILMetaDataLoader.GetOrLoadMetaData"/> method and when modules are being loaded indirectly by <see cref="CILMetaDataLoader.ResolveMetaData"/> method.</param>
@@ -87,7 +87,7 @@ namespace CILAssemblyManipulator.Physical.Loading
          using ( var stream = this.GetStreamFor( sanitizedResource ) )
          {
             var rArgs = this._readingArgumentsFactory?.Invoke( sanitizedResource, pathForModuleBeingResolved ) ?? new ReadingArguments();
-            var retVal = stream.ReadModule( rArgs );
+            var retVal = this.ReadModuleFromStream( stream, rArgs );
             if ( this.IsSupportingConcurrency )
             {
                this._imageInfos.GetOrAdd_WithLock( retVal, md => rArgs.ImageInformation );
@@ -116,6 +116,14 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// In file-oriented loader, this usually means returning the value of <see cref="M:System.IO.File.Open(System.String, System.IO.FileMode, System.IO.FileAccess, System.IO.FileShare)"/>
       /// </remarks>
       protected abstract Stream GetStreamFor( String resource );
+
+      /// <summary>
+      /// This method should read the <see cref="CILMetaData"/> from given <see cref="Stream"/>.
+      /// </summary>
+      /// <param name="stream">The stream to read <see cref="CILMetaData"/> from.</param>
+      /// <param name="rArgs">The <see cref="ReadingArguments"/> to use.</param>
+      /// <returns>The <see cref="CILMetaData"/> read from given <see cref="Stream"/>.</returns>
+      protected abstract CILMetaData ReadModuleFromStream( Stream stream, ReadingArguments rArgs );
    }
 
    /// <summary>
@@ -227,7 +235,7 @@ namespace CILAssemblyManipulator.Physical.Loading
    /// <summary>
    /// This class implements <see cref="CILMetaDataLoaderWithCallbacks{TDictionary}"/> in a not thread-safe way.
    /// </summary>
-   public class CILMetaDataLoaderNotThreadSafe : CILMetaDataLoaderWithCallbacks<Dictionary<String, CILMetaData>>
+   public abstract class CILMetaDataLoaderNotThreadSafe : CILMetaDataLoaderWithCallbacks<Dictionary<String, CILMetaData>>
    {
       /// <summary>
       /// Creates a new instance of <see cref="CILMetaDataLoaderNotThreadSafe"/> with given <see cref="CryptoCallbacks"/> for public key computation, <see cref="ReadingArgumentsFactoryDelegate"/> to create <see cref="ReadingArguments"/>, and <see cref="CILMetaDataLoaderResourceCallbacks"/> to handle textual resources.
@@ -289,7 +297,7 @@ namespace CILAssemblyManipulator.Physical.Loading
    /// This class implements <see cref="CILMetaDataLoaderWithCallbacks{TDictionary}"/> in a simple thread-safe way.
    /// This involves locking whole cache when the <see cref="CILMetaData"/> is still not in cache, which is simple, but not most performant way to solve concurrency.
    /// </summary>
-   public class CILMetaDataLoaderThreadSafeSimple : CILMetaDataLoaderWithCallbacks<Dictionary<String, CILMetaData>>
+   public abstract class CILMetaDataLoaderThreadSafeSimple : CILMetaDataLoaderWithCallbacks<Dictionary<String, CILMetaData>>
    {
 
       /// <summary>

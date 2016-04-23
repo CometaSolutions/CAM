@@ -21,6 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using CommonUtils;
+using CILAssemblyManipulator.Physical.IO; // Only for compressed integers.
 
 namespace CILAssemblyManipulator.Physical.PDB
 {
@@ -951,9 +952,14 @@ namespace CILAssemblyManipulator.Physical.PDB
                   // Forward iterator class
                   func.IteratorClass = array.ReadZeroTerminatedUTF16String( ref idx );
                   break;
-               case MD2_YET_UNKNOWN:
-               case MD2_YET_UNKNOWN_2:
-               case MD2_YET_UNKNOWN_3:
+               case MD2_DYNAMICS:
+                  // TODO
+                  break;
+               case MD2_ENC_LOCALS:
+                  func.ReadENCLocals( array, ref idx, oldIdx + byteCount );
+                  break;
+               case MD2_ENC_LAMBDAS:
+                  func.ReadENCLambas( array, ref idx, oldIdx + byteCount );
                   break;
                default:
 #if DEBUG
@@ -1000,6 +1006,82 @@ namespace CILAssemblyManipulator.Physical.PDB
             list.AddRange( Enumerable.Repeat<T>( default( T ), index - c ) );
             list.Add( value );
          }
+      }
+
+      private static void ReadENCLocals( this PDBFunction func, Byte[] array, ref Int32 idx, Int32 maxIdx )
+      {
+         var locals = func.GetOrCreateENCInfo().LocalSlots;
+         var syntaxOffsetBaseline = -1;
+         var b = array[idx];
+         if ( b == PDBIO.CUSTOM_SYNTAX_OFFSET_BASELINE )
+         {
+            ++idx;
+            syntaxOffsetBaseline = -array.DecompressUInt32( ref idx );
+         }
+         while ( idx < maxIdx )
+         {
+            b = array.ReadByteFromBytes( ref idx );
+            LocalSlotDebugInfo dbg;
+            if ( b == 0 )
+            {
+               dbg = new LocalSlotDebugInfo();
+            }
+            else
+            {
+               var kind = (Byte) ( ( b & 0x3F ) - 1 );
+               var hasOrdinal = ( b & ( 1 << 7 ) ) != 0;
+               dbg = new LocalSlotDebugInfo()
+               {
+                  SyntaxOffset = array.DecompressUInt32( ref idx ) + syntaxOffsetBaseline,
+                  LocalIndex = hasOrdinal ? array.DecompressUInt32( ref idx ) : 0,
+                  SynthesizedKind = kind
+               };
+            }
+            locals.Add( dbg );
+         }
+      }
+
+      private static void ReadENCLambas( this PDBFunction func, Byte[] array, ref Int32 idx, Int32 maxIdx )
+      {
+         var enc = func.GetOrCreateENCInfo();
+         enc.MethodOrdinal = array.DecompressUInt32( ref idx ) - 1;
+         var syntaxOffsetBaseline = -array.DecompressUInt32( ref idx );
+         var closureCount = array.DecompressUInt32( ref idx );
+
+         var closures = enc.Closures;
+         for ( var i = 0; i < closureCount; ++i )
+         {
+            closures.Add( new ClosureDebugInfo()
+            {
+               SyntaxOffset = array.DecompressUInt32( ref idx ) + syntaxOffsetBaseline
+            } );
+         }
+
+         var lambas = enc.Lambdas;
+         while ( idx < maxIdx )
+         {
+            var dbg = new LambdaDebugInfo()
+            {
+               SyntaxOffset = array.DecompressUInt32( ref idx ) + syntaxOffsetBaseline,
+            };
+            if ( idx < maxIdx )
+            {
+               dbg.ClosureIndex = array.DecompressUInt32( ref idx ) + LAMBDA_MIN_CLOSURE_INDEX;
+            }
+            lambas.Add( dbg );
+         }
+      }
+
+      private static EditAndContinueMethodDebugInformation GetOrCreateENCInfo( this PDBFunction func )
+      {
+         var retVal = func.ENCInfo;
+         if ( retVal == null )
+         {
+            retVal = new EditAndContinueMethodDebugInformation();
+            func.ENCInfo = retVal;
+         }
+
+         return retVal;
       }
    }
 }

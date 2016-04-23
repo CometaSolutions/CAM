@@ -24,6 +24,7 @@ using CAMPhysicalIOD::CILAssemblyManipulator.Physical.Meta;
 using CAMPhysicalIOD::CILAssemblyManipulator.Physical.IO;
 
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
+using CILAssemblyManipulator.Physical.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;

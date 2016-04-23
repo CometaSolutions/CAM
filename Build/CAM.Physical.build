@@ -43,6 +43,7 @@
       Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);"
       />
 
+    <!-- Non-portable build -->
     <MSBuild
       Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO.Defaults/CILAssemblyManipulator.Physical.IO.Defaults.csproj"
       Targets="Build"

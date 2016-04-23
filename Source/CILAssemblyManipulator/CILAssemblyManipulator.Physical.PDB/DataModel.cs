@@ -413,6 +413,12 @@ namespace CILAssemblyManipulator.Physical.PDB
       public UInt32 ModuleForwardingMethodToken { get; set; }
 
       /// <summary>
+      /// Gets or sets the <see cref="EditAndContinueMethodDebugInformation"/> for this <see cref="PDBFunction"/>.
+      /// </summary>
+      /// <value>The <see cref="EditAndContinueMethodDebugInformation"/> for this <see cref="PDBFunction"/>.</value>
+      public EditAndContinueMethodDebugInformation ENCInfo { get; set; }
+
+      /// <summary>
       /// Creates the textual representation of this <see cref="PDBFunction"/>.
       /// </summary>
       /// <returns>The textual representation of this <see cref="PDBFunction"/>.</returns>
@@ -713,4 +719,125 @@ namespace CILAssemblyManipulator.Physical.PDB
             " " + this.Source + ": " + " [" + this.LineStart + ( this.LineEnd == this.LineStart ? "" : ( "->" + this.LineEnd ) ) + "]";
       }
    }
+
+   /// <summary>
+   /// This class captures information about method emitted with edit-and-continue support.
+   /// </summary>
+   /// <remarks>
+   /// This is similar to the class of the same name in Roslyn, but this is mutable.
+   /// </remarks>
+   public class EditAndContinueMethodDebugInformation
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="EditAndContinueMethodDebugInformation"/>.
+      /// </summary>
+      public EditAndContinueMethodDebugInformation()
+      {
+         this.LocalSlots = new List<LocalSlotDebugInfo>();
+         this.Lambdas = new List<LambdaDebugInfo>();
+         this.Closures = new List<ClosureDebugInfo>();
+      }
+
+      /// <summary>
+      /// Gets or sets the method ordinal.
+      /// </summary>
+      /// <value>The method ordinal.</value>
+      public Int32 MethodOrdinal { get; set; }
+
+      /// <summary>
+      /// Gets the list of debug information of local slots.
+      /// </summary>
+      /// <value>The list of debug information of local slots.</value>
+      public List<LocalSlotDebugInfo> LocalSlots { get; }
+
+      /// <summary>
+      /// Gets the list of lambda debug information.
+      /// </summary>
+      /// <value>The list of lambda debug information.</value>
+      public List<LambdaDebugInfo> Lambdas { get; }
+
+      /// <summary>
+      /// Gets the list of closer debug information.
+      /// </summary>
+      /// <value>The list of closer debug information.</value>
+      public List<ClosureDebugInfo> Closures { get; }
+   }
+
+   /// <summary>
+   /// This class represents a local found in edit-and-continue mode.
+   /// </summary>
+   /// <remarks>
+   /// This is similar to the class of the same name in Roslyn, but this is mutable.
+   /// </remarks>
+   public class LocalSlotDebugInfo
+   {
+      /// <summary>
+      /// Gets or sets the value indicating how this local is synthesized.
+      /// </summary>
+      /// <value>The value indicating how this local is synthesized.</value>
+      public Byte? SynthesizedKind { get; set; }
+
+      /// <summary>
+      /// Gets or sets the syntax offset of this local.
+      /// </summary>
+      /// <value>The syntax offset of this local.</value>
+      public Int32 SyntaxOffset { get; set; }
+
+      /// <summary>
+      /// Gets or sets the index of this local.
+      /// </summary>
+      /// <value>The index of this local.</value>
+      public Int32 LocalIndex { get; set; }
+   }
+
+   /// <summary>
+   /// This is common base class for <see cref="LambdaDebugInfo"/> and <see cref="ClosureDebugInfo"/>.
+   /// </summary>
+   public class LambdaOrClosureDebugInfo
+   {
+      /// <summary>
+      /// Gets or sets the syntax offset for this lambda or closure debug info.
+      /// </summary>
+      /// <value>The syntax offset for this lambda or closure debug info.</value>
+      public Int32 SyntaxOffset { get; set; }
+
+      ///// <summary>
+      ///// Gets or sets the ordinal for this lambda or closure debug info.
+      ///// </summary>
+      ///// <value>The ordinal for this lambda or closure debug info.</value>
+      //public Int32 Ordinal { get; set; }
+
+      ///// <summary>
+      ///// Gets the ENC generation number for this lambda or closure debug info.
+      ///// </summary>
+      ///// <value>The ENC generation number for this lambda or closure debug info.</value>
+      //public Int32 Generation { get; set; }
+   }
+
+   /// <summary>
+   /// This class represents a debug information about a lambda.
+   /// </summary>
+   /// <remarks>
+   /// This is similar to the class of the same name in Roslyn, but this is mutable.
+   /// </remarks>
+   public class LambdaDebugInfo : LambdaOrClosureDebugInfo
+   {
+      /// <summary>
+      /// Gets or sets the closure ordinal for this <see cref="LambdaDebugInfo"/>.
+      /// </summary>
+      /// <value>The closure ordinal for this <see cref="LambdaDebugInfo"/>.</value>
+      public Int32? ClosureIndex { get; set; }
+   }
+
+   /// <summary>
+   /// This class represents a debug information about a closure.
+   /// </summary>
+   /// <remarks>
+   /// This is similar to the class of the same name in Roslyn, but this is mutable.
+   /// </remarks>
+   public class ClosureDebugInfo : LambdaOrClosureDebugInfo
+   {
+
+   }
+
 }

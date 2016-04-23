@@ -107,6 +107,10 @@
       <Name>CILAssemblyManipulator.Physical.IO.Defaults</Name>
       <Aliases>CAMPhysicalIOD</Aliases>
     </ProjectReference>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.NonPortable\CILAssemblyManipulator.Physical.NonPortable.csproj">
+      <Project>{3afd5732-18ad-47a2-93f9-4a55d1e50b44}</Project>
+      <Name>CILAssemblyManipulator.Physical.NonPortable</Name>
+    </ProjectReference>
     <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\CILAssemblyManipulator.Physical.Loading\CILAssemblyManipulator.Physical.Loading.csproj">
       <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
       <Name>CILAssemblyManipulator.Physical.Loading</Name>

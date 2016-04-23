@@ -105,7 +105,11 @@ public static partial class E_CILPhysical
             eArgs.WritingOptions,
             eArgs.StrongName,
             eArgs.DelaySign,
-            eArgs.CryptoCallbacks,
+            eArgs.CryptoCallbacks
+#if !CAM_PHYSICAL_IS_PORTABLE
+            ?? new CryptoCallbacksDotNET()
+#endif
+            ,
             eArgs.SigningAlgorithm,
             eArgs.ErrorHandler
             );

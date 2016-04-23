@@ -305,6 +305,17 @@ namespace CILAssemblyManipulator.Physical.IO
       {
 
       }
+
+      /// <summary>
+      /// This method calls <see cref="CILMetaDataIO.ReadModule"/> method to read the module from the stream.
+      /// </summary>
+      /// <param name="stream">The stream to read module from.</param>
+      /// <param name="rArgs">The <see cref="ReadingArguments"/> to use.</param>
+      /// <returns>The module, as returned by <see cref="CILMetaDataIO.ReadModule"/> method.</returns>
+      protected override CILMetaData ReadModuleFromStream( Stream stream, ReadingArguments rArgs )
+      {
+         return stream.ReadModule( rArgs );
+      }
    }
 
    /// <summary>
@@ -326,6 +337,17 @@ namespace CILAssemblyManipulator.Physical.IO
          : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
+      }
+
+      /// <summary>
+      /// This method calls <see cref="CILMetaDataIO.ReadModule"/> method to read the module from the stream.
+      /// </summary>
+      /// <param name="stream">The stream to read module from.</param>
+      /// <param name="rArgs">The <see cref="ReadingArguments"/> to use.</param>
+      /// <returns>The module, as returned by <see cref="CILMetaDataIO.ReadModule"/> method.</returns>
+      protected override CILMetaData ReadModuleFromStream( Stream stream, ReadingArguments rArgs )
+      {
+         return stream.ReadModule( rArgs );
       }
    }
 
@@ -395,6 +417,17 @@ namespace CILAssemblyManipulator.Physical.IO
          {
             metaData.ResolveEverything();
          }
+      }
+
+      /// <summary>
+      /// This method calls <see cref="CILMetaDataIO.ReadModule"/> method to read the module from the stream.
+      /// </summary>
+      /// <param name="stream">The stream to read module from.</param>
+      /// <param name="rArgs">The <see cref="ReadingArguments"/> to use.</param>
+      /// <returns>The module, as returned by <see cref="CILMetaDataIO.ReadModule"/> method.</returns>
+      protected override CILMetaData ReadModuleFromStream( Stream stream, ReadingArguments rArgs )
+      {
+         return stream.ReadModule( rArgs );
       }
    }
 

@@ -39,6 +39,7 @@ using System.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
 using CommonUtils;
+using CILAssemblyManipulator.Physical.IO;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 using System.Diagnostics.SymbolStore;
 using ct = System.Runtime.InteropServices.ComTypes;
@@ -111,6 +112,8 @@ namespace CILAssemblyManipulator.Tests.Physical
          }
 
          Assert.IsTrue( Comparers.PDBInstanceEqualityComparer.Equals( pdb, pdb2 ), "PDB after writing and reading must still have same content." );
+
+         File.WriteAllBytes( Path.ChangeExtension( mdFile, ".test" ), bytez );
 
          // Test that reading using native API results in same PDB instance
          using ( var stream = new MemoryStream( bytez ) )

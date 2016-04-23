@@ -13,13 +13,9 @@
     <DefaultLanguage>en-US</DefaultLanguage>
     <FileAlignment>512</FileAlignment>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <CAMPhysicalIsPortable Condition=" '$(Configuration)' == 'Debug_Portable' Or '$(Configuration)' == 'Release_Portable' ">True</CAMPhysicalIsPortable>
-    <ProjectTypeGuids>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <ProjectTypeGuids Condition=" '$(CAMPhysicalIsPortable)' != '' ">{786C830F-07A1-408B-BD7F-6EE04809D6DB};$(ProjectTypeGuids)</ProjectTypeGuids>
+    <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' != '' ">Profile328</TargetFrameworkProfile>
-    <TargetFrameworkProfile Condition=" '$(CAMPhysicalIsPortable)' == '' ">Client</TargetFrameworkProfile>
-    <DefineConstants Condition=" '$(CAMPhysicalIsPortable)' != ''">CAM_PHYSICAL_IS_PORTABLE</DefineConstants>
+    <TargetFrameworkProfile>Profile328</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(UseUtilpackReference)' != ''">
     <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
@@ -78,10 +74,7 @@
   <ItemGroup>
     <Compile Include="Core\MetaData.cs" />
     <Compile Include="Enums.cs" />
-    <Compile Include="IO\API.cs" />
-    <Compile Include="IO\API.DotNET.cs" />
     <Compile Include="Loading\Loading.cs" />
-    <Compile Include="Loading\Loading.DotNET.cs" />
     <Compile Include="Meta\Information.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Reading.cs" />
@@ -130,8 +123,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup />
-  <Import Condition=" '$(CAMPhysicalIsPortable)' == '' " Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Condition=" '$(CAMPhysicalIsPortable)' != '' " Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->
   <Target Condition=" '$(IsCommandLineBuild)' != '' " Name="BeforeBuild">
     <Delete Files="$(OutputPath)$(AssemblyName).dll" />

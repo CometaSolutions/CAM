@@ -89,6 +89,10 @@
       <Project>{bda8be95-5905-4b4e-87fa-624ee4f6ac85}</Project>
       <Name>CILAssemblyManipulator.Physical.MResources.IO</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.NonPortable\CILAssemblyManipulator.Physical.NonPortable.csproj">
+      <Project>{3afd5732-18ad-47a2-93f9-4a55d1e50b44}</Project>
+      <Name>CILAssemblyManipulator.Physical.NonPortable</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.PDB.IO\CILAssemblyManipulator.Physical.PDB.IO.csproj">
       <Project>{f4c562b5-a26a-44c2-b5b0-9de29eb5ca40}</Project>
       <Name>CILAssemblyManipulator.Physical.PDB.IO</Name>
