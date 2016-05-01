@@ -30,6 +30,116 @@ namespace CILAssemblyManipulator.Physical.PDB
    /// </summary>
    public static partial class PDBIO
    {
+#if DEBUG
+      internal static GSIReader LAST_GSI = null;
+
+      internal class GSIReader
+      {
+         public GSIReader( Byte[] gsi, Int32 idx, Byte[] symRec )
+         {
+            idx += 8; // Skip sig & version
+            var gsRefSize = gsi.ReadInt32LEFromBytes( ref idx );
+            var gsHashSize = gsi.ReadInt32LEFromBytes( ref idx );
+            var entries = new List<GSIEntry>( 4096 );
+            if ( gsRefSize > 0 )
+            {
+               var expectedEntryCount = ( ( gsHashSize - 512 ) / 4 ) - 1;
+               var refStart = idx;
+               // Skip references
+               idx += gsRefSize;
+               // Bitset is 4096/32 = 128 integers = 512 bytes
+               var bucketCountIdx = idx + 512 + 4 // One integer for deleted entries size I think
+                  + 4; // And one integer to skip first zero
+               // Read present entries bitset
+               var prevCount = 0;
+               var totalRefCount = gsRefSize / 8;
+               var seenRefCount = 0;
+               for ( var i = 0; i < 128; ++i )
+               {
+                  var cur = gsi.ReadUInt32LEFromBytes( ref idx );
+                  var curHash = i * 32;
+                  while ( cur != 0u )
+                  {
+                     if ( ( cur & 1u ) != 0u )
+                     {
+                        Int32 thisCap;
+                        if ( entries.Count == expectedEntryCount - 1 )
+                        {
+                           // This is last entry, the capacity is computed differently
+                           thisCap = totalRefCount - seenRefCount;
+                        }
+                        else
+                        {
+                           // For others, read offset from gsi and substract from prev
+                           var thisOFfset = gsi.ReadInt32LEFromBytes( ref bucketCountIdx );
+                           thisCap = ( thisOFfset - prevCount ) / 12;
+                           prevCount = thisOFfset;
+                        }
+                        entries.Add( new GSIEntry( thisCap )
+                        {
+                           Hash = curHash
+                        } );
+                        seenRefCount += thisCap;
+                     }
+                     ++curHash;
+                     cur = cur >> 1;
+                  }
+               }
+
+               // Read actual entries
+               foreach ( var entry in entries )
+               {
+                  var count = entry.Names.Capacity;
+                  for ( var i = 0; i < count; ++i )
+                  {
+                     var curRef = gsi.ReadInt32LEFromBytes( ref refStart );
+                     var curSeg = gsi.ReadInt32LEFromBytes( ref refStart );
+
+                     // Read record from symrecstream
+                     var nameStart = curRef + 13; // Since indexing is 1-based, we only add 13 instead of 14
+                     entry.Names.Add( symRec.ReadZeroTerminatedStringFromBytes( ref nameStart, Encoding.UTF8 ) );
+                     entry.Refs.Add( curRef );
+                  }
+               }
+            }
+
+            this.Entries = entries;
+
+         }
+
+         public GSIReader()
+         {
+            this.Entries = new List<GSIEntry>();
+         }
+
+         public List<GSIEntry> Entries { get; }
+
+         public GSIEntry FindEntry( String name )
+         {
+            return this.Entries.FirstOrDefault( e => e.Names.Any( n => String.Equals( n, name ) ) );
+         }
+      }
+
+      internal class GSIEntry
+      {
+         public GSIEntry( Int32 cap )
+         {
+            this.Names = new List<String>( cap );
+            this.Refs = new List<Int32>( cap );
+         }
+         public Int32 Hash { get; set; }
+         public List<String> Names { get; }
+
+         public List<Int32> Refs { get; }
+
+         public override string ToString()
+         {
+            return "[" + this.Hash + "]: {" + String.Join( ", ", this.Names ) + "}";
+         }
+      }
+
+#endif
+
 
       private const UInt32 METHOD_TABLE = 0x06000000;
       private const UInt32 METHOD_TABLE_INDEX_MASK = 0x00FFFFFF;
@@ -109,7 +219,20 @@ namespace CILAssemblyManipulator.Physical.PDB
 
          // Make array have the size of biggest stream size to be used, so we wouldn't need to create new array each time for stream
          // TODO this might still be too much in some gigantic function cases...
-         array = new Byte[dataStreamSizes.Where( ( siz, i ) => i != 3 && i != dbiHeader.symRecStream && i != dbiHeader.psSymStream && i != dbiHeader.gsSymStream ).Max()];
+         array = new Byte[dataStreamSizes.Where( ( siz, i ) => i != 3
+#if !DEBUG
+         && i != dbiHeader.symRecStream && i != dbiHeader.gsSymStream
+#endif
+         ).Max()];
+
+#if DEBUG
+         streamHelper.ReadPagedData( pageSize, dataStreamPages[dbiHeader.symRecStream], dataStreamSizes[dbiHeader.symRecStream], array );
+         var symRec = new Byte[dataStreamSizes[dbiHeader.symRecStream]];
+         Array.Copy( array, symRec, symRec.Length );
+         streamHelper.ReadPagedData( pageSize, dataStreamPages[dbiHeader.gsSymStream], dataStreamSizes[dbiHeader.gsSymStream], array );
+         var gsi = new GSIReader( array, 0, symRec );
+         LAST_GSI = gsi;
+#endif
 
          // Create result instance
          var instance = new PDBInstance();

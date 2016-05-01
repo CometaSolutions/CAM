@@ -131,6 +131,7 @@ public static partial class E_CILPhysical
 
       // This is algorithm used to compute hashes of names in gsSymStream.
       // Ported from C to C# and modified a bit, original is available at http://code.google.com/p/pdbparser/source/browse/trunk/symeng/misc.cpp , HashPbCb function.
+      // Also available at https://github.com/Microsoft/microsoft-pdb , misc.h, lhashPbCb function
       internal static UInt32 ComputeHash( Byte[] pb, Int32 startIdx, Int32 count, UInt32 ulMod )
       {
          var ulHash = 0u;
@@ -158,16 +159,16 @@ public static partial class E_CILPhysical
             case 1: ulHash ^= pul[0]; break;
          }
          tmp = dcul;
-         while ( tmp < pul.Length )
+         while ( tmp + 7 < pul.Length )
          {
-            ulHash ^= pul[7];
-            ulHash ^= pul[6];
-            ulHash ^= pul[5];
-            ulHash ^= pul[4];
-            ulHash ^= pul[3];
-            ulHash ^= pul[2];
-            ulHash ^= pul[1];
-            ulHash ^= pul[0];
+            ulHash ^= pul[tmp + 7];
+            ulHash ^= pul[tmp + 6];
+            ulHash ^= pul[tmp + 5];
+            ulHash ^= pul[tmp + 4];
+            ulHash ^= pul[tmp + 3];
+            ulHash ^= pul[tmp + 2];
+            ulHash ^= pul[tmp + 1];
+            ulHash ^= pul[tmp + 0];
             tmp += 8;
          }
 
@@ -1733,7 +1734,32 @@ public static partial class E_CILPhysical
    {
       var streamIndex = state.DataStreams.Count;
       var namedRefs = gsiStream.NamedReferences;
-      var hashez = state.PDB.Modules.Select( m => SymbolRecStreamRefInfo.ComputeHash( Encoding.UTF8.GetBytes( m.Name ), 0, Encoding.UTF8.GetByteCount( m.Name ), 4096 ) ).ToArray();
+      //var writtenGSI = new PDBIO.GSIReader();
+      //writtenGSI.Entries.AddRange( gsiStream.Namezz.Keys.OrderBy( k => k ).Select( k =>
+      //{
+      //   var list = gsiStream.Namezz[k];
+      //   var e = new PDBIO.GSIEntry( list.Count )
+      //   {
+      //      Hash = k
+      //   };
+      //   e.Names.AddRange( list );
+      //   return e;
+      //} ) );
+      //var wrongHashedNames = new List<Tuple<String, Int32, Int32>>();
+      //foreach ( var entry in PDBIO.LAST_GSI.Entries )
+      //{
+      //   var hash = entry.Hash;
+      //   foreach ( var name in entry.Names )
+      //   {
+      //      var writtenEntry = writtenGSI.FindEntry( name );
+      //      var writtenHash = writtenEntry.Hash;
+      //      if ( hash != writtenHash )
+      //      {
+      //         wrongHashedNames.Add( Tuple.Create( name, hash, writtenHash ) );
+      //      }
+      //   }
+      //}
+
       var gsRefSize = 8 * gsiStream.ReferenceCount; // Each ref is two ints
 
       var gsSymHashSize = gsRefSize > 0 ? ( GS_SYM_BUCKETS / 8 + ( namedRefs.Count + 1 ) * 4 ) : 0;
@@ -1797,7 +1823,7 @@ public static partial class E_CILPhysical
                      array.WriteUInt32LEToBytes( ref idx, tmpUInt32 );
                   }
                   
-                  // Magic zero
+                  // Magic zero (deleted entries size?)
                   array.WriteInt32LEToBytes( ref idx, 0 );
 
                   // Write counts in each bucket
