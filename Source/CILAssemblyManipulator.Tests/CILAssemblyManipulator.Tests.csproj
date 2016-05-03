@@ -49,6 +49,7 @@
     <Compile Include="Logical\Interop.cs" />
     <Compile Include="Logical\Wrappers.cs" />
     <Compile Include="Physical\AdditionalTables.cs" />
+    <Compile Include="Physical\Crypto.cs" />
     <Compile Include="Physical\Emitting.cs" />
     <Compile Include="Physical\Miscellaneous.cs" />
     <Compile Include="Physical\MResources.cs" />

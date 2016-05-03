@@ -50,9 +50,9 @@ namespace CommonUtils
       /// <param name="value">The value to rotate to left.</param>
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
-      public static Int32 RotateLeft32( Int32 value, Int32 shift )
+      public static Int32 RotateLeft( this Int32 value, Int32 shift )
       {
-         return (Int32) RotateLeft32( (UInt32) value, shift );
+         return (Int32) ( (UInt32) value ).RotateLeft( shift );
       }
 
       /// <summary>
@@ -62,7 +62,7 @@ namespace CommonUtils
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
       [CLSCompliant( false )]
-      public static UInt32 RotateLeft32( UInt32 value, Int32 shift )
+      public static UInt32 RotateLeft( this UInt32 value, Int32 shift )
       {
          return ( value << shift ) | ( value >> ( sizeof( UInt32 ) * 8 - shift ) );
       }
@@ -73,9 +73,9 @@ namespace CommonUtils
       /// <param name="value">The value to rotate to right.</param>
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
-      public static Int32 RotateRight32( Int32 value, Int32 shift )
+      public static Int32 RotateRight( this Int32 value, Int32 shift )
       {
-         return (Int32) RotateRight32( (UInt32) value, shift );
+         return (Int32) ( (UInt32) value ).RotateRight( shift );
       }
 
       /// <summary>
@@ -85,7 +85,7 @@ namespace CommonUtils
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
       [CLSCompliant( false )]
-      public static UInt32 RotateRight32( UInt32 value, Int32 shift )
+      public static UInt32 RotateRight( this UInt32 value, Int32 shift )
       {
          return ( value >> shift ) | ( value << ( sizeof( UInt32 ) * 8 - shift ) );
       }
@@ -96,9 +96,9 @@ namespace CommonUtils
       /// <param name="value">The value to rotate to left.</param>
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
-      public static Int64 RotateLeft64( Int64 value, Int32 shift )
+      public static Int64 RotateLeft( this Int64 value, Int32 shift )
       {
-         return (Int64) RotateLeft64( (UInt64) value, shift );
+         return (Int64) ( (UInt64) value ).RotateLeft( shift );
       }
 
       /// <summary>
@@ -108,7 +108,7 @@ namespace CommonUtils
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
       [CLSCompliant( false )]
-      public static UInt64 RotateLeft64( UInt64 value, Int32 shift )
+      public static UInt64 RotateLeft( this UInt64 value, Int32 shift )
       {
          return ( value << shift ) | ( value >> ( sizeof( UInt64 ) * 8 - shift ) );
       }
@@ -119,9 +119,9 @@ namespace CommonUtils
       /// <param name="value">The value to rotate to right.</param>
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
-      public static Int64 RotateRight64( Int64 value, Int32 shift )
+      public static Int64 RotateRight( this Int64 value, Int32 shift )
       {
-         return (Int64) RotateRight64( (UInt64) value, shift );
+         return (Int64) ( (UInt64) value ).RotateRight( shift );
       }
 
       /// <summary>
@@ -131,7 +131,7 @@ namespace CommonUtils
       /// <param name="shift">The amount to bits to rotate.</param>
       /// <returns>The rotated value.</returns>
       [CLSCompliant( false )]
-      public static UInt64 RotateRight64( UInt64 value, Int32 shift )
+      public static UInt64 RotateRight( this UInt64 value, Int32 shift )
       {
          return ( value >> shift ) | ( value << ( sizeof( UInt64 ) * 8 - shift ) );
       }
