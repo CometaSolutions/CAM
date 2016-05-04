@@ -1206,6 +1206,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="bitsWritten"></param>
       protected override void WriteLength( Byte[] array, Int64 bitsWritten )
       {
+         // MD5 is little-endian
          array.WriteInt64LEToBytesNoRef( array.Length - 8, bitsWritten );
       }
 
