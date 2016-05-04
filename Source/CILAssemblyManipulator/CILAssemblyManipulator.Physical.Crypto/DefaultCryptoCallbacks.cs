@@ -23,29 +23,120 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
-   internal class DefaultCryptoCallbacks : CryptoCallbacks
+   /// <summary>
+   /// This class provides skeleton implementation for <see cref="CryptoCallbacks"/>.
+   /// </summary>
+   public abstract class AbstractCryptoCallbacks : AbstractDisposable, CryptoCallbacks
    {
-      public HashStreamInfo CreateHashStream( AssemblyHashAlgorithm algorithm )
+      private readonly LocklessInstancePoolForClasses<BlockHashAlgorithm> _sha1Pool;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="AbstractCryptoCallbacks"/>.
+      /// </summary>
+      public AbstractCryptoCallbacks()
+      {
+         this._sha1Pool = new LocklessInstancePoolForClasses<BlockHashAlgorithm>();
+      }
+
+      /// <inheritdoc />
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( disposing )
+         {
+            BlockHashAlgorithm algo;
+            while ( ( algo = this._sha1Pool.TakeInstance() ) != null )
+            {
+               algo.DisposeSafely();
+            }
+         }
+      }
+
+      /// <inheritdoc />
+      public virtual BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
       {
          throw new NotImplementedException();
       }
 
-      public IDisposable CreateRSAFromCSPContainer( String containerName )
+      /// <inheritdoc />
+      public abstract IDisposable CreateRSAFromCSPContainer( String containerName );
+
+      /// <inheritdoc />
+      public virtual IDisposable CreateRSAFromParameters( RSAParameters parameters )
+      {
+         throw new NotImplementedException();
+      }
+
+      /// <inheritdoc />
+      public virtual Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
+      {
+         throw new NotImplementedException();
+      }
+
+      /// <inheritdoc />
+      public abstract Byte[] ExtractPublicKeyFromCSPContainer( String containterName );
+
+      /// <inheritdoc />
+      public Byte[] ComputePublicKeyToken( Byte[] fullPublicKey )
+      {
+         Byte[] retVal;
+         if ( fullPublicKey.IsNullOrEmpty() )
+         {
+            retVal = fullPublicKey;
+         }
+         else
+         {
+            var sha1 = this._sha1Pool.TakeInstance();
+            try
+            {
+               if ( sha1 == null )
+               {
+                  sha1 = this.CreateHashAlgorithm( AssemblyHashAlgorithm.SHA1 );
+               }
+               retVal = sha1.ComputeHash( fullPublicKey, 0, fullPublicKey.Length );
+               // Public key token is actually last 8 bytes reversed
+               retVal = retVal.Skip( retVal.Length - 8 ).Reverse().ToArray();
+               //Array.Reverse( retVal );
+            }
+            finally
+            {
+               this._sha1Pool.ReturnInstance( sha1 );
+            }
+         }
+         return retVal;
+      }
+
+
+   }
+
+   internal class DefaultCryptoCallbacks : AbstractCryptoCallbacks
+   {
+      public override BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
+      {
+         switch ( algorithm )
+         {
+            case AssemblyHashAlgorithm.MD5:
+               return new MD5();
+            case AssemblyHashAlgorithm.SHA1:
+               return new SHA1_128();
+            case AssemblyHashAlgorithm.SHA256:
+               return new SHA2_256();
+            case AssemblyHashAlgorithm.SHA384:
+               return new SHA2_384();
+            case AssemblyHashAlgorithm.SHA512:
+               return new SHA2_512();
+            case AssemblyHashAlgorithm.None:
+               throw new InvalidOperationException( "Tried to create hash stream with no hash algorithm" );
+            default:
+               throw new ArgumentException( "Unknown hash algorithm: " + algorithm + "." );
+         }
+      }
+
+      public override IDisposable CreateRSAFromCSPContainer( String containerName )
       {
          throw new NotSupportedException( "CSP is not supported in portable environment." );
       }
 
-      public IDisposable CreateRSAFromParameters( RSAParameters parameters )
-      {
-         throw new NotImplementedException();
-      }
-
-      public Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
-      {
-         throw new NotImplementedException();
-      }
-
-      public Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
+      public override Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
       {
          throw new NotSupportedException( "CSP is not supported in portable environment." );
       }

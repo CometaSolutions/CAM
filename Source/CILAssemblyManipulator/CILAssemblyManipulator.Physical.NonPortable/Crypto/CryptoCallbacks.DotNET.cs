@@ -19,7 +19,7 @@
 extern alias CAMPhysical;
 
 using CAMPhysical::CILAssemblyManipulator.Physical;
-
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -35,8 +35,41 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <remarks>
    /// When creating <see cref="HashStreamInfo"/>, this class always tries the managed version first, then the <c>cng</c> version, and the <c>csp</c> version when creating the <see cref="System.Security.Cryptography.HashAlgorithm"/> transform.
    /// </remarks>
-   public class CryptoCallbacksDotNET : CryptoCallbacks
+   public class CryptoCallbacksDotNET : AbstractCryptoCallbacks
    {
+      private sealed class BlockHashAlgorithmWrapper : AbstractDisposable, BlockHashAlgorithm
+      {
+         private System.Security.Cryptography.HashAlgorithm _algorithm;
+
+         public BlockHashAlgorithmWrapper( System.Security.Cryptography.HashAlgorithm algorithm )
+         {
+            this._algorithm = algorithm;
+         }
+
+         protected override void Dispose( Boolean disposing )
+         {
+            if ( disposing )
+            {
+               this._algorithm.DisposeSafely();
+            }
+         }
+
+         public void ProcessBlock( Byte[] data, Int32 offset, Int32 count )
+         {
+            this._algorithm.TransformBlock( data, offset, count, null, -1 );
+         }
+
+         public Byte[] ProcessFinalBlock( Byte[] data, Int32 offset, Int32 count )
+         {
+            this._algorithm.TransformFinalBlock( data ?? Empty<Byte>.Array, offset, count );
+            var retVal = this._algorithm.Hash;
+            // We have to explicitly initialize - TransformFinalBlock won't do this in .NET algorithms
+            this._algorithm.Initialize();
+            return retVal;
+         }
+
+      }
+
       private Boolean _canUseManagedCryptoAlgorithms;
       private Boolean _canUseCNGCryptoAlgorithms;
 
@@ -50,7 +83,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public HashStreamInfo CreateHashStream( AssemblyHashAlgorithm algorithm )
+      public override BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
       {
          System.Security.Cryptography.HashAlgorithm transform;
          switch ( algorithm )
@@ -76,16 +109,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
                throw new ArgumentException( "Unknown hash algorithm: " + algorithm + "." );
          }
 
-         return new HashStreamInfo(
-            algorithm,
-            () => new System.Security.Cryptography.CryptoStream( Stream.Null, transform, System.Security.Cryptography.CryptoStreamMode.Write ),
-            transform,
-            () => transform.Hash,
-            bytes => transform.ComputeHash( bytes ) );
+         return new BlockHashAlgorithmWrapper( transform );
       }
 
       /// <inheritdoc />
-      public IDisposable CreateRSAFromCSPContainer( String containerName )
+      public override IDisposable CreateRSAFromCSPContainer( String containerName )
       {
          var csp = new System.Security.Cryptography.CspParameters { Flags = System.Security.Cryptography.CspProviderFlags.UseMachineKeyStore };
          if ( containerName != null )
@@ -97,7 +125,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public IDisposable CreateRSAFromParameters( RSAParameters parameters )
+      public override IDisposable CreateRSAFromParameters( RSAParameters parameters )
       {
          System.Security.Cryptography.RSA result = null;
          var rParams = new System.Security.Cryptography.RSAParameters()
@@ -140,7 +168,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
+      public override Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
       {
          var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( (System.Security.Cryptography.AsymmetricAlgorithm) rsa );
          formatter.SetHashAlgorithm( hashAlgorithmName );
@@ -179,15 +207,15 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
+      public override Byte[] ExtractPublicKeyFromCSPContainer( String containerName )
       {
 #if MONO
          throw new NotSupportedException("This is not supported on Mono framework.");
 #else
          Byte[] pk;
          Int32 winError1, winError2;
-         if ( !TryExportCSPPublicKey( containterName, 0, out pk, out winError1 ) // Try user-specific key first
-            && !TryExportCSPPublicKey( containterName, 32u, out pk, out winError2 ) ) // Then try machine-specific key (32u = CRYPT_MACHINE_KEYSET )
+         if ( !TryExportCSPPublicKey( containerName, 0, out pk, out winError1 ) // Try user-specific key first
+            && !TryExportCSPPublicKey( containerName, 32u, out pk, out winError2 ) ) // Then try machine-specific key (32u = CRYPT_MACHINE_KEYSET )
          {
             throw new InvalidOperationException( "Error when using user keystore: " + GetWin32ErrorString( winError1 ) + "\nError when using machine keystore: " + GetWin32ErrorString( winError2 ) );
          }

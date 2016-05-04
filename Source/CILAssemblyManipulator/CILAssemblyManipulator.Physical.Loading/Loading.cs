@@ -108,7 +108,7 @@ namespace CILAssemblyManipulator.Physical.Loading
    {
       private readonly TDictionary _modules;
       private readonly Dictionary<CILMetaData, String> _moduleInfos;
-      private readonly Lazy<HashStreamInfo> _hashStream;
+      private readonly CryptoCallbacks _cryptoCallbacks;
 
       /// <summary>
       /// Constructs this <see cref="AbstractCILMetaDataLoader{TDictionary}"/> with given dictionary and <see cref="CryptoCallbacks"/> (for public key token computation).
@@ -125,7 +125,7 @@ namespace CILAssemblyManipulator.Physical.Loading
 
          this._modules = dictionary;
          this._moduleInfos = new Dictionary<CILMetaData, String>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
-         this._hashStream = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this._cryptoCallbacks = cryptoCallbacks;
       }
 
       private void _resolver_ModuleReferenceResolveEvent( Object sender, ModuleReferenceResolveEventArgs e )
@@ -194,7 +194,7 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <inheritdoc />
       public Byte[] ComputePublicKeyTokenOrNull( Byte[] publicKey )
       {
-         return this._hashStream?.Value.ComputePublicKeyToken( publicKey );
+         return this._cryptoCallbacks?.ComputePublicKeyToken( publicKey );
       }
 
       /// <summary>
@@ -293,9 +293,9 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <param name="disposing">Whether this is called from <see cref="AbstractDisposable.Dispose()"/> method.</param>
       protected override void Dispose( Boolean disposing )
       {
-         if ( disposing && this._hashStream != null && this._hashStream.IsValueCreated )
+         if ( disposing )
          {
-            this._hashStream.Value.Transform.DisposeSafely();
+            this._cryptoCallbacks.DisposeSafely();
          }
       }
 

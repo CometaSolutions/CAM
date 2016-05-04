@@ -38,11 +38,11 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
       private sealed class CILAssemblyNameEqualityComparer : AbstractDisposable, IEqualityComparer<CILAssemblyName>
       {
-         private readonly Lazy<HashStreamInfo> _publicKeyComputer;
+         private readonly CryptoCallbacks _cryptoCallbacks;
 
          internal CILAssemblyNameEqualityComparer( CryptoCallbacks cryptoCallbacks, LazyThreadSafetyMode lazyThreadSafety )
          {
-            this._publicKeyComputer = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), lazyThreadSafety );
+            this._cryptoCallbacks = cryptoCallbacks;
          }
 
          Boolean IEqualityComparer<CILAssemblyName>.Equals( CILAssemblyName x, CILAssemblyName y )
@@ -62,7 +62,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   && !ya.PublicKeyOrToken.IsNullOrEmpty()
                   )
                {
-                  if ( this._publicKeyComputer == null )
+                  if ( this._cryptoCallbacks == null )
                   {
                      throw new NotSupportedException( "The crypto callbacks were not supplied to reflection context, so it is not possible to compare assembly name containing full public key and assembly name containing public key token." );
                   }
@@ -72,14 +72,14 @@ namespace CILAssemblyManipulator.Logical.Implementation
                      if ( x.Flags.IsFullPublicKey() )
                      {
                         // Create public key token for x and compare with y
-                        xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( xa.PublicKeyOrToken );
+                        xBytes = this._cryptoCallbacks.ComputePublicKeyToken( xa.PublicKeyOrToken );
                         yBytes = ya.PublicKeyOrToken;
                      }
                      else
                      {
                         // Create public key token for y and compare with x
                         xBytes = xa.PublicKeyOrToken;
-                        yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( ya.PublicKeyOrToken );
+                        yBytes = this._cryptoCallbacks.ComputePublicKeyToken( ya.PublicKeyOrToken );
                      }
                      retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                   }
@@ -95,9 +95,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
 
          protected override void Dispose( Boolean disposing )
          {
-            if ( disposing && this._publicKeyComputer != null && this._publicKeyComputer.IsValueCreated )
+            if ( disposing )
             {
-               this._publicKeyComputer.Value.Transform.DisposeSafely();
+               this._cryptoCallbacks.DisposeSafely();
             }
          }
       }

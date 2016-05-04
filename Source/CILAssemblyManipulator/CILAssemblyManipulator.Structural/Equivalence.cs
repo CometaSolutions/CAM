@@ -122,24 +122,21 @@ namespace CILAssemblyManipulator.Structural
    public sealed class AssemblyEquivalenceComparerTokenMatch : AbstractAssemblyEquivalenceComparer, IDisposable
    {
 
-      private readonly Lazy<HashStreamInfo> _publicKeyComputer;
+      private readonly CryptoCallbacks _cryptoCallbacks;
 
       public AssemblyEquivalenceComparerTokenMatch( CryptoCallbacks cryptoCallbacks )
       {
-         this._publicKeyComputer = cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None );
+         this._cryptoCallbacks = cryptoCallbacks;
       }
 
       public void Dispose()
       {
-         if ( this._publicKeyComputer != null && this._publicKeyComputer.IsValueCreated )
-         {
-            this._publicKeyComputer.Value.Transform.DisposeSafely();
-         }
+         this._cryptoCallbacks.DisposeSafely();
       }
 
       protected override ModuleEquivalenceComparer NewModuleEquivalenceComparer( AssemblyInformation assemblyInfo, ModuleStructure x, ModuleStructure y )
       {
-         return new ModuleEquivalenceComparer( assemblyInfo, x, y, this._publicKeyComputer );
+         return new ModuleEquivalenceComparer( assemblyInfo, x, y, this._cryptoCallbacks );
       }
    }
 
@@ -175,15 +172,10 @@ namespace CILAssemblyManipulator.Structural
       private readonly Lazy<IDictionary<MethodStructure, TypeDefinitionStructure>> _xMethodDeclaringTypes;
       private readonly Lazy<IDictionary<MethodStructure, TypeDefinitionStructure>> _yMethodDeclaringTypes;
 
-      private readonly Lazy<HashStreamInfo> _publicKeyComputer;
+      private readonly CryptoCallbacks _cryptoCallbacks;
 
-      //public ModuleEquivalenceComparer( ModuleStructure x, ModuleStructure y, CryptoCallbacks cryptoCallbacks )
-      //   : this( x, y, cryptoCallbacks == null ? null : new Lazy<HashStreamInfo>( () => cryptoCallbacks.CreateHashStream( AssemblyHashAlgorithm.SHA1 ), LazyThreadSafetyMode.None ) )
-      //{
 
-      //}
-
-      internal ModuleEquivalenceComparer( AssemblyInformation assemblyInfo, ModuleStructure x, ModuleStructure y, Lazy<HashStreamInfo> publicKeyComputer )
+      internal ModuleEquivalenceComparer( AssemblyInformation assemblyInfo, ModuleStructure x, ModuleStructure y, CryptoCallbacks cryptoCallbacks )
       {
          ArgumentValidator.ValidateNotNull( "Assembly information", assemblyInfo );
          ArgumentValidator.ValidateNotNull( "First module", x );
@@ -192,7 +184,7 @@ namespace CILAssemblyManipulator.Structural
          this._assemblyInfo = assemblyInfo;
          this._xModule = x;
          this._yModule = y;
-         this._publicKeyComputer = publicKeyComputer;
+         this._cryptoCallbacks = cryptoCallbacks;
 
          this._moduleComparer = ComparerFromFunctions.NewEqualityComparer<ModuleStructure>( this.Equivalence_Module, this.HashCode_Module );
          this._typeDefComparer = ComparerFromFunctions.NewEqualityComparer<TypeDefinitionStructure>( this.Equivalence_TypeDefinition, this.HashCode_TypeDefinition );
@@ -482,7 +474,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_AssemblyRef_ComputeTokenIfNeeded( AssemblyReferenceStructure x, AssemblyReferenceStructure y )
       {
-         var retVal = this._publicKeyComputer != null
+         var retVal = this._cryptoCallbacks != null
             && ( x.Attributes & ~AssemblyFlags.PublicKey ) == ( y.Attributes & ~AssemblyFlags.PublicKey );
          if ( retVal )
          {
@@ -514,14 +506,14 @@ namespace CILAssemblyManipulator.Structural
             if ( xIsFullPublicKey )
             {
                // Create public key token for x and compare with y
-               xBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( x.PublicKeyOrToken );
+               xBytes = this._cryptoCallbacks.ComputePublicKeyToken( x.PublicKeyOrToken );
                yBytes = y.PublicKeyOrToken;
             }
             else
             {
                // Create public key token for y and compare with x
                xBytes = x.PublicKeyOrToken;
-               yBytes = this._publicKeyComputer.Value.ComputePublicKeyToken( y.PublicKeyOrToken );
+               yBytes = this._cryptoCallbacks.ComputePublicKeyToken( y.PublicKeyOrToken );
             }
             retVal = ArrayEqualityComparer<Byte>.ArrayEquality( xBytes, yBytes );
          }
@@ -1058,7 +1050,7 @@ namespace CILAssemblyManipulator.Structural
             Boolean xFullPublicKey, yFullPublicKey;
             if ( xHasAssembly && yHasAssembly )
             {
-               retVal = this._publicKeyComputer != null
+               retVal = this._cryptoCallbacks != null
                   && AssemblyInformation.TryParse( xAssembly, out xAssemblyInfo, out xFullPublicKey )
                   && AssemblyInformation.TryParse( yAssembly, out yAssemblyInfo, out yFullPublicKey )
                   && xFullPublicKey != yFullPublicKey
@@ -1068,7 +1060,7 @@ namespace CILAssemblyManipulator.Structural
             else if ( xHasAssembly != yHasAssembly )
             {
                retVal = AssemblyInformation.TryParse( xHasAssembly ? xAssembly : yAssembly, out xAssemblyInfo, out xFullPublicKey )
-                  && ( this._assemblyInfo.Equals( xAssemblyInfo ) || ( !xFullPublicKey && this._publicKeyComputer != null && this.Equivalence_AssemblyInfo_ComputeTokenIfNeeded( this._assemblyInfo, xAssemblyInfo, true, false ) ) );
+                  && ( this._assemblyInfo.Equals( xAssemblyInfo ) || ( !xFullPublicKey && this._cryptoCallbacks != null && this.Equivalence_AssemblyInfo_ComputeTokenIfNeeded( this._assemblyInfo, xAssemblyInfo, true, false ) ) );
 
             }
          }

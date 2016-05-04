@@ -27,7 +27,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <summary>
    /// 
    /// </summary>
-   public interface BlockTransform
+   public interface BlockHashAlgorithm : IDisposable
    {
       /// <summary>
       /// 
@@ -35,7 +35,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="data"></param>
       /// <param name="offset"></param>
       /// <param name="count"></param>
-      void TransformBlock( Byte[] data, Int32 offset, Int32 count );
+      void ProcessBlock( Byte[] data, Int32 offset, Int32 count );
 
       /// <summary>
       /// 
@@ -44,13 +44,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="offset"></param>
       /// <param name="count"></param>
       /// <returns></returns>
-      Byte[] TransformFinalBlock( Byte[] data, Int32 offset, Int32 count );
+      Byte[] ProcessFinalBlock( Byte[] data, Int32 offset, Int32 count );
    }
 
    /// <summary>
    /// 
    /// </summary>
-   public abstract class AbstractBlockTransform : BlockTransform
+   public abstract class BlockHashAlgorithmWithMessageLength : AbstractDisposable, BlockHashAlgorithm
    {
 
       private readonly Byte[] _block;
@@ -60,14 +60,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      protected AbstractBlockTransform( Int32 blockByteCount )
+      protected BlockHashAlgorithmWithMessageLength( Int32 blockByteCount )
       {
          this._stateResetDone = false;
          this._block = new Byte[blockByteCount];
       }
 
       /// <inheritdoc />
-      public void TransformBlock( Byte[] data, Int32 offset, Int32 count )
+      public void ProcessBlock( Byte[] data, Int32 offset, Int32 count )
       {
          if ( !this._stateResetDone )
          {
@@ -79,7 +79,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public Byte[] TransformFinalBlock( Byte[] data, Int32 offset, Int32 count )
+      public Byte[] ProcessFinalBlock( Byte[] data, Int32 offset, Int32 count )
       {
          if ( data != null )
          {
@@ -90,12 +90,21 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return retVal;
       }
 
+      /// <inheritdoc />
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( disposing )
+         {
+            this.Reset();
+         }
+      }
+
       private void Reset()
       {
          Array.Clear( this._block, 0, this._block.Length );
          this._count = 0UL;
-         this._stateResetDone = false;
          this.ResetState( true );
+         this._stateResetDone = false;
       }
 
       private void HashBlock( Byte[] data, Int32 offset, Int32 count )
@@ -135,11 +144,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
          // We will write 9 more bytes (byte + ulong)
          // Round up by block size
          var count = this._count;
-         var data = new Byte[( count + (UInt64) this.CountIncreaseForHashEnd ).RoundUpU64( (UInt32) this._block.Length ) - count];
-         // Write value 128 at the beginning, and amount of written bits at the end of the data
+         var data = new Byte[
+            ( count + (UInt64) this.CountIncreaseForHashEnd ).RoundUpU64( (UInt32) this._block.Length )
+            -
+            count];
+         // Write value 128 at the beginning, and amount of written *bits* at the end of the data
          var idx = 0;
-         data.WriteByteToBytes( ref idx, 128 )
-            .WriteUInt64BEToBytesNoRef( data.Length - 8, count * 8 );
+         data.WriteByteToBytes( ref idx, 0x80 );
+         this.WriteLength( data, unchecked((Int64) count * 8) );
 
          // Hash the data
          this.HashBlock( data, 0, data.Length );
@@ -176,15 +188,28 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// </summary>
       /// <param name="isHashDone"></param>
       protected abstract void ResetState( Boolean isHashDone );
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="array"></param>
+      /// <param name="bitsWritten"></param>
+      protected virtual void WriteLength( Byte[] array, Int64 bitsWritten )
+      {
+         array.WriteInt64BEToBytesNoRef( array.Length - 8, bitsWritten );
+      }
    }
 
    /// <summary>
    /// 
    /// </summary>
    [CLSCompliant( false )]
-   public abstract class SHA32BitWord : AbstractBlockTransform
+   public abstract class SHA32BitWord : BlockHashAlgorithmWithMessageLength
    {
-      private const Int32 BLOCK_SIZE = 0x40;
+      /// <summary>
+      /// 
+      /// </summary>
+      protected const Int32 BLOCK_SIZE = 0x40;
 
       private readonly UInt32[] _x;
       private readonly UInt32[] _state;
@@ -245,14 +270,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <returns></returns>
       protected override void PopulateHash( Byte[] hash )
       {
-         var idx = 0;
-         var max = this.HashByteCount;
-         var i = 0;
-         var state = this._state;
-         while ( idx < max )
-         {
-            hash.WriteUInt32BEToBytes( ref idx, state[i++] );
-         }
+         this.PopulateHash( hash, this._state );
       }
 
       /// <summary>
@@ -263,12 +281,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          // 1. Write data to X
          var x = this._x;
-         var i = 0;
-         var idx = 0;
-         for ( ; i < BLOCK_SIZE / sizeof( UInt32 ); ++i )
-         {
-            x[i] = block.ReadUInt32BEFromBytes( ref idx );
-         }
+         var i = this.PopulateX( x, block );
 
          // 2. Expand X
          for ( ; i < x.Length; ++i )
@@ -278,6 +291,23 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
          // 3. Do the actual transform
          this.DoTransformAfterExpanding( x, this._state );
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="x"></param>
+      /// <param name="block"></param>
+      /// <returns></returns>
+      protected virtual Int32 PopulateX( UInt32[] x, Byte[] block )
+      {
+         var i = 0;
+         var idx = 0;
+         for ( ; i < BLOCK_SIZE / sizeof( UInt32 ); ++i )
+         {
+            x[i] = block.ReadUInt32BEFromBytes( ref idx );
+         }
+         return i;
       }
 
       /// <summary>
@@ -301,13 +331,29 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="state"></param>
       protected abstract void DoTransformAfterExpanding( UInt32[] x, UInt32[] state );
 
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="hash"></param>
+      /// <param name="state"></param>
+      protected virtual void PopulateHash( Byte[] hash, UInt32[] state )
+      {
+         var idx = 0;
+         var max = this.HashByteCount;
+         var i = 0;
+         while ( idx < max )
+         {
+            hash.WriteUInt32BEToBytes( ref idx, state[i++] );
+         }
+      }
+
    }
 
    /// <summary>
    /// 
    /// </summary>
    [CLSCompliant( false )]
-   public abstract class SHA64BitWord : AbstractBlockTransform
+   public abstract class SHA64BitWord : BlockHashAlgorithmWithMessageLength
    {
       private const Int32 BLOCK_SIZE = 0x80;
 
@@ -360,7 +406,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          get
          {
-            return this._state.Length * sizeof( UInt32 );
+            return this._state.Length * sizeof( UInt64 );
          }
       }
 
@@ -426,50 +472,19 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="state"></param>
       protected abstract void DoTransformAfterExpanding( UInt64[] x, UInt64[] state );
 
-      /// <summary>
-      /// Returns the <c>K</c> array used in SHA384 and SHA512 algorithms.
-      /// </summary>
-      /// <returns>Will return the first 64 bits of the fractional parts of the cube roots of the first sixt-four prime numbers.</returns>
-      protected static UInt64[] GenerateKForSHA384Or512()
-      {
-         return new UInt64[]
-         {
-            0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
-            0x3956c25bf348b538, 0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118,
-            0xd807aa98a3030242, 0x12835b0145706fbe, 0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2,
-            0x72be5d74f27b896f, 0x80deb1fe3b1696b1, 0x9bdc06a725c71235, 0xc19bf174cf692694,
-            0xe49b69c19ef14ad2, 0xefbe4786384f25e3, 0x0fc19dc68b8cd5b5, 0x240ca1cc77ac9c65,
-            0x2de92c6f592b0275, 0x4a7484aa6ea6e483, 0x5cb0a9dcbd41fbd4, 0x76f988da831153b5,
-            0x983e5152ee66dfab, 0xa831c66d2db43210, 0xb00327c898fb213f, 0xbf597fc7beef0ee4,
-            0xc6e00bf33da88fc2, 0xd5a79147930aa725, 0x06ca6351e003826f, 0x142929670a0e6e70,
-            0x27b70a8546d22ffc, 0x2e1b21385c26c926, 0x4d2c6dfc5ac42aed, 0x53380d139d95b3df,
-            0x650a73548baf63de, 0x766a0abb3c77b2a8, 0x81c2c92e47edaee6, 0x92722c851482353b,
-            0xa2bfe8a14cf10364, 0xa81a664bbc423001, 0xc24b8b70d0f89791, 0xc76c51a30654be30,
-            0xd192e819d6ef5218, 0xd69906245565a910, 0xf40e35855771202a, 0x106aa07032bbd1b8,
-            0x19a4c116b8d2d0c8, 0x1e376c085141ab53, 0x2748774cdf8eeb99, 0x34b0bcb5e19b48a8,
-            0x391c0cb3c5c95a63, 0x4ed8aa4ae3418acb, 0x5b9cca4f7763e373, 0x682e6ff3d6b2b8a3,
-            0x748f82ee5defb2fc, 0x78a5636f43172f60, 0x84c87814a1f0ab72, 0x8cc702081a6439ec,
-            0x90befffa23631e28, 0xa4506cebde82bde9, 0xbef9a3f7b2c67915, 0xc67178f2e372532b,
-            0xca273eceea26619c, 0xd186b8c721c0c207, 0xeada7dd6cde0eb1e, 0xf57d4f7fee6ed178,
-            0x06f067aa72176fba, 0x0a637dc5a2c898a6, 0x113f9804bef90dae, 0x1b710b35131c471b,
-            0x28db77f523047d84, 0x32caab7b40c72493, 0x3c9ebe0a15c9bebc, 0x431d67c49c100d4c,
-            0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817
-         };
-      }
-
    }
 
    /// <summary>
    /// TODO
    /// </summary>
    [CLSCompliant( false )]
-   public sealed class SHA128 : SHA32BitWord
+   public sealed class SHA1_128 : SHA32BitWord
    {
 
       /// <summary>
       /// 
       /// </summary>
-      public SHA128()
+      public SHA1_128()
          : base( 0x50, 0x05 )
       {
       }
@@ -626,10 +641,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// 
    /// </summary>
    [CLSCompliant( false )]
-   public sealed class SHA256 : SHA32BitWord
+   public sealed class SHA2_256 : SHA32BitWord
    {
-      // the first 32 bits of the fractional parts of the cube roots of the first sixty-four prime numbers
-      private static readonly UInt32[] K =
+      private const Int32 EXPANDED_BLOCK_SIZE = 0x40;
+
+      // the first 32 bits of the fractional parts of the cube roots of the first 64 prime numbers
+      private static readonly UInt32[] K = new UInt32[EXPANDED_BLOCK_SIZE]
       {
          0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
          0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -652,8 +669,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      public SHA256()
-         : base( 0x40, 0x08 )
+      public SHA2_256()
+         : base( EXPANDED_BLOCK_SIZE, 0x08 )
       {
 
       }
@@ -704,7 +721,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          var h7 = state[6];
          var h8 = state[7];
 
-         for ( var i = 0; i < 64; )
+         for ( var i = 0; i < EXPANDED_BLOCK_SIZE; )
          {
             h8 += Sum1Ch( h5, h6, h7 ) + K[i] + x[i];
             h4 += h8;
@@ -786,48 +803,45 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// 
    /// </summary>
    [CLSCompliant( false )]
-   public sealed class SHA384 : SHA64BitWord
+   public abstract class SHA2_384Or512 : SHA64BitWord
    {
-      private static readonly UInt64[] K = GenerateKForSHA384Or512();
+      private const Int32 EXPANDED_BLOCK_SIZE = 0x50;
+
+      // The first 64 bits of the fractional parts of the cube roots of the first 64 prime numbers
+      private static readonly UInt64[] K = new UInt64[EXPANDED_BLOCK_SIZE]
+      {
+         0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
+         0x3956c25bf348b538, 0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118,
+         0xd807aa98a3030242, 0x12835b0145706fbe, 0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2,
+         0x72be5d74f27b896f, 0x80deb1fe3b1696b1, 0x9bdc06a725c71235, 0xc19bf174cf692694,
+         0xe49b69c19ef14ad2, 0xefbe4786384f25e3, 0x0fc19dc68b8cd5b5, 0x240ca1cc77ac9c65,
+         0x2de92c6f592b0275, 0x4a7484aa6ea6e483, 0x5cb0a9dcbd41fbd4, 0x76f988da831153b5,
+         0x983e5152ee66dfab, 0xa831c66d2db43210, 0xb00327c898fb213f, 0xbf597fc7beef0ee4,
+         0xc6e00bf33da88fc2, 0xd5a79147930aa725, 0x06ca6351e003826f, 0x142929670a0e6e70,
+         0x27b70a8546d22ffc, 0x2e1b21385c26c926, 0x4d2c6dfc5ac42aed, 0x53380d139d95b3df,
+         0x650a73548baf63de, 0x766a0abb3c77b2a8, 0x81c2c92e47edaee6, 0x92722c851482353b,
+         0xa2bfe8a14cf10364, 0xa81a664bbc423001, 0xc24b8b70d0f89791, 0xc76c51a30654be30,
+         0xd192e819d6ef5218, 0xd69906245565a910, 0xf40e35855771202a, 0x106aa07032bbd1b8,
+         0x19a4c116b8d2d0c8, 0x1e376c085141ab53, 0x2748774cdf8eeb99, 0x34b0bcb5e19b48a8,
+         0x391c0cb3c5c95a63, 0x4ed8aa4ae3418acb, 0x5b9cca4f7763e373, 0x682e6ff3d6b2b8a3,
+         0x748f82ee5defb2fc, 0x78a5636f43172f60, 0x84c87814a1f0ab72, 0x8cc702081a6439ec,
+         0x90befffa23631e28, 0xa4506cebde82bde9, 0xbef9a3f7b2c67915, 0xc67178f2e372532b,
+         0xca273eceea26619c, 0xd186b8c721c0c207, 0xeada7dd6cde0eb1e, 0xf57d4f7fee6ed178,
+         0x06f067aa72176fba, 0x0a637dc5a2c898a6, 0x113f9804bef90dae, 0x1b710b35131c471b,
+         0x28db77f523047d84, 0x32caab7b40c72493, 0x3c9ebe0a15c9bebc, 0x431d67c49c100d4c,
+         0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817
+      };
 
       /// <summary>
       /// 
       /// </summary>
-      public SHA384()
-         : base( 0x50, 0x08 )
+      public SHA2_384Or512()
+         : base( EXPANDED_BLOCK_SIZE, 0x08 )
       {
 
       }
 
-      /// <summary>
-      /// 
-      /// </summary>
-      protected override Int32 HashByteCount
-      {
-         get
-         {
-            // Even though the state is 64 bytes (8 ulongs * 8 bytes per ulong), the hash size is only 48 bytes.
-            return 0x30;
-         }
-      }
 
-      /// <summary>
-      /// 
-      /// </summary>
-      /// <param name="state"></param>
-      protected override void ResetStateIntegers( UInt64[] state )
-      {
-         // SHA-384 initial hash value:
-         // The first 32 bits of the fractional parts of the square roots of the 9th through 16th prime numbers
-         state[0] = 0xcbbb9d5dc1059ed8;
-         state[1] = 0x629a292a367cd507;
-         state[2] = 0x9159015a3070dd17;
-         state[3] = 0x152fecd8f70e5939;
-         state[4] = 0x67332667ffc00b31;
-         state[5] = 0x8eb44a8768581511;
-         state[6] = 0xdb0c2e0d64f98fa7;
-         state[7] = 0x47b5481dbefa4fa4;
-      }
 
       /// <summary>
       /// 
@@ -857,7 +871,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          var h7 = state[6];
          var h8 = state[7];
 
-         for ( var i = 0; i < 64; )
+         for ( var i = 0; i < EXPANDED_BLOCK_SIZE; )
          {
             h8 += Sum1Ch( h5, h6, h7 ) + K[i] + x[i];
             h4 += h8;
@@ -934,6 +948,288 @@ namespace CILAssemblyManipulator.Physical.Crypto
             + ( ( x & y ) ^ ( ( ~x ) & z ) ); // Ch
       }
    }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   [CLSCompliant( false )]
+   public sealed class SHA2_384 : SHA2_384Or512
+   {
+      /// <summary>
+      /// 
+      /// </summary>
+      protected override Int32 HashByteCount
+      {
+         get
+         {
+            // Even though the state is 64 bytes (8 ulongs * 8 bytes per ulong), the hash size is only 48 bytes.
+            return 0x30;
+         }
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="state"></param>
+      protected override void ResetStateIntegers( UInt64[] state )
+      {
+         // SHA-384 initial hash value:
+         // The first 64 bits of the fractional parts of the square roots of the 9th through 16th prime numbers
+         state[0] = 0xcbbb9d5dc1059ed8;
+         state[1] = 0x629a292a367cd507;
+         state[2] = 0x9159015a3070dd17;
+         state[3] = 0x152fecd8f70e5939;
+         state[4] = 0x67332667ffc00b31;
+         state[5] = 0x8eb44a8768581511;
+         state[6] = 0xdb0c2e0d64f98fa7;
+         state[7] = 0x47b5481dbefa4fa4;
+      }
+   }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   [CLSCompliant( false )]
+   public sealed class SHA2_512 : SHA2_384Or512
+   {
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="state"></param>
+      protected override void ResetStateIntegers( UInt64[] state )
+      {
+         // SHA-512 initial hash value:
+         // The first 64 bits of the fractional parts of the square roots of the first 8 prime numbers
+         state[0] = 0x6a09e667f3bcc908;
+         state[1] = 0xbb67ae8584caa73b;
+         state[2] = 0x3c6ef372fe94f82b;
+         state[3] = 0xa54ff53a5f1d36f1;
+         state[4] = 0x510e527fade682d1;
+         state[5] = 0x9b05688c2b3e6c1f;
+         state[6] = 0x1f83d9abfb41bd6b;
+         state[7] = 0x5be0cd19137e2179;
+      }
+   }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   [CLSCompliant( false )]
+   public sealed class MD5 : SHA32BitWord
+   {
+      //private const Int32 BLOCK_SIZE = 0x40;
+      //private const Int32 HASH_BYTE_COUNT = 0x20;
+      private const Int32 STATE_COUNT = 0x04;
+
+      /// <summary>
+      /// 
+      /// </summary>
+      public MD5()
+         : base( 0x10, STATE_COUNT )
+      {
+
+      }
+
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="x"></param>
+      /// <param name="idx"></param>
+      /// <returns></returns>
+      protected override UInt32 Expand( UInt32[] x, Int32 idx )
+      {
+         throw new NotSupportedException( "This method is not supported for MD5." );
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="x"></param>
+      /// <param name="state"></param>
+      protected override void DoTransformAfterExpanding( UInt32[] x, UInt32[] state )
+      {
+         // Shift amounts for cycles
+         const Int32 S11 = 7;
+         const Int32 S12 = 12;
+         const Int32 S13 = 17;
+         const Int32 S14 = 22;
+
+         const Int32 S21 = 5;
+         const Int32 S22 = 9;
+         const Int32 S23 = 14;
+         const Int32 S24 = 20;
+
+         const Int32 S31 = 4;
+         const Int32 S32 = 11;
+         const Int32 S33 = 16;
+         const Int32 S34 = 23;
+
+         const Int32 S41 = 6;
+         const Int32 S42 = 10;
+         const Int32 S43 = 15;
+         const Int32 S44 = 21;
+
+         // Prepare variables
+         var a = state[0];
+         var b = state[1];
+         var c = state[2];
+         var d = state[3];
+
+         // F cycle
+         a = ( a + F( b, c, d ) + x[0] + 0xd76aa478 ).RotateLeft( S11 ) + b;
+         d = ( d + F( a, b, c ) + x[1] + 0xe8c7b756 ).RotateLeft( S12 ) + a;
+         c = ( c + F( d, a, b ) + x[2] + 0x242070db ).RotateLeft( S13 ) + d;
+         b = ( b + F( c, d, a ) + x[3] + 0xc1bdceee ).RotateLeft( S14 ) + c;
+         a = ( a + F( b, c, d ) + x[4] + 0xf57c0faf ).RotateLeft( S11 ) + b;
+         d = ( d + F( a, b, c ) + x[5] + 0x4787c62a ).RotateLeft( S12 ) + a;
+         c = ( c + F( d, a, b ) + x[6] + 0xa8304613 ).RotateLeft( S13 ) + d;
+         b = ( b + F( c, d, a ) + x[7] + 0xfd469501 ).RotateLeft( S14 ) + c;
+         a = ( a + F( b, c, d ) + x[8] + 0x698098d8 ).RotateLeft( S11 ) + b;
+         d = ( d + F( a, b, c ) + x[9] + 0x8b44f7af ).RotateLeft( S12 ) + a;
+         c = ( c + F( d, a, b ) + x[10] + 0xffff5bb1 ).RotateLeft( S13 ) + d;
+         b = ( b + F( c, d, a ) + x[11] + 0x895cd7be ).RotateLeft( S14 ) + c;
+         a = ( a + F( b, c, d ) + x[12] + 0x6b901122 ).RotateLeft( S11 ) + b;
+         d = ( d + F( a, b, c ) + x[13] + 0xfd987193 ).RotateLeft( S12 ) + a;
+         c = ( c + F( d, a, b ) + x[14] + 0xa679438e ).RotateLeft( S13 ) + d;
+         b = ( b + F( c, d, a ) + x[15] + 0x49b40821 ).RotateLeft( S14 ) + c;
+
+         // G cycle
+         a = ( a + G( b, c, d ) + x[1] + 0xf61e2562 ).RotateLeft( S21 ) + b;
+         d = ( d + G( a, b, c ) + x[6] + 0xc040b340 ).RotateLeft( S22 ) + a;
+         c = ( c + G( d, a, b ) + x[11] + 0x265e5a51 ).RotateLeft( S23 ) + d;
+         b = ( b + G( c, d, a ) + x[0] + 0xe9b6c7aa ).RotateLeft( S24 ) + c;
+         a = ( a + G( b, c, d ) + x[5] + 0xd62f105d ).RotateLeft( S21 ) + b;
+         d = ( d + G( a, b, c ) + x[10] + 0x02441453 ).RotateLeft( S22 ) + a;
+         c = ( c + G( d, a, b ) + x[15] + 0xd8a1e681 ).RotateLeft( S23 ) + d;
+         b = ( b + G( c, d, a ) + x[4] + 0xe7d3fbc8 ).RotateLeft( S24 ) + c;
+         a = ( a + G( b, c, d ) + x[9] + 0x21e1cde6 ).RotateLeft( S21 ) + b;
+         d = ( d + G( a, b, c ) + x[14] + 0xc33707d6 ).RotateLeft( S22 ) + a;
+         c = ( c + G( d, a, b ) + x[3] + 0xf4d50d87 ).RotateLeft( S23 ) + d;
+         b = ( b + G( c, d, a ) + x[8] + 0x455a14ed ).RotateLeft( S24 ) + c;
+         a = ( a + G( b, c, d ) + x[13] + 0xa9e3e905 ).RotateLeft( S21 ) + b;
+         d = ( d + G( a, b, c ) + x[2] + 0xfcefa3f8 ).RotateLeft( S22 ) + a;
+         c = ( c + G( d, a, b ) + x[7] + 0x676f02d9 ).RotateLeft( S23 ) + d;
+         b = ( b + G( c, d, a ) + x[12] + 0x8d2a4c8a ).RotateLeft( S24 ) + c;
+
+         // H cycle
+         a = ( a + H( b, c, d ) + x[5] + 0xfffa3942 ).RotateLeft( S31 ) + b;
+         d = ( d + H( a, b, c ) + x[8] + 0x8771f681 ).RotateLeft( S32 ) + a;
+         c = ( c + H( d, a, b ) + x[11] + 0x6d9d6122 ).RotateLeft( S33 ) + d;
+         b = ( b + H( c, d, a ) + x[14] + 0xfde5380c ).RotateLeft( S34 ) + c;
+         a = ( a + H( b, c, d ) + x[1] + 0xa4beea44 ).RotateLeft( S31 ) + b;
+         d = ( d + H( a, b, c ) + x[4] + 0x4bdecfa9 ).RotateLeft( S32 ) + a;
+         c = ( c + H( d, a, b ) + x[7] + 0xf6bb4b60 ).RotateLeft( S33 ) + d;
+         b = ( b + H( c, d, a ) + x[10] + 0xbebfbc70 ).RotateLeft( S34 ) + c;
+         a = ( a + H( b, c, d ) + x[13] + 0x289b7ec6 ).RotateLeft( S31 ) + b;
+         d = ( d + H( a, b, c ) + x[0] + 0xeaa127fa ).RotateLeft( S32 ) + a;
+         c = ( c + H( d, a, b ) + x[3] + 0xd4ef3085 ).RotateLeft( S33 ) + d;
+         b = ( b + H( c, d, a ) + x[6] + 0x04881d05 ).RotateLeft( S34 ) + c;
+         a = ( a + H( b, c, d ) + x[9] + 0xd9d4d039 ).RotateLeft( S31 ) + b;
+         d = ( d + H( a, b, c ) + x[12] + 0xe6db99e5 ).RotateLeft( S32 ) + a;
+         c = ( c + H( d, a, b ) + x[15] + 0x1fa27cf8 ).RotateLeft( S33 ) + d;
+         b = ( b + H( c, d, a ) + x[2] + 0xc4ac5665 ).RotateLeft( S34 ) + c;
+
+         // K cycle
+         a = ( a + K( b, c, d ) + x[0] + 0xf4292244 ).RotateLeft( S41 ) + b;
+         d = ( d + K( a, b, c ) + x[7] + 0x432aff97 ).RotateLeft( S42 ) + a;
+         c = ( c + K( d, a, b ) + x[14] + 0xab9423a7 ).RotateLeft( S43 ) + d;
+         b = ( b + K( c, d, a ) + x[5] + 0xfc93a039 ).RotateLeft( S44 ) + c;
+         a = ( a + K( b, c, d ) + x[12] + 0x655b59c3 ).RotateLeft( S41 ) + b;
+         d = ( d + K( a, b, c ) + x[3] + 0x8f0ccc92 ).RotateLeft( S42 ) + a;
+         c = ( c + K( d, a, b ) + x[10] + 0xffeff47d ).RotateLeft( S43 ) + d;
+         b = ( b + K( c, d, a ) + x[1] + 0x85845dd1 ).RotateLeft( S44 ) + c;
+         a = ( a + K( b, c, d ) + x[8] + 0x6fa87e4f ).RotateLeft( S41 ) + b;
+         d = ( d + K( a, b, c ) + x[15] + 0xfe2ce6e0 ).RotateLeft( S42 ) + a;
+         c = ( c + K( d, a, b ) + x[6] + 0xa3014314 ).RotateLeft( S43 ) + d;
+         b = ( b + K( c, d, a ) + x[13] + 0x4e0811a1 ).RotateLeft( S44 ) + c;
+         a = ( a + K( b, c, d ) + x[4] + 0xf7537e82 ).RotateLeft( S41 ) + b;
+         d = ( d + K( a, b, c ) + x[11] + 0xbd3af235 ).RotateLeft( S42 ) + a;
+         c = ( c + K( d, a, b ) + x[2] + 0x2ad7d2bb ).RotateLeft( S43 ) + d;
+         b = ( b + K( c, d, a ) + x[9] + 0xeb86d391 ).RotateLeft( S44 ) + c;
+
+         state[0] += a;
+         state[1] += b;
+         state[2] += c;
+         state[3] += d;
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="state"></param>
+      protected override void ResetStateIntegers( UInt32[] state )
+      {
+         state[0] = 0x67452301;
+         state[1] = 0xefcdab89;
+         state[2] = 0x98badcfe;
+         state[3] = 0x10325476;
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="x"></param>
+      /// <param name="block"></param>
+      /// <returns></returns>
+      protected override Int32 PopulateX( UInt32[] x, Byte[] block )
+      {
+         // MD5 is little-endian
+         var i = 0;
+         var idx = 0;
+         for ( ; i < BLOCK_SIZE / sizeof( UInt32 ); ++i )
+         {
+            x[i] = block.ReadUInt32LEFromBytes( ref idx );
+         }
+         return i;
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="hash"></param>
+      /// <param name="state"></param>
+      protected override void PopulateHash( Byte[] hash, UInt32[] state )
+      {
+         // MD5 is little-endian
+         var idx = 0;
+         for ( var i = 0; i < STATE_COUNT; ++i )
+         {
+            hash.WriteUInt32LEToBytes( ref idx, state[i] );
+         }
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="array"></param>
+      /// <param name="bitsWritten"></param>
+      protected override void WriteLength( Byte[] array, Int64 bitsWritten )
+      {
+         array.WriteInt64LEToBytesNoRef( array.Length - 8, bitsWritten );
+      }
+
+      private static UInt32 F( UInt32 u, UInt32 v, UInt32 w )
+      {
+         return ( u & v ) | ( ~u & w );
+      }
+
+      private static UInt32 G( UInt32 u, UInt32 v, UInt32 w )
+      {
+         return ( u & w ) | ( v & ~w );
+      }
+
+      private static UInt32 H( UInt32 u, UInt32 v, UInt32 w )
+      {
+         return u ^ v ^ w;
+      }
+
+      private static UInt32 K( UInt32 u, UInt32 v, UInt32 w )
+      {
+         return v ^ ( u | ~w );
+      }
+
+   }
 }
 
 #pragma warning disable 1591
@@ -948,9 +1244,42 @@ public static partial class E_CILPhysical
    /// <param name="offset"></param>
    /// <param name="count"></param>
    /// <returns></returns>
-   public static Byte[] ComputeHash( this BlockTransform transform, Byte[] array, Int32 offset, Int32 count )
+   public static Byte[] ComputeHash( this BlockHashAlgorithm transform, Byte[] array, Int32 offset, Int32 count )
    {
-      transform.TransformBlock( array, offset, count );
-      return transform.TransformFinalBlock( null, 0, 0 );
+      transform.ProcessBlock( array, offset, count );
+      return transform.TransformFinalBlock();
+   }
+
+   /// <summary>
+   /// Helper method to compute hash from the data of specific stream.
+   /// </summary>
+   /// <param name="source">The source stream containing the data to be hashed.</param>
+   /// <param name="hash">The <see cref="BlockHashAlgorithm"/> to use.</param>
+   /// <param name="buffer">The buffer to use when reading data from <paramref name="source"/>.</param>
+   /// <param name="amount">The amount of bytes to read from <paramref name="source"/>.</param>
+   /// <exception cref="System.IO.EndOfStreamException">If the <paramref name="source"/> ends before given <paramref name="amount"/> of bytes is read.</exception>
+   public static void CopyStreamPart( this BlockHashAlgorithm hash, System.IO.Stream source, Byte[] buffer, Int64 amount )
+   {
+      ArgumentValidator.ValidateNotNull( "Stream", source );
+      while ( amount > 0 )
+      {
+         var amountOfRead = source.Read( buffer, 0, (Int32) Math.Min( buffer.Length, amount ) );
+         if ( amountOfRead <= 0 )
+         {
+            throw new System.IO.EndOfStreamException( "Source stream ended before copying of " + amount + " byte" + ( amount > 1 ? "s" : "" ) + " could be completed." );
+         }
+         hash.ProcessBlock( buffer, 0, amountOfRead );
+         amount -= (UInt32) amountOfRead;
+      }
+   }
+
+   /// <summary>
+   /// Helper method to just make the algorithm produce the hash after all the data has been written.
+   /// </summary>
+   /// <param name="algorithm">The <see cref="BlockHashAlgorithm"/>.</param>
+   /// <returns>The hash of the data previously transformed with the <see cref="BlockHashAlgorithm"/>.</returns>
+   public static Byte[] TransformFinalBlock( this BlockHashAlgorithm algorithm )
+   {
+      return algorithm.ProcessFinalBlock( null, 0, 0 );
    }
 }

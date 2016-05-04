@@ -29,7 +29,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <summary>
    /// This interface encapsulates all the cryptographical methods needed by CAM.Physical.
    /// </summary>
-   public interface CryptoCallbacks
+   public interface CryptoCallbacks : IDisposable
    {
       /// <summary>
       /// Given a container name, extracts public key bytes from it.
@@ -43,9 +43,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// Given an <see cref="AssemblyHashAlgorithm"/>, creates a new <see cref="HashStreamInfo"/> struct to be used for cryptographic purposes (e.g. computing public key token, or calculating storng name signature).
       /// </summary>
       /// <param name="algorithm">The <see cref="AssemblyHashAlgorithm"/> enumeration.</param>
-      /// <returns>A <see cref="HashStreamInfo"/> for given <paramref name="algorithm"/>.</returns>
-      /// <seealso cref="HashStreamInfo"/>
-      HashStreamInfo CreateHashStream( AssemblyHashAlgorithm algorithm );
+      /// <returns>A <see cref="BlockHashAlgorithm"/> for given <paramref name="algorithm"/>.</returns>
+      /// <seealso cref="BlockHashAlgorithm"/>
+      BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
 
       /// <summary>
       /// Creates a new RSA service provider for a given container name.
@@ -75,6 +75,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="contentsHash">The binary contents of the content from which to create signature from.</param>
       /// <returns>The cryptographic signature created with <paramref name="hashAlgorithmName"/> algorithm from <paramref name="contentsHash"/>.</returns>
       Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash );
+
+      /// <summary>
+      /// This method will compute public key token for a given full public key.
+      /// </summary>
+      /// <param name="fullPublicKey">The full public key.</param>
+      /// <returns>The value of <paramref name="fullPublicKey"/>, if <paramref name="fullPublicKey"/> is <c>null</c> or empty, or the public key token of the <paramref name="fullPublicKey"/>.</returns>
+      Byte[] ComputePublicKeyToken( Byte[] fullPublicKey );
    }
 
    /// <summary>
@@ -368,46 +375,46 @@ public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
 
-   /// <summary>
-   /// Helper method to create a new <see cref="HashStreamInfo"/> struct, and check that its properties are not <c>null</c>.
-   /// </summary>
-   /// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
-   /// <param name="algorithm">The <see cref="AssemblyHashAlgorithm"/>.</param>
-   /// <param name="checkCryptoStream">Whether to check <see cref="HashStreamInfo.CryptoStream"/> property for <c>null</c> value.</param>
-   /// <param name="checkHashGetter">Whether to check <see cref="HashStreamInfo.HashGetter"/> property for <c>null</c> value.</param>
-   /// <param name="checkComputeHash">Whether to check <see cref="HashStreamInfo.HashComputer"/> property for <c>null</c> value.</param>
-   /// <param name="checkTransform">Whether to check <see cref="HashStreamInfo.Transform"/> property for <c>null</c> value.</param>
-   /// <returns>The <see cref="HashStreamInfo"/> returned by <see cref="CryptoCallbacks.CreateHashStream"/> method.</returns>
-   /// <exception cref="ArgumentNullException">If any of the boolean parameters is <c>true</c>, and the corresponding property of <see cref="HashStreamInfo"/> is <c>null</c>.</exception>
-   /// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
-   public static HashStreamInfo CreateHashStreamAndCheck(
-         this CryptoCallbacks callbacks,
-         AssemblyHashAlgorithm algorithm,
-         Boolean checkCryptoStream,
-         Boolean checkHashGetter,
-         Boolean checkComputeHash,
-         Boolean checkTransform
-         )
-   {
-      var retVal = callbacks.CreateHashStream( algorithm );
-      if ( checkCryptoStream )
-      {
-         ArgumentValidator.ValidateNotNull( "Crypto stream", retVal.CryptoStream );
-      }
-      if ( checkHashGetter )
-      {
-         ArgumentValidator.ValidateNotNull( "Hash getter", retVal.HashGetter );
-      }
-      if ( checkComputeHash )
-      {
-         ArgumentValidator.ValidateNotNull( "Hash computer", retVal.HashComputer );
-      }
-      if ( checkTransform )
-      {
-         ArgumentValidator.ValidateNotNull( "Transform", retVal.Transform );
-      }
-      return retVal;
-   }
+   ///// <summary>
+   ///// Helper method to create a new <see cref="HashStreamInfo"/> struct, and check that its properties are not <c>null</c>.
+   ///// </summary>
+   ///// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
+   ///// <param name="algorithm">The <see cref="AssemblyHashAlgorithm"/>.</param>
+   ///// <param name="checkCryptoStream">Whether to check <see cref="HashStreamInfo.CryptoStream"/> property for <c>null</c> value.</param>
+   ///// <param name="checkHashGetter">Whether to check <see cref="HashStreamInfo.HashGetter"/> property for <c>null</c> value.</param>
+   ///// <param name="checkComputeHash">Whether to check <see cref="HashStreamInfo.HashComputer"/> property for <c>null</c> value.</param>
+   ///// <param name="checkTransform">Whether to check <see cref="HashStreamInfo.Transform"/> property for <c>null</c> value.</param>
+   ///// <returns>The <see cref="HashStreamInfo"/> returned by <see cref="CryptoCallbacks.CreateHashStream"/> method.</returns>
+   ///// <exception cref="ArgumentNullException">If any of the boolean parameters is <c>true</c>, and the corresponding property of <see cref="HashStreamInfo"/> is <c>null</c>.</exception>
+   ///// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
+   //public static HashStreamInfo CreateHashStreamAndCheck(
+   //      this CryptoCallbacks callbacks,
+   //      AssemblyHashAlgorithm algorithm,
+   //      Boolean checkCryptoStream,
+   //      Boolean checkHashGetter,
+   //      Boolean checkComputeHash,
+   //      Boolean checkTransform
+   //      )
+   //{
+   //   var retVal = callbacks.CreateHashStream( algorithm );
+   //   if ( checkCryptoStream )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Crypto stream", retVal.CryptoStream );
+   //   }
+   //   if ( checkHashGetter )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Hash getter", retVal.HashGetter );
+   //   }
+   //   if ( checkComputeHash )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Hash computer", retVal.HashComputer );
+   //   }
+   //   if ( checkTransform )
+   //   {
+   //      ArgumentValidator.ValidateNotNull( "Transform", retVal.Transform );
+   //   }
+   //   return retVal;
+   //}
 
    /// <summary>
    /// Helper method to call <see cref="CryptoCallbacks.ExtractPublicKeyFromCSPContainer"/> method and check that return value is not <c>null</c> or empty.
@@ -444,35 +451,35 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   /// <summary>
-   /// Helper method to compute public key token for a given full public key.
-   /// </summary>
-   /// <param name="streamInfo">The <see cref="HashStreamInfo"/> object created by <see cref="CryptoCallbacks"/>.</param>
-   /// <param name="fullPublicKey">The full public key.</param>
-   /// <returns>The value of <paramref name="fullPublicKey"/>, if <paramref name="fullPublicKey"/> is <c>null</c> or empty, or the public key token of the <paramref name="fullPublicKey"/>.</returns>
-   /// <exception cref="InvalidOperationException">If <see cref="HashStreamInfo.Algorithm"/> is not <see cref="AssemblyHashAlgorithm.SHA1"/>.</exception>
-   /// <exception cref="ArgumentNullException">If <see cref="HashStreamInfo.Transform"/> or <see cref="HashStreamInfo.HashComputer"/> is <c>null</c>.</exception>
-   public static Byte[] ComputePublicKeyToken( this HashStreamInfo streamInfo, Byte[] fullPublicKey )
-   {
-      Byte[] retVal;
-      if ( fullPublicKey.IsNullOrEmpty() )
-      {
-         retVal = fullPublicKey;
-      }
-      else
-      {
-         if ( streamInfo.Algorithm != AssemblyHashAlgorithm.SHA1 )
-         {
-            throw new InvalidOperationException( "Hash algorithm must be " + AssemblyHashAlgorithm.SHA1 + "." );
-         }
-         ArgumentValidator.ValidateNotNull( "Transform", streamInfo.Transform );
-         ArgumentValidator.ValidateNotNull( "Hash computer", streamInfo.HashComputer );
+   ///// <summary>
+   ///// Helper method to compute public key token for a given full public key.
+   ///// </summary>
+   ///// <param name="streamInfo">The <see cref="HashStreamInfo"/> object created by <see cref="CryptoCallbacks"/>.</param>
+   ///// <param name="fullPublicKey">The full public key.</param>
+   ///// <returns>The value of <paramref name="fullPublicKey"/>, if <paramref name="fullPublicKey"/> is <c>null</c> or empty, or the public key token of the <paramref name="fullPublicKey"/>.</returns>
+   ///// <exception cref="InvalidOperationException">If <see cref="HashStreamInfo.Algorithm"/> is not <see cref="AssemblyHashAlgorithm.SHA1"/>.</exception>
+   ///// <exception cref="ArgumentNullException">If <see cref="HashStreamInfo.Transform"/> or <see cref="HashStreamInfo.HashComputer"/> is <c>null</c>.</exception>
+   //public static Byte[] ComputePublicKeyToken( this HashStreamInfo streamInfo, Byte[] fullPublicKey )
+   //{
+   //   Byte[] retVal;
+   //   if ( fullPublicKey.IsNullOrEmpty() )
+   //   {
+   //      retVal = fullPublicKey;
+   //   }
+   //   else
+   //   {
+   //      if ( streamInfo.Algorithm != AssemblyHashAlgorithm.SHA1 )
+   //      {
+   //         throw new InvalidOperationException( "Hash algorithm must be " + AssemblyHashAlgorithm.SHA1 + "." );
+   //      }
+   //      ArgumentValidator.ValidateNotNull( "Transform", streamInfo.Transform );
+   //      ArgumentValidator.ValidateNotNull( "Hash computer", streamInfo.HashComputer );
 
-         retVal = streamInfo.HashComputer( fullPublicKey );
-         retVal = retVal.Skip( retVal.Length - 8 ).Reverse().ToArray();
-      }
-      return retVal;
-   }
+   //      retVal = streamInfo.HashComputer( fullPublicKey );
+   //      retVal = retVal.Skip( retVal.Length - 8 ).Reverse().ToArray();
+   //   }
+   //   return retVal;
+   //}
 
 
 }
