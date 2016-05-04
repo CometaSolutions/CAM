@@ -33,7 +33,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// This class implements the <see cref="CryptoCallbacks"/> using standard .NET framework cryptographic services.
    /// </summary>
    /// <remarks>
-   /// When creating <see cref="HashStreamInfo"/>, this class always tries the managed version first, then the <c>cng</c> version, and the <c>csp</c> version when creating the <see cref="System.Security.Cryptography.HashAlgorithm"/> transform.
+   /// When creating <see cref="BlockHashAlgorithm"/>, this class always tries the managed version first, then the <c>cng</c> version, and the <c>csp</c> version when creating the <see cref="System.Security.Cryptography.HashAlgorithm"/> transform.
    /// </remarks>
    public class CryptoCallbacksDotNET : AbstractCryptoCallbacks
    {

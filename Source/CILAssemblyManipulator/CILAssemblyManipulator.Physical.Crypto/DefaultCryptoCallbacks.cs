@@ -94,8 +94,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
                }
                retVal = sha1.ComputeHash( fullPublicKey, 0, fullPublicKey.Length );
                // Public key token is actually last 8 bytes reversed
-               retVal = retVal.Skip( retVal.Length - 8 ).Reverse().ToArray();
-               //Array.Reverse( retVal );
+               retVal = retVal.Skip( retVal.Length - 8 ).ToArray();
+               Array.Reverse( retVal );
             }
             finally
             {
