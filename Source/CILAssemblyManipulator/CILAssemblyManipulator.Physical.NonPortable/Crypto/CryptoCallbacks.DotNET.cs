@@ -113,7 +113,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public override IDisposable CreateRSAFromCSPContainer( String containerName )
+      private System.Security.Cryptography.RSA CreateRSAFromCSPContainer( String containerName )
       {
          var csp = new System.Security.Cryptography.CspParameters { Flags = System.Security.Cryptography.CspProviderFlags.UseMachineKeyStore };
          if ( containerName != null )
@@ -125,7 +125,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public override IDisposable CreateRSAFromParameters( RSAParameters parameters )
+      private System.Security.Cryptography.RSA CreateRSAFromParameters( RSAParameters parameters )
       {
          System.Security.Cryptography.RSA result = null;
          var rParams = new System.Security.Cryptography.RSAParameters()
@@ -168,11 +168,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public override Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
+      public override Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
       {
-         var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( (System.Security.Cryptography.AsymmetricAlgorithm) rsa );
-         formatter.SetHashAlgorithm( hashAlgorithmName );
-         return formatter.CreateSignature( contentsHash );
+         using ( var rsa = String.IsNullOrEmpty( containerName ) ? this.CreateRSAFromParameters( rParams ) : this.CreateRSAFromCSPContainer( containerName ) )
+         {
+            var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( (System.Security.Cryptography.AsymmetricAlgorithm) rsa );
+            formatter.SetHashAlgorithm( GetAlgorithmName( hashAlgorithm ) );
+            return formatter.CreateSignature( contentsHash );
+         }
       }
 
       private System.Security.Cryptography.HashAlgorithm GetTransform(
@@ -221,6 +224,33 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          return pk;
 #endif
+      }
+
+      /// <summary>
+      /// Returns the textual representation of the <paramref name="algorithm"/>. In non-portable environment, this value can be used to set algorithm for strong name signature creation.
+      /// </summary>
+      /// <param name="algorithm">The algorithm.</param>
+      /// <returns>The textual representation of the <paramref name="algorithm"/>.</returns>
+      /// <exception cref="ArgumentException">If <paramref name="algorithm"/> is not one of the ones specified in <see cref="AssemblyHashAlgorithm"/> enumeration.</exception>
+      private static String GetAlgorithmName( AssemblyHashAlgorithm algorithm )
+      {
+         switch ( algorithm )
+         {
+            case AssemblyHashAlgorithm.None:
+               return null;
+            case AssemblyHashAlgorithm.MD5:
+               return "MD5";
+            case AssemblyHashAlgorithm.SHA1:
+               return "SHA1";
+            case AssemblyHashAlgorithm.SHA256:
+               return "SHA256";
+            case AssemblyHashAlgorithm.SHA384:
+               return "SHA384";
+            case AssemblyHashAlgorithm.SHA512:
+               return "SHA512";
+            default:
+               throw new ArgumentException( "Unknown algorithm: " + algorithm );
+         }
       }
 
 #if !MONO

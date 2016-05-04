@@ -34,10 +34,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// Given a container name, extracts public key bytes from it.
       /// </summary>
-      /// <param name="containterName">The container name.</param>
+      /// <param name="containerName">The container name.</param>
       /// <returns>The public key bytes for given container name.</returns>
       /// <exception cref="NotSupportedException">If container names are not supported on this platform.</exception>
-      Byte[] ExtractPublicKeyFromCSPContainer( String containterName );
+      Byte[] ExtractPublicKeyFromCSPContainer( String containerName );
 
       /// <summary>
       /// Given an <see cref="AssemblyHashAlgorithm"/>, creates a new <see cref="BlockHashAlgorithm"/> struct to be used for cryptographic purposes (e.g. computing public key token, or calculating storng name signature).
@@ -48,33 +48,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
       BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
 
       /// <summary>
-      /// Creates a new RSA service provider for a given container name.
+      /// Computes a signature from a hash bytes, using given algorithm.
       /// </summary>
-      /// <param name="containerName">The container name.</param>
-      /// <returns>The RSA for given container name.</returns>
-      /// <remarks>
-      /// Usually return value is of type <see cref="T:System.Security.Cryptography.RSACryptoServiceProvider"/>, which is missing from PCL.
-      /// </remarks>
-      IDisposable CreateRSAFromCSPContainer( String containerName );
-
-      /// <summary>
-      /// Creates a new RSA service provider with given <see cref="RSAParameters"/>.
-      /// </summary>
-      /// <param name="parameters">The <see cref="RSAParameters"/>.</param>
-      /// <returns>The RSA for given <see cref="RSAParameters"/>.</returns>
-      /// <remarks>
-      /// Usually return value is of type <see cref="T:System.Security.Cryptography.RSA"/>, which is missing from PCL.
-      /// </remarks>
-      IDisposable CreateRSAFromParameters( RSAParameters parameters );
-
-      /// <summary>
-      /// Given a RSA service provider (usually obtained from <see cref="CreateRSAFromCSPContainer"/> or <see cref="CreateRSAFromParameters"/>), computes a signature from a hash bytes, using given algorithm.
-      /// </summary>
-      /// <param name="rsa">The RSA, should be of type <see cref="T:System.Security.Cryptography.AsymmetricAlgorithm"/>.</param>
-      /// <param name="hashAlgorithmName">The name of the algorithm to use when creating signature.</param>
+      /// <param name="hashAlgorithm">The hash algorithm to use when creating signature.</param>
       /// <param name="contentsHash">The binary contents of the content from which to create signature from.</param>
-      /// <returns>The cryptographic signature created with <paramref name="hashAlgorithmName"/> algorithm from <paramref name="contentsHash"/>.</returns>
-      Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash );
+      /// <param name="rParams">The RSA parameters. Use <c>default(RSAParameters)</c> if RSA parameters are from CSP container name.</param>
+      /// <param name="containerName">The container name. Use <c>null</c> or empty string to use <paramref name="rParams"/> for RSA.</param>
+      /// <returns>The cryptographic signature created with <paramref name="hashAlgorithm"/> algorithm from <paramref name="contentsHash"/>.</returns>
+      Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName );
 
       /// <summary>
       /// This method will compute public key token for a given full public key.
@@ -338,17 +319,16 @@ public static partial class E_CILPhysical
    /// Helper method to call <see cref="CryptoCallbacks.CreateRSASignature"/> method and check that the return value is not <c>null</c>.
    /// </summary>
    /// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
-   /// <param name="rsa">The RSA object returned by <see cref="CryptoCallbacks.CreateRSAFromCSPContainer"/> or <see cref="CryptoCallbacks.CreateRSAFromParameters"/>.</param>
-   /// <param name="algorithmName">The algorithm name to use when creating signature.</param>
+   /// <param name="rParams">The RSA parameters. Use <c>default(RSAParameters)</c> if RSA parameters are from CSP container name.</param>
+   /// <param name="containerName">The container name. Use <c>null</c> or empty string to use <paramref name="rParams"/> for RSA.</param>
+   /// <param name="hashAlgorithm">The algorithm name to use when creating signature.</param>
    /// <param name="contentsHash">The binary data to create signature from.</param>
    /// <returns>Non-<c>null</c> signature bytes.</returns>
    /// <exception cref="ArgumentNullException">If return value of <see cref="CryptoCallbacks.CreateRSASignature"/> is <c>null</c>.</exception>
    /// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
-   public static Byte[] CreateRSASignatureAndCheck( this CryptoCallbacks callbacks, IDisposable rsa, String algorithmName, Byte[] contentsHash )
+   public static Byte[] CreateRSASignatureAndCheck( this CryptoCallbacks callbacks, AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
    {
-      var retVal = callbacks.CreateRSASignature( rsa, algorithmName, contentsHash );
-      ArgumentValidator.ValidateNotNull( "RSA signature", retVal );
-      return retVal;
+      return ArgumentValidator.ValidateNotNull( "RSA signature", callbacks.CreateRSASignature( hashAlgorithm, contentsHash, rParams, containerName ) );
    }
 
 }

@@ -52,25 +52,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public virtual BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
-      {
-         throw new NotImplementedException();
-      }
+      public abstract BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
 
       /// <inheritdoc />
-      public abstract IDisposable CreateRSAFromCSPContainer( String containerName );
-
-      /// <inheritdoc />
-      public virtual IDisposable CreateRSAFromParameters( RSAParameters parameters )
-      {
-         throw new NotImplementedException();
-      }
-
-      /// <inheritdoc />
-      public virtual Byte[] CreateRSASignature( IDisposable rsa, String hashAlgorithmName, Byte[] contentsHash )
-      {
-         throw new NotImplementedException();
-      }
+      public abstract Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName );
 
       /// <inheritdoc />
       public abstract Byte[] ExtractPublicKeyFromCSPContainer( String containterName );
@@ -131,14 +116,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      public override IDisposable CreateRSAFromCSPContainer( String containerName )
+      public override Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
       {
          throw new NotSupportedException( "CSP is not supported in portable environment." );
       }
 
-      public override Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
+      public override Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
       {
-         throw new NotSupportedException( "CSP is not supported in portable environment." );
+         throw new NotImplementedException();
       }
    }
 

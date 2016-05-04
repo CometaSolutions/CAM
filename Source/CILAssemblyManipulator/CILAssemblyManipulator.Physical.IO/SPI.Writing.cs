@@ -892,85 +892,83 @@ public static partial class E_CILPhysical
    {
       if ( snVars != null && !delaySign )
       {
-         using ( var rsa = ( containerName == null ? cryptoCallbacks.CreateRSAFromParameters( rParams ) : cryptoCallbacks.CreateRSAFromCSPContainer( containerName ) ) )
+         var algo = snVars.HashAlgorithm;
+         var snSize = snVars.SignatureSize;
+         var buffer = new Byte[0x8000];
+         var sigOffset = rvaConverter.ToOffset( cliHeader.StrongNameSignature.RVA );
+         Int32 idx;
+         //var hashEvtArgs = cryptoCallbacks.CreateHashStreamAndCheck( algo, true, true, false, true );
+         //var hashStream = hashEvtArgs.CryptoStream;
+         //var hashGetter = hashEvtArgs.HashGetter;
+         //var transform = hashEvtArgs.Transform;
+
+         Byte[] strongNameArray;
+         using ( var hasher = cryptoCallbacks.CreateHashAlgorithm( algo ) )
          {
-            var algo = snVars.HashAlgorithm;
-            var snSize = snVars.SignatureSize;
-            var buffer = new Byte[0x8000];
-            var sigOffset = rvaConverter.ToOffset( cliHeader.StrongNameSignature.RVA );
-            Int32 idx;
-            //var hashEvtArgs = cryptoCallbacks.CreateHashStreamAndCheck( algo, true, true, false, true );
-            //var hashStream = hashEvtArgs.CryptoStream;
-            //var hashGetter = hashEvtArgs.HashGetter;
-            //var transform = hashEvtArgs.Transform;
 
-            Byte[] strongNameArray;
-            using ( var hasher = cryptoCallbacks.CreateHashAlgorithm( algo ) )
+            // TODO: WriterFunctionality should have method:
+            // IEnumerable<Tuple<Int64, Int64>> GetRangesSkippedInStrongNameSignatureCalculation(ImageInformation imageInfo);
+
+            // Calculate hash of required parts of file (ECMA-335, p.117)
+            // Read all headers first DOS header (start of file to the NT headers)
+            stream.SeekFromBegin( 0 );
+            var hdrArray = new Byte[headersSizeUnaligned];
+            stream.ReadSpecificAmount( hdrArray, 0, hdrArray.Length );
+
+            // Hash the checksum entry + authenticode as zeroes
+            const Int32 peCheckSumOffsetWithinOptionalHeader = 0x40;
+            var ntHeaderStart = (Int32) imageInfo.DOSHeader.NTHeaderOffset;
+            idx = ntHeaderStart
+               + CAMIOInternals.PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
+               + peCheckSumOffsetWithinOptionalHeader; // Offset of PE checksum entry.
+            hdrArray.WriteInt32LEToBytes( ref idx, 0 );
+
+            var optionalHeaderSizeWithoutDataDirs = imageInfo.NTHeader.FileHeader.OptionalHeaderSize - CAMIOInternals.DATA_DIR_SIZE * imageInfo.NTHeader.OptionalHeader.DataDirectories.Count;
+
+            idx = ntHeaderStart
+               + CAMIOInternals.PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
+               + optionalHeaderSizeWithoutDataDirs
+               + 4 * CAMIOInternals.DATA_DIR_SIZE; // Authenticode is 5th data directory, and optionalHeaderSize includes all data directories
+            hdrArray.WriteDataDirectory( ref idx, default( DataDirectory ) );
+
+            // Hash the correctly zeroed-out header data
+            hasher.ProcessBlock( hdrArray, 0, hdrArray.Length );
+
+            // Now, calculate hash for all sections, except we have to skip our own strong name signature hash part
+            foreach ( var section in imageInfo.SectionHeaders )
             {
-
-               // TODO: WriterFunctionality should have method:
-               // IEnumerable<Tuple<Int64, Int64>> GetRangesSkippedInStrongNameSignatureCalculation(ImageInformation imageInfo);
-
-               // Calculate hash of required parts of file (ECMA-335, p.117)
-               // Read all headers first DOS header (start of file to the NT headers)
-               stream.SeekFromBegin( 0 );
-               var hdrArray = new Byte[headersSizeUnaligned];
-               stream.ReadSpecificAmount( hdrArray, 0, hdrArray.Length );
-
-               // Hash the checksum entry + authenticode as zeroes
-               const Int32 peCheckSumOffsetWithinOptionalHeader = 0x40;
-               var ntHeaderStart = (Int32) imageInfo.DOSHeader.NTHeaderOffset;
-               idx = ntHeaderStart
-                  + CAMIOInternals.PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
-                  + peCheckSumOffsetWithinOptionalHeader; // Offset of PE checksum entry.
-               hdrArray.WriteInt32LEToBytes( ref idx, 0 );
-
-               var optionalHeaderSizeWithoutDataDirs = imageInfo.NTHeader.FileHeader.OptionalHeaderSize - CAMIOInternals.DATA_DIR_SIZE * imageInfo.NTHeader.OptionalHeader.DataDirectories.Count;
-
-               idx = ntHeaderStart
-                  + CAMIOInternals.PE_SIG_AND_FILE_HEADER_SIZE // NT header signature + file header size
-                  + optionalHeaderSizeWithoutDataDirs
-                  + 4 * CAMIOInternals.DATA_DIR_SIZE; // Authenticode is 5th data directory, and optionalHeaderSize includes all data directories
-               hdrArray.WriteDataDirectory( ref idx, default( DataDirectory ) );
-
-               // Hash the correctly zeroed-out header data
-               hasher.ProcessBlock( hdrArray, 0, hdrArray.Length );
-
-               // Now, calculate hash for all sections, except we have to skip our own strong name signature hash part
-               foreach ( var section in imageInfo.SectionHeaders )
+               var min = section.RawDataPointer;
+               var max = min + section.RawDataSize;
+               stream.SeekFromBegin( min );
+               if ( min <= sigOffset && max >= sigOffset )
                {
-                  var min = section.RawDataPointer;
-                  var max = min + section.RawDataSize;
-                  stream.SeekFromBegin( min );
-                  if ( min <= sigOffset && max >= sigOffset )
-                  {
-                     // Strong name signature is in this section
-                     hasher.CopyStreamPart( stream, buffer, sigOffset - min );
-                     stream.SeekFromCurrent( snSize );
-                     hasher.CopyStreamPart( stream, buffer, max - sigOffset - snSize );
-                  }
-                  else
-                  {
-                     hasher.CopyStreamPart( stream, buffer, max - min );
-                  }
+                  // Strong name signature is in this section
+                  hasher.CopyStreamPart( stream, buffer, sigOffset - min );
+                  stream.SeekFromCurrent( snSize );
+                  hasher.CopyStreamPart( stream, buffer, max - sigOffset - snSize );
                }
-
-               strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( rsa, algo.GetAlgorithmName(), hasher.TransformFinalBlock() );
+               else
+               {
+                  hasher.CopyStreamPart( stream, buffer, max - min );
+               }
             }
 
-
-            if ( snSize != strongNameArray.Length )
-            {
-               throw new CryptographicException( "Calculated and actual strong name size differ (calculated: " + snSize + ", actual: " + strongNameArray.Length + ")." );
-            }
-            Array.Reverse( strongNameArray );
-
-            // Write strong name
-            stream.Seek( sigOffset, SeekOrigin.Begin );
-            stream.Write( strongNameArray );
-            idx = 0;
-            snSignatureArray.BlockCopyFrom( ref idx, strongNameArray );
+            strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( algo, hasher.TransformFinalBlock(), rParams, containerName );
          }
+
+
+         if ( snSize != strongNameArray.Length )
+         {
+            throw new CryptographicException( "Calculated and actual strong name size differ (calculated: " + snSize + ", actual: " + strongNameArray.Length + ")." );
+         }
+         Array.Reverse( strongNameArray );
+
+         // Write strong name
+         stream.Seek( sigOffset, SeekOrigin.Begin );
+         stream.Write( strongNameArray );
+         idx = 0;
+         snSignatureArray.BlockCopyFrom( ref idx, strongNameArray );
+
       }
    }
 
