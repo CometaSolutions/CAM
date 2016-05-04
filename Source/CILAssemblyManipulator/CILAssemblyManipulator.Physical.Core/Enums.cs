@@ -1249,32 +1249,7 @@ namespace CILAssemblyManipulator.Physical
 /// </summary>
 public static partial class E_CILPhysical
 {
-   /// <summary>
-   /// Returns the textual representation of the <paramref name="algorithm"/>. In non-portable environment, this value can be used to set algorithm for strong name signature creation.
-   /// </summary>
-   /// <param name="algorithm">The algorithm.</param>
-   /// <returns>The textual representation of the <paramref name="algorithm"/>.</returns>
-   /// <exception cref="ArgumentException">If <paramref name="algorithm"/> is not one of the ones specified in <see cref="AssemblyHashAlgorithm"/> enumeration.</exception>
-   public static String GetAlgorithmName( this AssemblyHashAlgorithm algorithm )
-   {
-      switch ( algorithm )
-      {
-         case AssemblyHashAlgorithm.None:
-            return null;
-         case AssemblyHashAlgorithm.MD5:
-            return "MD5";
-         case AssemblyHashAlgorithm.SHA1:
-            return "SHA1";
-         case AssemblyHashAlgorithm.SHA256:
-            return "SHA256";
-         case AssemblyHashAlgorithm.SHA384:
-            return "SHA384";
-         case AssemblyHashAlgorithm.SHA512:
-            return "SHA512";
-         default:
-            throw new ArgumentException( "Unknown algorithm: " + algorithm );
-      }
-   }
+
    /// <summary>
    /// Returns <c>true</c> if <paramref name="flags"/> specify that the assembly reference holds full, unhashed public key.
    /// </summary>
