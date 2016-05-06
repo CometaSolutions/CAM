@@ -82,6 +82,7 @@
     <Compile Include="DefaultCryptoCallbacks.cs" />
     <Compile Include="HashAlgorithms.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Signing.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- When building from .build file, delete output file, since it might be of wrong configuration/have unexpected references -->

@@ -69,7 +69,7 @@ public static partial class E_CILPhysical
                var byteCount = UTF8.GetByteCount( str );
                array.CurrentMaxCapacity = 5 + byteCount;
                array.Array
-                  .WriteInt32Encoded7Bit( ref idx, byteCount )
+                  .WriteInt32LEEncoded7Bit( ref idx, byteCount )
                   .WriteStringToBytes( ref idx, UTF8, str );
                break;
             case ResourceTypeCode.Boolean:
@@ -223,7 +223,7 @@ public static partial class E_CILPhysical
             state.array
                .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.BinaryLibrary )
                .WriteInt32LEToBytes( ref state.idx, id )
-               .WriteInt32Encoded7Bit( ref state.idx, strByteCount )
+               .WriteInt32LEEncoded7Bit( ref state.idx, strByteCount )
                .WriteStringToBytes( ref state.idx, UTF8, assName );
             state.WriteArrayToStream();
          }
@@ -245,7 +245,7 @@ public static partial class E_CILPhysical
             state.array
                .WriteByteToBytes( ref state.idx, (Byte) RecordTypeEnumeration.BinaryObjectString )
                .WriteInt32LEToBytes( ref state.idx, id )
-               .WriteInt32Encoded7Bit( ref state.idx, len )
+               .WriteInt32LEEncoded7Bit( ref state.idx, len )
                .WriteStringToBytes( ref state.idx, UTF8, str );
             state.WriteArrayToStream();
          }
@@ -322,7 +322,7 @@ public static partial class E_CILPhysical
          state.array
             .WriteByteToBytes( ref state.idx, (Byte) ( isSystem ? RecordTypeEnumeration.SystemClassWithMembersAndTypes : RecordTypeEnumeration.ClassWithMembersAndTypes ) )
             .WriteInt32LEToBytes( ref state.idx, id )
-            .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
+            .WriteInt32LEEncoded7Bit( ref state.idx, nameByteCount )
             .WriteStringToBytes( ref state.idx, UTF8, claas.TypeName )
             .WriteInt32LEToBytes( ref state.idx, claas.Members.Count );
          state.WriteArrayToStream();
@@ -333,7 +333,7 @@ public static partial class E_CILPhysical
             nameByteCount = SafeByteCount( member.Name );
             state.EnsureCapacity( 5 + nameByteCount );
             state.array
-               .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
+               .WriteInt32LEEncoded7Bit( ref state.idx, nameByteCount )
                .WriteStringToBytes( ref state.idx, UTF8, member.Name );
             state.WriteArrayToStream();
          }
@@ -607,7 +607,7 @@ public static partial class E_CILPhysical
             nameByteCount = SafeByteCount( str );
             state.EnsureCapacity( 5 + nameByteCount );
             state.array
-               .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
+               .WriteInt32LEEncoded7Bit( ref state.idx, nameByteCount )
                .WriteStringToBytes( ref state.idx, UTF8, str );
             break;
          case BinaryTypeEnumeration.Class:
@@ -615,7 +615,7 @@ public static partial class E_CILPhysical
             nameByteCount = SafeByteCount( str );
             state.EnsureCapacity( 9 + nameByteCount );
             state.array
-               .WriteInt32Encoded7Bit( ref state.idx, nameByteCount )
+               .WriteInt32LEEncoded7Bit( ref state.idx, nameByteCount )
                .WriteStringToBytes( ref state.idx, UTF8, str )
                .WriteInt32LEToBytes( ref state.idx, state.assemblies[element.AssemblyName] );
             break;
@@ -938,7 +938,7 @@ public static partial class E_CILPhysical
             len = UTF8.GetByteCount( s );
             state.EnsureCapacity( 5 + len );
             state.array
-               .WriteInt32Encoded7Bit( ref state.idx, len )
+               .WriteInt32LEEncoded7Bit( ref state.idx, len )
                .WriteStringToBytes( ref state.idx, UTF8, s );
             break;
          default:
@@ -997,7 +997,7 @@ public static partial class E_CILPhysical
       var len = UTF8.GetByteCount( str );
       state.EnsureCapacity( 5 + len );
       state.array
-         .WriteInt32Encoded7Bit( ref state.idx, len )
+         .WriteInt32LEEncoded7Bit( ref state.idx, len )
          .WriteStringToBytes( ref state.idx, UTF8, str );
    }
 

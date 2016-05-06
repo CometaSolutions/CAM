@@ -1551,7 +1551,7 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
-   /// Reads 7-bit encoded <see cref="Int32"/> from byte array.
+   /// Reads 7-bit encoded <see cref="Int32"/> in little-endian format from byte array.
    /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryReader"/> when it deserializes strings.
    /// </summary>
    /// <param name="array">The byte array.</param>
@@ -1562,7 +1562,7 @@ public static partial class E_CommonUtils
    /// </param>
    /// <returns>The decoded <see cref="Int32"/>.</returns>
    /// <exception cref="InvalidOperationException">If the <paramref name="throwOnInvalid"/> is <c>true</c> and fifth read byte has its highest bit set.</exception>
-   public static Int32 ReadInt32Encoded7Bit( this Byte[] array, ref Int32 idx, Boolean throwOnInvalid = false )
+   public static Int32 ReadInt32LEEncoded7Bit( this Byte[] array, ref Int32 idx, Boolean throwOnInvalid = false )
    {
       // Int32 encoded as 1-5 bytes. If highest bit set -> more bytes to follow.
       var retVal = 0;
@@ -1570,7 +1570,7 @@ public static partial class E_CommonUtils
       byte b;
       do
       {
-         if ( shift == 35 )  // 5 bytes max per Int32, shift += 7
+         if ( shift > 32 )  // 5 bytes max per Int32, shift += 7
          {
             if ( throwOnInvalid )
             {
@@ -1591,25 +1591,244 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
-   /// Writes 7-bit encoded <see cref="Int32"/> to byte array.
+   /// Reads 7-bit encoded <see cref="Int64"/> in little-endian format from byte array.
+   /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryReader"/> when it deserializes strings.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to read 7-bit encoded <see cref="Int64"/>. This parameter will be incremented by how many bytes were needed to read the value.</param>
+   /// <param name="throwOnInvalid">
+   /// Whether to throw an <see cref="InvalidOperationException"/> if the integer has invalid encoded value.
+   /// The value is considered to be encoded in invalid way if fifth byte has its highest bit set.
+   /// </param>
+   /// <returns>The decoded <see cref="Int64"/>.</returns>
+   /// <exception cref="InvalidOperationException">If the <paramref name="throwOnInvalid"/> is <c>true</c> and fifth read byte has its highest bit set.</exception>
+   public static Int64 ReadInt64LEEncoded7Bit( this Byte[] array, ref Int32 idx, Boolean throwOnInvalid = false )
+   {
+      // Int64 encoded as 1-9 bytes. If highest bit set -> more bytes to follow.
+      var retVal = 0L;
+      var shift = 0;
+      byte b;
+      do
+      {
+         if ( shift > 64 )  // 9 bytes max per Int64, shift += 7
+         {
+            if ( throwOnInvalid )
+            {
+               throw new InvalidOperationException( "7-bit encoded Int32 had its fifth byte highest bit set." );
+            }
+            else
+            {
+               break;
+            }
+         }
+
+         b = array[idx++];
+         retVal |= ( (Int64) ( b & 0x7F ) ) << shift;
+         shift += 7;
+      } while ( ( b & 0x80 ) != 0 );
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Writes 7-bit encoded <see cref="Int32"/> in little-endian format to byte array.
    /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryWriter"/> when it serializes strings.
    /// </summary>
    /// <param name="array">The byte array.</param>
    /// <param name="idx">The index in the <paramref name="array"/> where to start to write 7-bit encoded <see cref="Int32"/>. This parameter will be incremented by how many bytes were needed to write the value.</param>
    /// <param name="value">The value to encode.</param>
    /// <returns>The <paramref name="array"/>.</returns>
-   public static Byte[] WriteInt32Encoded7Bit( this Byte[] array, ref Int32 idx, Int32 value )
+   public static Byte[] WriteInt32LEEncoded7Bit( this Byte[] array, ref Int32 idx, Int32 value )
    {
       // Write 7 bits at a time 
-      var uValue = (UInt32) value;
+      var uValue = unchecked((UInt32) value);
       Boolean cont;
       do
       {
          cont = uValue >= 0x80u;
-         array[idx++] = (Byte) ( cont ? ( uValue | 0x80u ) : uValue );
+         array[idx++] = unchecked((Byte) ( cont ? ( uValue | 0x80u ) : uValue ));
+         uValue >>= 7;
       } while ( cont );
       return array;
    }
+
+   /// <summary>
+   /// Writes 7-bit encoded <see cref="Int64"/> in little-endian format to byte array.
+   /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryWriter"/> when it serializes strings.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to write 7-bit encoded <see cref="Int32"/>. This parameter will be incremented by how many bytes were needed to write the value.</param>
+   /// <param name="value">The value to encode.</param>
+   /// <returns>The <paramref name="array"/>.</returns>
+   public static Byte[] WriteInt64LEEncoded7Bit( this Byte[] array, ref Int32 idx, Int64 value )
+   {
+      // Write 7 bits at a time 
+      var uValue = unchecked((UInt64) value);
+      Boolean cont;
+      do
+      {
+         cont = uValue >= 0x80u;
+         array[idx++] = unchecked((Byte) ( cont ? ( uValue | 0x80u ) : uValue ));
+         uValue >>= 7;
+      } while ( cont );
+      return array;
+   }
+
+   /// <summary>
+   /// Reads 7-bit encoded <see cref="Int32"/> in big-endian format from byte array.
+   /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryReader"/> when it deserializes strings.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to read 7-bit encoded <see cref="Int32"/>. This parameter will be incremented by how many bytes were needed to read the value.</param>
+   /// <param name="throwOnInvalid">
+   /// Whether to throw an <see cref="InvalidOperationException"/> if the integer has invalid encoded value.
+   /// The value is considered to be encoded in invalid way if fifth byte has its highest bit set.
+   /// </param>
+   /// <returns>The decoded <see cref="Int32"/>.</returns>
+   /// <exception cref="InvalidOperationException">If the <paramref name="throwOnInvalid"/> is <c>true</c> and fifth read byte has its highest bit set.</exception>
+   public static Int32 ReadInt32BEEncoded7Bit( this Byte[] array, ref Int32 idx, Boolean throwOnInvalid = false )
+   {
+      // Int32 encoded as 1-5 bytes. If highest bit set -> more bytes to follow.
+      var retVal = 0;
+      var shift = 0;
+      byte b;
+      do
+      {
+         if ( shift > 32 )  // 5 bytes max per Int32, shift += 7
+         {
+            if ( throwOnInvalid )
+            {
+               throw new InvalidOperationException( "7-bit encoded Int32 had its fifth byte highest bit set." );
+            }
+            else
+            {
+               break;
+            }
+         }
+
+         b = array[idx++];
+         retVal = ( retVal << shift ) | ( b & 0x7F );
+         shift += 7;
+      } while ( ( b & 0x80 ) != 0 );
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Reads 7-bit encoded <see cref="Int64"/> in big-endian format from byte array.
+   /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryReader"/> when it deserializes strings.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to read 7-bit encoded <see cref="Int64"/>. This parameter will be incremented by how many bytes were needed to read the value.</param>
+   /// <param name="throwOnInvalid">
+   /// Whether to throw an <see cref="InvalidOperationException"/> if the integer has invalid encoded value.
+   /// The value is considered to be encoded in invalid way if fifth byte has its highest bit set.
+   /// </param>
+   /// <returns>The decoded <see cref="Int64"/>.</returns>
+   /// <exception cref="InvalidOperationException">If the <paramref name="throwOnInvalid"/> is <c>true</c> and fifth read byte has its highest bit set.</exception>
+   public static Int64 ReadInt64BEEncoded7Bit( this Byte[] array, ref Int32 idx, Boolean throwOnInvalid = false )
+   {
+      // Int64 encoded as 1-9 bytes. If highest bit set -> more bytes to follow.
+      var retVal = 0L;
+      var shift = 0;
+      byte b;
+      do
+      {
+         if ( shift > 64 )  // 9 bytes max per Int64, shift += 7
+         {
+            if ( throwOnInvalid )
+            {
+               throw new InvalidOperationException( "7-bit encoded Int32 had its fifth byte highest bit set." );
+            }
+            else
+            {
+               break;
+            }
+         }
+
+         b = array[idx++];
+         retVal = ( retVal << shift ) | (Int64) ( b & 0x7F );
+         shift += 7;
+      } while ( ( b & 0x80 ) != 0 );
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Writes 7-bit encoded <see cref="Int32"/> in big-endian format to byte array.
+   /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryWriter"/> when it serializes strings.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to write 7-bit encoded <see cref="Int32"/>. This parameter will be incremented by how many bytes were needed to write the value.</param>
+   /// <param name="value">The value to encode.</param>
+   /// <returns>The <paramref name="array"/>.</returns>
+   public static Byte[] WriteInt32BEEncoded7Bit( this Byte[] array, ref Int32 idx, Int32 value )
+   {
+      // Find out the amount of bytes taken
+      var len = BinaryUtils.Calculate7BitEncodingLength( value );
+      idx += len;
+      var newIdx = idx;
+      // Write 7 bits at a time, notice that we are starting from the end and decreasing index
+      var uValue = unchecked((UInt32) value);
+      Boolean cont;
+      do
+      {
+         cont = uValue >= 0x80u;
+         array[--newIdx] = unchecked((Byte) ( cont ? ( uValue | 0x80u ) : uValue ));
+         uValue >>= 7;
+      } while ( cont );
+      return array;
+   }
+
+   /// <summary>
+   /// Writes 7-bit encoded <see cref="Int64"/> in big-endian format to byte array.
+   /// This kind of variable-length encoding is used by <see cref="System.IO.BinaryWriter"/> when it serializes strings.
+   /// </summary>
+   /// <param name="array">The byte array.</param>
+   /// <param name="idx">The index in the <paramref name="array"/> where to start to write 7-bit encoded <see cref="Int32"/>. This parameter will be incremented by how many bytes were needed to write the value.</param>
+   /// <param name="value">The value to encode.</param>
+   /// <returns>The <paramref name="array"/>.</returns>
+   public static Byte[] WriteInt64BEEncoded7Bit( this Byte[] array, ref Int32 idx, Int64 value )
+   {
+      // Find out the amount of bytes taken
+      var len = BinaryUtils.Calculate7BitEncodingLength( value );
+      idx += len;
+      var newIdx = idx;
+      // Write 7 bits at a time, notice that we are starting from the end and decreasing index
+      var uValue = unchecked((UInt64) value);
+      Boolean cont;
+      do
+      {
+         cont = uValue >= 0x80u;
+         array[--newIdx] = unchecked((Byte) ( cont ? ( uValue | 0x80u ) : uValue ));
+         uValue >>= 7;
+      } while ( cont );
+      return array;
+   }
+
+   //private static UInt32 SwapEndianness32( UInt32 val )
+   //{
+   //   // From http://stackoverflow.com/questions/19560436/bitwise-endian-swap-for-various-types
+
+   //   // Swap adjacent 16-bit blocks
+   //   val = val.RotateRight( 16 );
+   //   // Swap adjacent 8-bit blocks
+   //   return ( ( val & 0xFF00FF00 ) >> 8 ) | ( ( val & 0x00FF00FF ) << 8 );
+   //}
+
+   //private static UInt64 SwapEndianness64( UInt64 val )
+   //{
+   //   // From http://stackoverflow.com/questions/19560436/bitwise-endian-swap-for-various-types
+
+   //   // Swap adjacent 32-bit blocks
+   //   val = val.RotateRight( 32 );
+
+   //   // Swap adjacent 16-bit blocks
+   //   val = ( ( val & 0xFFFF0000FFFF0000 ) >> 16 ) | ( ( val & 0x0000FFFF0000FFFF ) << 16 );
+
+   //   // Swap adjacent 8-bit blocks
+   //   return ( ( val & 0xFF00FF00FF00FF00 ) >> 8 ) | ( ( val & 0x00FF00FF00FF00FF ) << 8 );
+   //}
 
    /// <summary>
    /// Fills array with zeroes, starting at specified offset and writing specified amount of zeroes.

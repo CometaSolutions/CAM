@@ -150,7 +150,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             try
             {
                // Try SP without key container name instead
-               result = (System.Security.Cryptography.RSA) this.CreateRSAFromCSPContainer( null );
+               result = this.CreateRSAFromCSPContainer( null );
                result.ImportParameters( rParams );
                success = true;
             }
@@ -172,7 +172,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          using ( var rsa = String.IsNullOrEmpty( containerName ) ? this.CreateRSAFromParameters( rParams ) : this.CreateRSAFromCSPContainer( containerName ) )
          {
-            var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( (System.Security.Cryptography.AsymmetricAlgorithm) rsa );
+            var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( rsa );
             formatter.SetHashAlgorithm( GetAlgorithmName( hashAlgorithm ) );
             return formatter.CreateSignature( contentsHash );
          }

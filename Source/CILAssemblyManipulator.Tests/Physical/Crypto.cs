@@ -56,6 +56,16 @@ namespace CILAssemblyManipulator.Tests.Physical
          VerifyNativeVSCAM( () => new System.Security.Cryptography.MD5Cng(), () => new MD5() );
       }
 
+      [Test]
+      public void VerifySignerData()
+      {
+         VerifyNativeVSCAM(
+            () => new System.Security.Cryptography.RSACryptoServiceProvider( 1024 ),
+            () => new System.Security.Cryptography.RSAPKCS1SignatureFormatter(),
+            () => new PKCS1Formatter()
+            );
+      }
+
       private void VerifyNativeVSCAM(
          Func<System.Security.Cryptography.HashAlgorithm> nativeFactory,
          Func<BlockHashAlgorithm> camFactory
@@ -84,6 +94,43 @@ namespace CILAssemblyManipulator.Tests.Physical
             StringConversions.CreateHexString( camHash ),
             StringConversions.CreateHexString( bytez )
             );
+      }
+
+      private void VerifyNativeVSCAM(
+         Func<System.Security.Cryptography.RSACryptoServiceProvider> nativeAlgoFactory,
+         Func<System.Security.Cryptography.AsymmetricSignatureFormatter> nativeFactory,
+         Func<DataFormatter<PKCS1Parameters>> camFactory
+         )
+      {
+         var r = new Random();
+         var count = 1000 + ( r.NextInt32() % 1000 );
+         var bytez = r.NextBytes( count );
+
+         var hash = new SHA1_128().ComputeHash( bytez, 0, bytez.Length );
+
+         var nativeFormatter = nativeFactory();
+         nativeFormatter.SetHashAlgorithm( "SHA1" );
+
+         Byte[] nativeSignature, camSignature;
+         using ( var nativeAlgo = nativeAlgoFactory() )
+         {
+            try
+            {
+               nativeFormatter.SetKey( nativeAlgo );
+               nativeSignature = nativeFormatter.CreateSignature( hash );
+
+               var data = camFactory().GetDataForSigning( hash, new PKCS1Parameters( CILAssemblyManipulator.Physical.AssemblyHashAlgorithm.SHA1 ) );
+               string sha1Oid = System.Security.Cryptography.CryptoConfig.MapNameToOID( "SHA1" );
+               camSignature = ( (System.Security.Cryptography.RSACryptoServiceProvider) nativeAlgo ).SignHash( data, sha1Oid );
+            }
+            finally
+            {
+               nativeAlgo.PersistKeyInCsp = false;
+            }
+         }
+
+         Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, camSignature ) );
+
       }
    }
 }

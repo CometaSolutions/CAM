@@ -305,9 +305,9 @@ namespace CILAssemblyManipulator.Physical.MResources
          else
          {
             idx += 4; // Skip amount of bytes to skip
-            var strLen = array.ReadInt32Encoded7Bit( ref idx ); // Skip resource reader typename
+            var strLen = array.ReadInt32LEEncoded7Bit( ref idx ); // Skip resource reader typename
             idx += strLen;
-            strLen = array.ReadInt32Encoded7Bit( ref idx ); // Skip resource set typename
+            strLen = array.ReadInt32LEEncoded7Bit( ref idx ); // Skip resource set typename
             idx += strLen;
          }
          var version = array.ReadInt32LEFromBytes( ref idx ); // Version
@@ -340,7 +340,7 @@ namespace CILAssemblyManipulator.Physical.MResources
          for ( var i = 0; i < resCount; ++i )
          {
             var iIdx = dataNamesAndOffsets[i].Item2;
-            var tIdx = array.ReadInt32Encoded7Bit( ref iIdx );
+            var tIdx = array.ReadInt32LEEncoded7Bit( ref iIdx );
             var isUserType = version != 1 && tIdx >= (Int32) ResourceTypeCode.StartOfUserTypes;
             yield return new ResourceManagerEntryInformation()
             {
@@ -857,7 +857,7 @@ public static partial class E_CILPhysical
 
    internal static String Read7BitLengthPrefixedString( this Byte[] array, ref Int32 idx, Encoding encoding = null )
    {
-      var len = array.ReadInt32Encoded7Bit( ref idx );
+      var len = array.ReadInt32LEEncoded7Bit( ref idx );
       var str = ( encoding ?? UTF8 ).GetString( array, idx, len );
       idx += len;
       return str;

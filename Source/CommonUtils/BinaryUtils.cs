@@ -32,6 +32,7 @@ namespace CommonUtils
       // The log base 2 of an integer is the same as the position of the highest bit set (or most significant bit set, MSB).
 
       private static readonly Int32[] LOG_TABLE_256;
+      private const Int32 LOG_2_OF_0 = -1;
 
       static BinaryUtils()
       {
@@ -40,7 +41,7 @@ namespace CommonUtils
          {
             arr[i] = 1 + arr[i / 2];
          }
-         arr[0] = -1;
+         arr[0] = LOG_2_OF_0;
          LOG_TABLE_256 = arr;
       }
 
@@ -194,8 +195,8 @@ namespace CommonUtils
       [CLSCompliant( false )]
       public static Int32 Log2( UInt64 value )
       {
-         var highest = Log2( (UInt32) ( value >> sizeof( UInt32 ) ) );
-         if ( highest == 0 )
+         var highest = Log2( (UInt32) ( value >> ( sizeof( UInt32 ) * 8 ) ) );
+         if ( highest == LOG_2_OF_0 )
          {
             highest = Log2( (UInt32) value );
          }
@@ -424,6 +425,34 @@ namespace CommonUtils
          value = value - ( ( value >> 1 ) & 0x5555555555555555UL );
          value = ( value & 0x3333333333333333UL ) + ( ( value >> 2 ) & 0x3333333333333333UL );
          return (UInt32) ( ( ( value + ( value >> 4 ) & 0x0F0F0F0F0F0F0F0FUL ) * 0x0101010101010101UL ) >> 56 );
+      }
+
+      /// <summary>
+      /// Calculates the amount of bytes needed when encoding the given integer value using 7-bit encoding.
+      /// </summary>
+      /// <param name="value">The integer value.</param>
+      /// <returns>The amount of bytes needed to encode <paramref name="value"/> using 7-bit encoding.</returns>
+      /// <seealso cref="E_CommonUtils.WriteInt32LEEncoded7Bit"/>
+      /// <seealso cref="E_CommonUtils.WriteInt32BEEncoded7Bit"/>
+      /// <seealso cref="E_CommonUtils.ReadInt32LEEncoded7Bit"/>
+      /// <seealso cref="E_CommonUtils.ReadInt32BEEncoded7Bit"/>
+      public static Int32 Calculate7BitEncodingLength( Int32 value )
+      {
+         return ( Log2( unchecked((UInt32) value) ) / 7 ) + 1;
+      }
+
+      /// <summary>
+      /// Calculates the amount of bytes needed when encoding the given integer value using 7-bit encoding.
+      /// </summary>
+      /// <param name="value">The integer value.</param>
+      /// <returns>The amount of bytes needed to encode <paramref name="value"/> using 7-bit encoding.</returns>
+      /// <seealso cref="E_CommonUtils.WriteInt64LEEncoded7Bit"/>
+      /// <seealso cref="E_CommonUtils.WriteInt64BEEncoded7Bit"/>
+      /// <seealso cref="E_CommonUtils.ReadInt64LEEncoded7Bit"/>
+      /// <seealso cref="E_CommonUtils.ReadInt64BEEncoded7Bit"/>
+      public static Int32 Calculate7BitEncodingLength( Int64 value )
+      {
+         return ( Log2( unchecked((UInt64) value) ) / 7 ) + 1;
       }
    }
 }
