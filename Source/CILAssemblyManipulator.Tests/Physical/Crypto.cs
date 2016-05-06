@@ -25,7 +25,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {
-   public class CryptoTests
+   public class CryptoTests : AbstractCAMTest
    {
       [Test]
       public void TestHashComputation()
@@ -61,8 +61,7 @@ namespace CILAssemblyManipulator.Tests.Physical
       {
          VerifyNativeVSCAM(
             () => new System.Security.Cryptography.RSACryptoServiceProvider( 1024 ),
-            () => new System.Security.Cryptography.RSAPKCS1SignatureFormatter(),
-            () => new PKCS1Formatter()
+            () => new System.Security.Cryptography.RSAPKCS1SignatureFormatter()
             );
       }
 
@@ -98,8 +97,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private void VerifyNativeVSCAM(
          Func<System.Security.Cryptography.RSACryptoServiceProvider> nativeAlgoFactory,
-         Func<System.Security.Cryptography.AsymmetricSignatureFormatter> nativeFactory,
-         Func<DataFormatter<PKCS1Parameters>> camFactory
+         Func<System.Security.Cryptography.AsymmetricSignatureFormatter> nativeFactory
          )
       {
          var r = new Random();
@@ -111,17 +109,25 @@ namespace CILAssemblyManipulator.Tests.Physical
          var nativeFormatter = nativeFactory();
          nativeFormatter.SetHashAlgorithm( "SHA1" );
 
-         Byte[] nativeSignature, camSignature;
+
+         Byte[] nativeSignature, nativeData;
+         System.Security.Cryptography.RSAParameters rParams;
          using ( var nativeAlgo = nativeAlgoFactory() )
          {
             try
             {
                nativeFormatter.SetKey( nativeAlgo );
                nativeSignature = nativeFormatter.CreateSignature( hash );
-
-               var data = camFactory().GetDataForSigning( hash, new PKCS1Parameters( CILAssemblyManipulator.Physical.AssemblyHashAlgorithm.SHA1 ) );
-               string sha1Oid = System.Security.Cryptography.CryptoConfig.MapNameToOID( "SHA1" );
-               camSignature = ( (System.Security.Cryptography.RSACryptoServiceProvider) nativeAlgo ).SignHash( data, sha1Oid );
+               rParams = nativeAlgo.ExportParameters( true );
+               var utilsType = "System.Security.Cryptography.Utils, " + MSCorLib.GetName().ToString();
+               var rsapkcs1PaddingMethod = Type.GetType( utilsType )
+                  .GetMethod( "RsaPkcs1Padding", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic );
+               nativeData = (Byte[]) rsapkcs1PaddingMethod.Invoke( null, new Object[]
+               {
+                  nativeAlgo,
+                  System.Security.Cryptography.CryptoConfig.EncodeOID( System.Security.Cryptography.CryptoConfig.MapNameToOID( "SHA1" ) ),
+                  hash
+               } );
             }
             finally
             {
@@ -129,7 +135,20 @@ namespace CILAssemblyManipulator.Tests.Physical
             }
          }
 
-         Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, camSignature ) );
+         var pkcs = PKCS1Encoder.Create(
+            rParams.Modulus.Length * 8,
+            ASNFormatter.Create(
+               hash,
+               CILAssemblyManipulator.Physical.AssemblyHashAlgorithm.SHA1
+            )
+         );
+         var camData = new Byte[pkcs.DataSize];
+         pkcs.PopulateData(
+            camData,
+            0
+            );
+         Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( camData, nativeData ) );
+         //Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, camSignature ) );
 
       }
    }

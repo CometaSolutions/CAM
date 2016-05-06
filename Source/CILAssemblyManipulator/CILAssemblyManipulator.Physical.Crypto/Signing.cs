@@ -23,93 +23,230 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
+
    /// <summary>
    /// This interface represents a formatter for data to be encrypted.
    /// </summary>
-   /// <typeparam name="TParameters">The type of the parameters for creating data for signing.</typeparam>
-   public interface DataFormatter<TParameters>
+   public interface DataFormatter
    {
+      /// <summary>
+      /// Gets the size of the data.
+      /// </summary>
+      /// <value>The size of the data.</value>
+      Int32 DataSize { get; }
+
       /// <summary>
       /// Creates the data used for signing.
       /// </summary>
-      /// <param name="contents">The binary contents.</param>
-      /// <param name="parameters">The interface-specific parameters.</param>
+      /// <param name="data">The array where to write the data to.</param>
+      /// <param name="dataOffset">The offset in <paramref name="data"/> where to start writing.</param>
       /// <returns>The binary data that can be encrypted.</returns>
-      Byte[] GetDataForSigning( Byte[] contents, TParameters parameters );
-   }
-
-   internal interface Signer<TParameters>
-   {
-      Byte[] Sign( Byte[] message, TParameters parameters );
+      void PopulateData( Byte[] data, Int32 dataOffset );
    }
 
    /// <summary>
-   /// This class is used as parameter type for <see cref="PKCS1Formatter"/> implementing the <see cref="DataFormatter{TParameters}"/> interface.
+   /// The formatter which uses ASN DER encoding to format the hash.
    /// </summary>
-   public sealed class PKCS1Parameters
-   {
-      /// <summary>
-      /// Creates a new instance of <see cref="PKCS1Parameters"/> with given <see cref="AssemblyHashAlgorithm"/>.
-      /// </summary>
-      /// <param name="hashAlgorithm">The <see cref="AssemblyHashAlgorithm"/>.</param>
-      public PKCS1Parameters( AssemblyHashAlgorithm hashAlgorithm )
-      {
-         this.HashAlgorithm = hashAlgorithm;
-      }
-
-      /// <summary>
-      /// Gets the hash algorithm used to produce the contents to be signed.
-      /// </summary>
-      public AssemblyHashAlgorithm HashAlgorithm { get; }
-   }
-
-   internal sealed class RSASigningParameters
-   {
-      public RSASigningParameters( RSAParameters rParams, AssemblyHashAlgorithm hashAlgorithm )
-      {
-         this.RSAParameters = rParams;
-         this.HashAlgorithm = hashAlgorithm;
-      }
-
-      public RSAParameters RSAParameters { get; }
-
-      public AssemblyHashAlgorithm HashAlgorithm { get; }
-   }
-
-   /// <summary>
-   /// The signer which uses PKCS scheme to format the data, and then encrypt it using given RSA parameters.
-   /// </summary>
-   public class PKCS1Formatter : DataFormatter<PKCS1Parameters>
+   public sealed class ASNFormatter : DataFormatter
    {
       private static IDictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier> ObjIDCache { get; }
 
-      static PKCS1Formatter()
+      static ASNFormatter()
       {
          ObjIDCache = new Dictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier>();
       }
 
       /// <summary>
-      /// Encodes algorithm ID + message using ASN.1 DER encoding to produce the data to be encrypted.
+      /// Creates a new instance of <see cref="ASNFormatter"/> with given parameters.
       /// </summary>
-      /// <param name="contents">The contents, which should be a hash created by some <see cref="BlockHashAlgorithm"/>.</param>
-      /// <param name="parameters">The <see cref="PKCS1Parameters"/> containing information about the algorithm that created hash.</param>
-      /// <returns>The data to be used in RSA encryption.</returns>
-      public Byte[] GetDataForSigning( Byte[] contents, PKCS1Parameters parameters )
+      /// <param name="hash">The hash.</param>
+      /// <param name="hashAlgorithmID">The <see cref="AssemblyHashAlgorithm"/>.</param>
+      /// <returns>A new instance of <see cref="ASNFormatter"/> with given parameters.</returns>
+      public static ASNFormatter Create( Byte[] hash, AssemblyHashAlgorithm hashAlgorithmID )
+      {
+         return new ASNFormatter( hash, hashAlgorithmID );
+      }
+
+      private ASN1Sequence _sequence;
+
+      private ASNFormatter( Byte[] contents, AssemblyHashAlgorithm hashAlgorithmID )
       {
          // The data to encrypt is SEQUENCE(SEQUENCE(algorithmID, NULL), message)
-         var asnSeq = new ASN1Sequence(
+         this._sequence = new ASN1Sequence(
             new ASN1Sequence(
-               ObjIDCache.GetOrAdd_NotThreadSafe( parameters.HashAlgorithm, algo => new ASN1ObjectIdentifier( algo.GetObjectIdentifier() ) ),
+               ObjIDCache.GetOrAdd_NotThreadSafe( hashAlgorithmID, algo => new ASN1ObjectIdentifier( algo.GetObjectIdentifier() ) ),
                ASN1Null.Instance
                ),
             new ASN1OctetString( contents )
             );
-         var len = asnSeq.CalculateLength();
-         var data = new Byte[len];
-         asnSeq.Serialize( data, 0, len );
-
-         return data;
+         this.DataSize = this._sequence.CalculateLength();
       }
+
+      /// <inheritdoc />
+      public Int32 DataSize { get; }
+
+      /// <summary>
+      /// Encodes algorithm ID + message using ASN.1 DER encoding to produce the data to be encrypted.
+      /// </summary>
+      /// <param name="data">The array where to write the data to.</param>
+      /// <param name="dataOffset">The offset in <paramref name="data"/> where to start writing.</param>
+      /// <returns>The data to be used in RSA encryption.</returns>
+      public void PopulateData( Byte[] data, Int32 dataOffset )
+      {
+         this._sequence.Serialize( data, dataOffset, this.DataSize );
+      }
+   }
+
+   /// <summary>
+   /// The formatter which uses PKCS1 encoding to encode the data.
+   /// </summary>
+   public class PKCS1Encoder : DataFormatter
+   {
+
+      /// <summary>
+      /// Creates new instance of <see cref="PKCS1Encoder"/>.
+      /// </summary>
+      /// <param name="rsaKeySize">The size of RSA key, in bits.</param>
+      /// <param name="formatter">The <see cref="DataFormatter"/> actually formatting the data.</param>
+      /// <returns>A new instance of <see cref="PKCS1Encoder"/>.</returns>
+      public static PKCS1Encoder Create( Int32 rsaKeySize, DataFormatter formatter )
+      {
+         return new PKCS1Encoder( rsaKeySize, formatter );
+      }
+
+      private readonly Int32 _rsaKeySize;
+      private readonly DataFormatter _formatter;
+
+      private PKCS1Encoder( Int32 rsaKeySize, DataFormatter formatter )
+      {
+         // TODO Check contents length ( <= dataSize - 10)
+         this.DataSize = rsaKeySize / 8;
+         this._formatter = formatter;
+      }
+
+      /// <inheritdoc />
+      public Int32 DataSize { get; }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="data">The array where to write the data to.</param>
+      /// <param name="dataOffset">The offset in <paramref name="data"/> where to start writing.</param>
+      public void PopulateData( Byte[] data, Int32 dataOffset )
+      {
+         var actualFormatter = this._formatter;
+         var encodedContentsSize = actualFormatter.DataSize;
+         Int32 padCount;
+         data
+            .WriteByteToBytes( ref dataOffset, 0x00 ) // Leading zero
+            .WriteByteToBytes( ref dataOffset, 0x01 ) // Type code 1
+            .FillWithOffsetAndCount( dataOffset, ( padCount = this.DataSize - dataOffset - encodedContentsSize - 1 ), (Byte) 0xFF ); // Pad with 0xFF
+         dataOffset += padCount;
+         data.WriteByteToBytes( ref dataOffset, 0x00 ); // Mark end of the padding
+
+         // Write the actual data
+         actualFormatter.PopulateData( data, dataOffset );
+      }
+   }
+
+   internal interface Encryptor<TParameters>
+   {
+      void Encrypt( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, TParameters parameters );
+   }
+
+   internal sealed class RSA : Encryptor<RSAComputedParameters>
+   {
+
+      public void Encrypt( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
+      {
+         throw new NotImplementedException();
+      }
+
+      public BigInteger EncryptInteger( BigInteger input, RSAComputedParameters parameters )
+      {
+         var p = parameters.P;
+         var q = parameters.Q;
+         var dp = parameters.DP;
+         var dq = parameters.DQ;
+
+         // mP = ((input Mod p) ^ dP)) Mod p
+         var mp = ( input % p ).ModPow( dp, p );
+
+         // mQ = ((input Mod q) ^ dQ)) Mod q
+         var mq = ( input % q ).ModPow( dq, q );
+
+         // h = qInv * (mP - mQ) Mod p
+         var h = ( parameters.InverseQ * ( mp - mq ) ).Remainder_Positive( p );
+
+         // m = h * q + mQ
+         return ( h * q ) + mq;
+      }
+
+      public BigInteger ConvertInput( Byte[] input, Int32 inOffset, Int32 inCount, RSAComputedParameters parameters )
+      {
+         var maxLen = ( parameters.BitSize + 7 ) / 8;
+         if ( inCount > maxLen )
+         {
+            throw new InvalidOperationException( "Input too large." );
+         }
+
+         var retVal = BigInteger.ParseFromBinary( input, inOffset, inCount );
+         if ( retVal >= parameters.Modulus )
+         {
+            throw new InvalidOperationException( "Input too large." );
+         }
+
+         return retVal;
+      }
+
+      public void ConvertOutput( Byte[] output, Int32 outOffset, Int32 outCount, BigInteger result )
+      {
+         result.WriteToByteArray( output, outOffset, outCount );
+      }
+   }
+
+   internal sealed class RSABlinded : Encryptor<RSAComputedParameters>
+   {
+      private readonly RSA _actualEncryptor;
+
+      public void Encrypt( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
+      {
+         var inputInt = this._actualEncryptor.ConvertInput( input, inOffset, inCount, parameters );
+
+         throw new NotImplementedException();
+      }
+   }
+
+   internal struct RSAComputedParameters
+   {
+      public RSAComputedParameters( RSAParameters rParams )
+      {
+         this.DP = BigInteger.ParseFromBinary( rParams.DP );
+         this.DQ = BigInteger.ParseFromBinary( rParams.DQ );
+         this.Exponent = BigInteger.ParseFromBinary( rParams.Exponent );
+         this.InverseQ = BigInteger.ParseFromBinary( rParams.InverseQ );
+         this.Modulus = BigInteger.ParseFromBinary( rParams.Modulus );
+         this.P = BigInteger.ParseFromBinary( rParams.P );
+         this.Q = BigInteger.ParseFromBinary( rParams.Q );
+         this.BitSize = rParams.Modulus.Length * 8;
+      }
+
+      public BigInteger DP { get; }
+
+      public BigInteger DQ { get; }
+
+      public BigInteger Exponent { get; }
+
+      public BigInteger InverseQ { get; }
+
+      public BigInteger Modulus { get; }
+
+      public BigInteger P { get; }
+
+      public BigInteger Q { get; }
+
+      public Int32 BitSize { get; }
+
    }
 
    internal abstract class ASN1Component
@@ -286,9 +423,128 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
    }
 
-   internal struct BigInteger
+   // This class is not present in PCL, so have to make our own.
+   internal struct BigInteger : IComparable<BigInteger>
    {
+      public BigInteger Remainder( BigInteger divisor )
+      {
+         return this % divisor;
+      }
 
+      public BigInteger Subtract( BigInteger other )
+      {
+         return this - other;
+      }
+
+      public BigInteger Add( BigInteger other )
+      {
+         return this + other;
+      }
+
+      public BigInteger Multiply( BigInteger other )
+      {
+         return this * other;
+      }
+
+      public BigInteger Divide( BigInteger other )
+      {
+         return this / other;
+      }
+
+      // Same as Remainder, but always returns positive
+      public BigInteger Remainder_Positive( BigInteger other )
+      {
+         throw new NotImplementedException();
+      }
+
+      public BigInteger ModPow( BigInteger exponent, BigInteger modulus )
+      {
+         throw new NotImplementedException();
+      }
+
+      public Int32 CompareTo( BigInteger other )
+      {
+         throw new NotImplementedException();
+      }
+
+      public void WriteToByteArray( Byte[] array, Int32 offset, Int32 length )
+      {
+         throw new NotImplementedException();
+      }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is BigInteger && this.CompareTo( (BigInteger) obj ) == 0;
+      }
+
+      public override Int32 GetHashCode()
+      {
+         throw new NotImplementedException();
+      }
+
+      public static BigInteger ParseFromBinary( Byte[] array )
+      {
+         return ParseFromBinary( array, 0, array.Length );
+      }
+      public static BigInteger ParseFromBinary( Byte[] array, Int32 offset, Int32 length )
+      {
+         throw new NotImplementedException();
+      }
+
+      public static BigInteger operator %( BigInteger divident, BigInteger divisor )
+      {
+         throw new NotImplementedException();
+      }
+
+      public static BigInteger operator *( BigInteger left, BigInteger right )
+      {
+         throw new NotImplementedException();
+      }
+
+      public static BigInteger operator -( BigInteger left, BigInteger right )
+      {
+         throw new NotImplementedException();
+      }
+
+      public static BigInteger operator +( BigInteger left, BigInteger right )
+      {
+         throw new NotImplementedException();
+      }
+
+      public static BigInteger operator /( BigInteger left, BigInteger right )
+      {
+         throw new NotImplementedException();
+      }
+
+      public static Boolean operator >( BigInteger left, BigInteger right )
+      {
+         return left.CompareTo( right ) > 0;
+      }
+
+      public static Boolean operator <( BigInteger left, BigInteger right )
+      {
+         return left.CompareTo( right ) < 0;
+      }
+
+      public static Boolean operator >=( BigInteger left, BigInteger right )
+      {
+         return left.CompareTo( right ) >= 0;
+      }
+
+      public static Boolean operator <=( BigInteger left, BigInteger right )
+      {
+         return left.CompareTo( right ) <= 0;
+      }
+
+      public static Boolean operator ==( BigInteger left, BigInteger right )
+      {
+         return left.CompareTo( right ) == 0;
+      }
+
+      public static Boolean operator !=( BigInteger left, BigInteger right )
+      {
+         return left.CompareTo( right ) != 0;
+      }
    }
 
    internal static class E_ASN
