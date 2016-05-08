@@ -67,7 +67,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
       private void VerifyNativeVSCAM(
          Func<System.Security.Cryptography.HashAlgorithm> nativeFactory,
-         Func<BlockHashAlgorithm> camFactory
+         Func<BlockDigestAlgorithm> camFactory
          )
       {
          var r = new Random();
@@ -135,20 +135,31 @@ namespace CILAssemblyManipulator.Tests.Physical
             }
          }
 
-         var pkcs = PKCS1Encoder.Create(
-            rParams.Modulus.Length * 8,
-            ASNFormatter.Create(
+         //var pkcs = PKCS1Encoder.Create(
+         //   rParams.Modulus.Length * 8,
+         //   ASNFormatter.Create(
+         //      hash,
+         //      CILAssemblyManipulator.Physical.AssemblyHashAlgorithm.SHA1
+         //   )
+         //);
+         //var camData = new Byte[pkcs.DataSize];
+         //pkcs.PopulateData(
+         //   camData,
+         //   0
+         //   );
+         //Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( camData, nativeData ) );
+
+         Byte[] camSignature;
+         using ( var camCrypto = new DefaultCryptoCallbacks() )
+         {
+            camSignature = camCrypto.CreateRSASignature(
+               CILAssemblyManipulator.Physical.AssemblyHashAlgorithm.SHA1,
                hash,
-               CILAssemblyManipulator.Physical.AssemblyHashAlgorithm.SHA1
-            )
-         );
-         var camData = new Byte[pkcs.DataSize];
-         pkcs.PopulateData(
-            camData,
-            0
-            );
-         Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( camData, nativeData ) );
-         //Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, camSignature ) );
+               rParams.CreateCAMParameters(),
+               null
+               );
+         }
+         Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, camSignature ) );
 
       }
    }

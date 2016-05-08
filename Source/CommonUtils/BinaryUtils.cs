@@ -454,5 +454,27 @@ namespace CommonUtils
       {
          return ( Log2( unchecked((UInt64) value) ) / 7 ) + 1;
       }
+
+      /// <summary>
+      /// Checks whether given unsigned integer is power of two.
+      /// </summary>
+      /// <param name="val">The integer to check.</param>
+      /// <returns><c>true</c> if the integer is power of two (and thus greater than zero); <c>false</c> otherwise.</returns>
+      [CLSCompliant( false )]
+      public static Boolean IsPowerOfTwo( this UInt32 val )
+      {
+         return val != 0 && ( val & ( val - 1 ) ) == 0;
+      }
+
+      /// <summary>
+      /// Checks whether given unsigned integer is power of two.
+      /// </summary>
+      /// <param name="val">The integer to check.</param>
+      /// <returns><c>true</c> if the integer is power of two (and thus greater than zero); <c>false</c> otherwise.</returns>
+      [CLSCompliant( false )]
+      public static Boolean IsPowerOfTwo( this UInt64 val )
+      {
+         return val != 0 && ( val & ( val - 1 ) ) == 0;
+      }
    }
 }

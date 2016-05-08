@@ -27,7 +27,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <summary>
    /// 
    /// </summary>
-   public interface BlockHashAlgorithm : IDisposable
+   public interface BlockDigestAlgorithm : IDisposable
    {
       /// <summary>
       /// 
@@ -40,17 +40,22 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      /// <param name="data"></param>
+      /// <param name="array"></param>
       /// <param name="offset"></param>
-      /// <param name="count"></param>
       /// <returns></returns>
-      Byte[] ProcessFinalBlock( Byte[] data, Int32 offset, Int32 count );
+      void WriteDigest( Byte[] array, Int32 offset );
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <value></value>
+      Int32 DigestByteCount { get; }
    }
 
    /// <summary>
    /// 
    /// </summary>
-   public abstract class BlockHashAlgorithmWithMessageLength : AbstractDisposable, BlockHashAlgorithm
+   public abstract class BlockDigestAlgorithmWithMessageLength : AbstractDisposable, BlockDigestAlgorithm
    {
 
       private readonly Byte[] _block;
@@ -60,7 +65,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      protected BlockHashAlgorithmWithMessageLength( Int32 blockByteCount )
+      protected BlockDigestAlgorithmWithMessageLength( Int32 blockByteCount )
       {
          this._stateResetDone = false;
          this._block = new Byte[blockByteCount];
@@ -79,15 +84,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public Byte[] ProcessFinalBlock( Byte[] data, Int32 offset, Int32 count )
+      public void WriteDigest( Byte[] array, Int32 offset )
       {
-         if ( data != null )
-         {
-            this.HashBlock( data, offset, count );
-         }
-         var retVal = this.HashEnd();
+         this.HashEnd( array, offset );
          this.Reset();
-         return retVal;
       }
 
       /// <inheritdoc />
@@ -139,7 +139,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      private Byte[] HashEnd()
+      private void HashEnd( Byte[] array, Int32 offset )
       {
          // We will write 9 more bytes (byte + ulong)
          // Round up by block size
@@ -157,9 +157,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          this.HashBlock( data, 0, data.Length );
 
          // Transform state integers into byte array
-         var hash = new Byte[this.HashByteCount];
-         this.PopulateHash( hash );
-         return hash;
+         this.PopulateHash( array, offset );
       }
 
       /// <summary>
@@ -176,12 +174,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      protected abstract Int32 HashByteCount { get; }
+      public abstract Int32 DigestByteCount { get; }
 
       /// <summary>
       /// 
       /// </summary>
-      protected abstract void PopulateHash( Byte[] hash );
+      protected abstract void PopulateHash( Byte[] hash, Int32 offset );
 
       /// <summary>
       /// 
@@ -204,7 +202,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// 
    /// </summary>
    [CLSCompliant( false )]
-   public abstract class SHA32BitWord : BlockHashAlgorithmWithMessageLength
+   public abstract class SHA32BitWord : BlockDigestAlgorithmWithMessageLength
    {
       /// <summary>
       /// 
@@ -256,7 +254,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      protected override Int32 HashByteCount
+      public override Int32 DigestByteCount
       {
          get
          {
@@ -267,10 +265,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
+      /// <param name="hash"></param>
+      /// <param name="offset"></param>
       /// <returns></returns>
-      protected override void PopulateHash( Byte[] hash )
+      protected override void PopulateHash( Byte[] hash, Int32 offset )
       {
-         this.PopulateHash( hash, this._state );
+         this.PopulateHash( hash, offset, this._state );
       }
 
       /// <summary>
@@ -335,15 +335,15 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// 
       /// </summary>
       /// <param name="hash"></param>
+      /// <param name="offset"></param>
       /// <param name="state"></param>
-      protected virtual void PopulateHash( Byte[] hash, UInt32[] state )
+      protected virtual void PopulateHash( Byte[] hash, Int32 offset, UInt32[] state )
       {
-         var idx = 0;
-         var max = this.HashByteCount;
+         var max = offset + this.DigestByteCount;
          var i = 0;
-         while ( idx < max )
+         while ( offset < max )
          {
-            hash.WriteUInt32BEToBytes( ref idx, state[i++] );
+            hash.WriteUInt32BEToBytes( ref offset, state[i++] );
          }
       }
 
@@ -353,7 +353,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// 
    /// </summary>
    [CLSCompliant( false )]
-   public abstract class SHA64BitWord : BlockHashAlgorithmWithMessageLength
+   public abstract class SHA64BitWord : BlockDigestAlgorithmWithMessageLength
    {
       private const Int32 BLOCK_SIZE = 0x80;
 
@@ -402,7 +402,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      protected override Int32 HashByteCount
+      public override Int32 DigestByteCount
       {
          get
          {
@@ -414,15 +414,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// 
       /// </summary>
       /// <returns></returns>
-      protected override void PopulateHash( Byte[] hash )
+      protected override void PopulateHash( Byte[] hash, Int32 offset )
       {
-         var idx = 0;
-         var max = this.HashByteCount;
+         var max = offset + this.DigestByteCount;
          var i = 0;
-         var state = this._state;
-         while ( idx < max )
+         while ( offset < max )
          {
-            hash.WriteUInt64BEToBytes( ref idx, state[i++] );
+            hash.WriteUInt64BEToBytes( ref offset, this._state[i++] );
          }
       }
 
@@ -958,7 +956,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      protected override Int32 HashByteCount
+      public override Int32 DigestByteCount
       {
          get
          {
@@ -1188,14 +1186,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// 
       /// </summary>
       /// <param name="hash"></param>
+      /// <param name="offset"></param>
       /// <param name="state"></param>
-      protected override void PopulateHash( Byte[] hash, UInt32[] state )
+      protected override void PopulateHash( Byte[] hash, Int32 offset, UInt32[] state )
       {
          // MD5 is little-endian
-         var idx = 0;
          for ( var i = 0; i < STATE_COUNT; ++i )
          {
-            hash.WriteUInt32LEToBytes( ref idx, state[i] );
+            hash.WriteUInt32LEToBytes( ref offset, state[i] );
          }
       }
 
@@ -1245,21 +1243,21 @@ public static partial class E_CILPhysical
    /// <param name="offset"></param>
    /// <param name="count"></param>
    /// <returns></returns>
-   public static Byte[] ComputeHash( this BlockHashAlgorithm transform, Byte[] array, Int32 offset, Int32 count )
+   public static Byte[] ComputeHash( this BlockDigestAlgorithm transform, Byte[] array, Int32 offset, Int32 count )
    {
       transform.ProcessBlock( array, offset, count );
-      return transform.TransformFinalBlock();
+      return transform.CreateDigest();
    }
 
    /// <summary>
    /// Helper method to compute hash from the data of specific stream.
    /// </summary>
    /// <param name="source">The source stream containing the data to be hashed.</param>
-   /// <param name="hash">The <see cref="BlockHashAlgorithm"/> to use.</param>
+   /// <param name="hash">The <see cref="BlockDigestAlgorithm"/> to use.</param>
    /// <param name="buffer">The buffer to use when reading data from <paramref name="source"/>.</param>
    /// <param name="amount">The amount of bytes to read from <paramref name="source"/>.</param>
    /// <exception cref="System.IO.EndOfStreamException">If the <paramref name="source"/> ends before given <paramref name="amount"/> of bytes is read.</exception>
-   public static void CopyStreamPart( this BlockHashAlgorithm hash, System.IO.Stream source, Byte[] buffer, Int64 amount )
+   public static void CopyStreamPart( this BlockDigestAlgorithm hash, System.IO.Stream source, Byte[] buffer, Int64 amount )
    {
       ArgumentValidator.ValidateNotNull( "Stream", source );
       while ( amount > 0 )
@@ -1275,12 +1273,34 @@ public static partial class E_CILPhysical
    }
 
    /// <summary>
-   /// Helper method to just make the algorithm produce the hash after all the data has been written.
+   /// 
    /// </summary>
-   /// <param name="algorithm">The <see cref="BlockHashAlgorithm"/>.</param>
-   /// <returns>The hash of the data previously transformed with the <see cref="BlockHashAlgorithm"/>.</returns>
-   public static Byte[] TransformFinalBlock( this BlockHashAlgorithm algorithm )
+   /// <param name="algorithm"></param>
+   /// <returns></returns>
+   public static Byte[] CreateDigest( this BlockDigestAlgorithm algorithm )
    {
-      return algorithm.ProcessFinalBlock( null, 0, 0 );
+      var retVal = new Byte[algorithm.DigestByteCount];
+      algorithm.WriteDigest( retVal, 0 );
+      return retVal;
+   }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <param name="algorithm"></param>
+   /// <param name="block"></param>
+   public static void ProcessBlock( this BlockDigestAlgorithm algorithm, Byte[] block )
+   {
+      algorithm.ProcessBlock( block, 0, block.Length );
+   }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <param name="algorithm"></param>
+   /// <param name="array"></param>
+   public static void WriteDigest( this BlockDigestAlgorithm algorithm, Byte[] array )
+   {
+      algorithm.WriteDigest( array, 0 );
    }
 }

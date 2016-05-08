@@ -15,710 +15,508 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical.Crypto;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
 
    /// <summary>
-   /// This interface represents a formatter for data to be encrypted.
+   /// This interface represents an algorithm which ciphers or deciphers blocks of data.
    /// </summary>
-   public interface DataFormatter
+   /// <typeparam name="TParameters">The algorithm-specific parameters.</typeparam>
+   public interface CipherAlgorithm<TParameters>
    {
       /// <summary>
-      /// Gets the size of the data.
+      /// Processes the data block.
       /// </summary>
-      /// <value>The size of the data.</value>
-      Int32 DataSize { get; }
-
-      /// <summary>
-      /// Creates the data used for signing.
-      /// </summary>
-      /// <param name="data">The array where to write the data to.</param>
-      /// <param name="dataOffset">The offset in <paramref name="data"/> where to start writing.</param>
-      /// <returns>The binary data that can be encrypted.</returns>
-      void PopulateData( Byte[] data, Int32 dataOffset );
+      /// <param name="input">The array where to read the data from.</param>
+      /// <param name="inOffset">The offset in <paramref name="input"/> where to start reading data from.</param>
+      /// <param name="inCount">The amount of bytes to read from <paramref name="input"/>.</param>
+      /// <param name="output">The array where to write cipher or plaintext data.</param>
+      /// <param name="outOffset">The offset in <paramref name="output"/> where to start writing data to.</param>
+      /// <param name="parameters">The algorithm-specific parameters.</param>
+      void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, TParameters parameters );
    }
 
    /// <summary>
-   /// The formatter which uses ASN DER encoding to format the hash.
+   /// This class represents the RSA algorithm logic operating with API of <see cref="CipherAlgorithm{TParameters}"/>.
    /// </summary>
-   public sealed class ASNFormatter : DataFormatter
+   public class RSAAlgorithm : CipherAlgorithm<RSAComputedParameters>
    {
-      private static IDictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier> ObjIDCache { get; }
-
-      static ASNFormatter()
-      {
-         ObjIDCache = new Dictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier>();
-      }
-
       /// <summary>
-      /// Creates a new instance of <see cref="ASNFormatter"/> with given parameters.
+      /// The <see cref="RSAAlgorithm"/> itself is stateless, and this instance should be used as default instance.
       /// </summary>
-      /// <param name="hash">The hash.</param>
-      /// <param name="hashAlgorithmID">The <see cref="AssemblyHashAlgorithm"/>.</param>
-      /// <returns>A new instance of <see cref="ASNFormatter"/> with given parameters.</returns>
-      public static ASNFormatter Create( Byte[] hash, AssemblyHashAlgorithm hashAlgorithmID )
+      public static RSAAlgorithm DefaultInstance { get; }
+
+      static RSAAlgorithm()
       {
-         return new ASNFormatter( hash, hashAlgorithmID );
+         DefaultInstance = new RSAAlgorithm();
       }
 
-      private ASN1Sequence _sequence;
-
-      private ASNFormatter( Byte[] contents, AssemblyHashAlgorithm hashAlgorithmID )
+      /// <inheritdoc/>
+      public void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
       {
-         // The data to encrypt is SEQUENCE(SEQUENCE(algorithmID, NULL), message)
-         this._sequence = new ASN1Sequence(
-            new ASN1Sequence(
-               ObjIDCache.GetOrAdd_NotThreadSafe( hashAlgorithmID, algo => new ASN1ObjectIdentifier( algo.GetObjectIdentifier() ) ),
-               ASN1Null.Instance
-               ),
-            new ASN1OctetString( contents )
+         this.ConvertOutput(
+            output,
+            outOffset,
+            this.ProcessInteger(
+               this.ConvertInput(
+                  input,
+                  inOffset,
+                  inCount,
+                  parameters
+                  ),
+               parameters
+               )
             );
-         this.DataSize = this._sequence.CalculateLength();
       }
-
-      /// <inheritdoc />
-      public Int32 DataSize { get; }
 
       /// <summary>
-      /// Encodes algorithm ID + message using ASN.1 DER encoding to produce the data to be encrypted.
+      /// This method is the actual implementation of RSA algorithm.
+      /// It uses the values of <see cref="RSAComputedParameters"/> and the Chinese Remainder Theorem to compute an integer value, given another integer value and the <see cref="RSAComputedParameters"/>.
       /// </summary>
-      /// <param name="data">The array where to write the data to.</param>
-      /// <param name="dataOffset">The offset in <paramref name="data"/> where to start writing.</param>
-      /// <returns>The data to be used in RSA encryption.</returns>
-      public void PopulateData( Byte[] data, Int32 dataOffset )
-      {
-         this._sequence.Serialize( data, dataOffset, this.DataSize );
-      }
-   }
-
-   /// <summary>
-   /// The formatter which uses PKCS1 encoding to encode the data.
-   /// </summary>
-   public class PKCS1Encoder : DataFormatter
-   {
-
-      /// <summary>
-      /// Creates new instance of <see cref="PKCS1Encoder"/>.
-      /// </summary>
-      /// <param name="rsaKeySize">The size of RSA key, in bits.</param>
-      /// <param name="formatter">The <see cref="DataFormatter"/> actually formatting the data.</param>
-      /// <returns>A new instance of <see cref="PKCS1Encoder"/>.</returns>
-      public static PKCS1Encoder Create( Int32 rsaKeySize, DataFormatter formatter )
-      {
-         return new PKCS1Encoder( rsaKeySize, formatter );
-      }
-
-      private readonly Int32 _rsaKeySize;
-      private readonly DataFormatter _formatter;
-
-      private PKCS1Encoder( Int32 rsaKeySize, DataFormatter formatter )
-      {
-         // TODO Check contents length ( <= dataSize - 10)
-         this.DataSize = rsaKeySize / 8;
-         this._formatter = formatter;
-      }
-
-      /// <inheritdoc />
-      public Int32 DataSize { get; }
-
-      /// <summary>
-      /// 
-      /// </summary>
-      /// <param name="data">The array where to write the data to.</param>
-      /// <param name="dataOffset">The offset in <paramref name="data"/> where to start writing.</param>
-      public void PopulateData( Byte[] data, Int32 dataOffset )
-      {
-         var actualFormatter = this._formatter;
-         var encodedContentsSize = actualFormatter.DataSize;
-         Int32 padCount;
-         data
-            .WriteByteToBytes( ref dataOffset, 0x00 ) // Leading zero
-            .WriteByteToBytes( ref dataOffset, 0x01 ) // Type code 1
-            .FillWithOffsetAndCount( dataOffset, ( padCount = this.DataSize - dataOffset - encodedContentsSize - 1 ), (Byte) 0xFF ); // Pad with 0xFF
-         dataOffset += padCount;
-         data.WriteByteToBytes( ref dataOffset, 0x00 ); // Mark end of the padding
-
-         // Write the actual data
-         actualFormatter.PopulateData( data, dataOffset );
-      }
-   }
-
-   internal interface Encryptor<TParameters>
-   {
-      void Encrypt( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, TParameters parameters );
-   }
-
-   internal sealed class RSA : Encryptor<RSAComputedParameters>
-   {
-
-      public void Encrypt( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
-      {
-         throw new NotImplementedException();
-      }
-
-      public BigInteger EncryptInteger( BigInteger input, RSAComputedParameters parameters )
+      /// <param name="input"></param>
+      /// <param name="parameters"></param>
+      /// <returns></returns>
+      public BigInteger ProcessInteger( BigInteger input, RSAComputedParameters parameters )
       {
          var p = parameters.P;
          var q = parameters.Q;
          var dp = parameters.DP;
          var dq = parameters.DQ;
-
-         // mP = ((input Mod p) ^ dP)) Mod p
-         var mp = ( input % p ).ModPow( dp, p );
-
-         // mQ = ((input Mod q) ^ dQ)) Mod q
-         var mq = ( input % q ).ModPow( dq, q );
-
-         // h = qInv * (mP - mQ) Mod p
-         var h = ( parameters.InverseQ * ( mp - mq ) ).Remainder_Positive( p );
-
-         // m = h * q + mQ
-         return ( h * q ) + mq;
-      }
-
-      public BigInteger ConvertInput( Byte[] input, Int32 inOffset, Int32 inCount, RSAComputedParameters parameters )
-      {
-         var maxLen = ( parameters.BitSize + 7 ) / 8;
-         if ( inCount > maxLen )
+         BigInteger retVal;
+         if ( p.HasValue && q.HasValue && dp.HasValue && dq.HasValue )
          {
-            throw new InvalidOperationException( "Input too large." );
-         }
+            // Decryption
 
-         var retVal = BigInteger.ParseFromBinary( input, inOffset, inCount );
-         if ( retVal >= parameters.Modulus )
-         {
-            throw new InvalidOperationException( "Input too large." );
-         }
+            // mP = ((input Mod p) ^ dP)) Mod p
+            var mp = ( input % p.Value ).ModPow( dp.Value, p.Value );
 
-         return retVal;
-      }
+            // mQ = ((input Mod q) ^ dQ)) Mod q
+            var mq = ( input % q.Value ).ModPow( dq.Value, q.Value );
 
-      public void ConvertOutput( Byte[] output, Int32 outOffset, Int32 outCount, BigInteger result )
-      {
-         result.WriteToByteArray( output, outOffset, outCount );
-      }
-   }
+            // h = qInv * (mP - mQ) Mod p
+            var h = ( parameters.InverseQ.Value * ( mp - mq ) ).Remainder_Positive( p.Value );
 
-   internal sealed class RSABlinded : Encryptor<RSAComputedParameters>
-   {
-      private readonly RSA _actualEncryptor;
-
-      public void Encrypt( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
-      {
-         var inputInt = this._actualEncryptor.ConvertInput( input, inOffset, inCount, parameters );
-
-         throw new NotImplementedException();
-      }
-   }
-
-   internal struct RSAComputedParameters
-   {
-      public RSAComputedParameters( RSAParameters rParams )
-      {
-         this.DP = BigInteger.ParseFromBinary( rParams.DP );
-         this.DQ = BigInteger.ParseFromBinary( rParams.DQ );
-         this.Exponent = BigInteger.ParseFromBinary( rParams.Exponent );
-         this.InverseQ = BigInteger.ParseFromBinary( rParams.InverseQ );
-         this.Modulus = BigInteger.ParseFromBinary( rParams.Modulus );
-         this.P = BigInteger.ParseFromBinary( rParams.P );
-         this.Q = BigInteger.ParseFromBinary( rParams.Q );
-         this.BitSize = rParams.Modulus.Length * 8;
-      }
-
-      public BigInteger DP { get; }
-
-      public BigInteger DQ { get; }
-
-      public BigInteger Exponent { get; }
-
-      public BigInteger InverseQ { get; }
-
-      public BigInteger Modulus { get; }
-
-      public BigInteger P { get; }
-
-      public BigInteger Q { get; }
-
-      public Int32 BitSize { get; }
-
-   }
-
-   internal abstract class ASN1Component
-   {
-      // TODO this is a hack
-      private Int32 _contentLength;
-      private Int32 _lengthLength;
-
-      public Int32 CalculateLength()
-      {
-         var len = this.CalculateContentLength();
-         this._contentLength = len;
-         this._lengthLength = len.CalculateDERComponentLengthSize();
-         return 1 // Tag
-            + this._lengthLength // How many bytes to encode length of data
-            + len; // The length of data
-      }
-
-      public void Serialize( Byte[] array, Int32 idx, Int32 calculatedLength )
-      {
-         array
-            .WriteByteToBytes( ref idx, this.GetTag() )
-            .WriteDERComponentLength( ref idx, this._contentLength, this._lengthLength );
-         this.SerializeContent( array, idx, calculatedLength );
-      }
-
-      protected abstract Int32 CalculateContentLength();
-      protected abstract Byte GetTag();
-
-      protected abstract void SerializeContent( Byte[] array, Int32 idx, Int32 calculatedLength );
-   }
-
-   internal sealed class ASN1ObjectIdentifier : ASN1Component
-   {
-      private readonly Lazy<String> _stringValue;
-      private readonly Lazy<Byte[]> _bytes;
-
-      public ASN1ObjectIdentifier( IEnumerable<Int64> identifier )
-      {
-         this.Integers = identifier.Cast<Object>().ToArray();
-         this._stringValue = new Lazy<String>( () => String.Join( ",", this.Integers ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-         this._bytes = new Lazy<Byte[]>( () => this.Integers.SerializeObjectIdentifier(), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-      }
-
-      protected override Int32 CalculateContentLength()
-      {
-         return this.Bytes.Length;
-      }
-
-      protected override Byte GetTag()
-      {
-         return 0x06; // OBJECT IDENTIFIER
-      }
-
-      protected override void SerializeContent( byte[] array, int idx, int calculatedLength )
-      {
-         array.BlockCopyFrom( ref idx, this.Bytes );
-      }
-
-      public String StringValue
-      {
-         get
-         {
-            return this._stringValue.Value;
-         }
-      }
-
-      // TODO ArrayQuery...
-      public Byte[] Bytes
-      {
-         get
-         {
-            return this._bytes.Value;
-         }
-      }
-
-      // TODO ArrayQuery...
-      public Object[] Integers { get; }
-
-      public override String ToString()
-      {
-         return this._stringValue.Value;
-      }
-   }
-
-   internal sealed class ASN1OctetString : ASN1Component
-   {
-      private readonly Byte[] _octetString;
-
-      public ASN1OctetString( Byte[] octetString )
-      {
-         this._octetString = ArgumentValidator.ValidateNotNull( "Octet string", octetString );
-      }
-
-      protected override Int32 CalculateContentLength()
-      {
-         return this._octetString.Length;
-      }
-
-      protected override Byte GetTag()
-      {
-         return 0x04; // OCTET STRING
-      }
-
-      protected override void SerializeContent( Byte[] array, Int32 idx, Int32 calculatedLength )
-      {
-         array.BlockCopyFrom( ref idx, this._octetString );
-      }
-   }
-
-   internal sealed class ASN1Sequence : ASN1Component
-   {
-      private readonly ASN1Component[] _sequence;
-      private readonly Lazy<Int32[]> _lengths;
-
-      public ASN1Sequence( params ASN1Component[] sequence )
-      {
-         this._sequence = ArgumentValidator.ValidateNotNull( "ASN1 sequence", sequence );
-         this._lengths = new Lazy<Int32[]>( () => this._sequence.Select( s => s.CalculateLength() ).ToArray(), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
-      }
-
-      protected override Int32 CalculateContentLength()
-      {
-         return this._lengths.Value.Sum();
-      }
-
-      protected override Byte GetTag()
-      {
-         return 0x10 | 0x20; // SEQUENCE | CONSTRUCTED
-      }
-
-      protected override void SerializeContent( Byte[] array, Int32 idx, Int32 calculatedLength )
-      {
-         var seq = this._sequence;
-         var lengths = this._lengths.Value;
-         for ( var i = 0; i < seq.Length; ++i )
-         {
-            var len = lengths[i];
-            seq[i].Serialize( array, idx, len );
-            idx += len;
-         }
-      }
-
-
-   }
-
-   internal sealed class ASN1Null : ASN1Component
-   {
-      public static ASN1Null Instance { get; }
-
-      static ASN1Null()
-      {
-         Instance = new ASN1Null();
-      }
-
-      private ASN1Null()
-      {
-
-      }
-
-      protected override Int32 CalculateContentLength()
-      {
-         return 0;
-      }
-
-      protected override Byte GetTag()
-      {
-         return 0x05; // NULL
-      }
-
-      protected override void SerializeContent( Byte[] array, Int32 idx, Int32 calculatedLength )
-      {
-         // Do nothing
-      }
-   }
-
-   // This class is not present in PCL, so have to make our own.
-   internal struct BigInteger : IComparable<BigInteger>
-   {
-      public BigInteger Remainder( BigInteger divisor )
-      {
-         return this % divisor;
-      }
-
-      public BigInteger Subtract( BigInteger other )
-      {
-         return this - other;
-      }
-
-      public BigInteger Add( BigInteger other )
-      {
-         return this + other;
-      }
-
-      public BigInteger Multiply( BigInteger other )
-      {
-         return this * other;
-      }
-
-      public BigInteger Divide( BigInteger other )
-      {
-         return this / other;
-      }
-
-      // Same as Remainder, but always returns positive
-      public BigInteger Remainder_Positive( BigInteger other )
-      {
-         throw new NotImplementedException();
-      }
-
-      public BigInteger ModPow( BigInteger exponent, BigInteger modulus )
-      {
-         throw new NotImplementedException();
-      }
-
-      public Int32 CompareTo( BigInteger other )
-      {
-         throw new NotImplementedException();
-      }
-
-      public void WriteToByteArray( Byte[] array, Int32 offset, Int32 length )
-      {
-         throw new NotImplementedException();
-      }
-
-      public override Boolean Equals( Object obj )
-      {
-         return obj is BigInteger && this.CompareTo( (BigInteger) obj ) == 0;
-      }
-
-      public override Int32 GetHashCode()
-      {
-         throw new NotImplementedException();
-      }
-
-      public static BigInteger ParseFromBinary( Byte[] array )
-      {
-         return ParseFromBinary( array, 0, array.Length );
-      }
-      public static BigInteger ParseFromBinary( Byte[] array, Int32 offset, Int32 length )
-      {
-         throw new NotImplementedException();
-      }
-
-      public static BigInteger operator %( BigInteger divident, BigInteger divisor )
-      {
-         throw new NotImplementedException();
-      }
-
-      public static BigInteger operator *( BigInteger left, BigInteger right )
-      {
-         throw new NotImplementedException();
-      }
-
-      public static BigInteger operator -( BigInteger left, BigInteger right )
-      {
-         throw new NotImplementedException();
-      }
-
-      public static BigInteger operator +( BigInteger left, BigInteger right )
-      {
-         throw new NotImplementedException();
-      }
-
-      public static BigInteger operator /( BigInteger left, BigInteger right )
-      {
-         throw new NotImplementedException();
-      }
-
-      public static Boolean operator >( BigInteger left, BigInteger right )
-      {
-         return left.CompareTo( right ) > 0;
-      }
-
-      public static Boolean operator <( BigInteger left, BigInteger right )
-      {
-         return left.CompareTo( right ) < 0;
-      }
-
-      public static Boolean operator >=( BigInteger left, BigInteger right )
-      {
-         return left.CompareTo( right ) >= 0;
-      }
-
-      public static Boolean operator <=( BigInteger left, BigInteger right )
-      {
-         return left.CompareTo( right ) <= 0;
-      }
-
-      public static Boolean operator ==( BigInteger left, BigInteger right )
-      {
-         return left.CompareTo( right ) == 0;
-      }
-
-      public static Boolean operator !=( BigInteger left, BigInteger right )
-      {
-         return left.CompareTo( right ) != 0;
-      }
-   }
-
-   internal static class E_ASN
-   {
-
-      internal static Byte[] SerializeObjectIdentifier( this IEnumerable<Object> objID )
-      {
-         var array = new ResizableArray<Byte>( 0x20 );
-         var idx = 0;
-         foreach ( var component in objID.TransformObjectIdentifierSequence() )
-         {
-            if ( component is BigInteger )
-            {
-               throw new NotImplementedException( "Serializing big integers is not yet implemented" );
-            }
-            else
-            {
-               array.SerializeObjectIdentifierComponent( ref idx, Convert.ToInt64( component ) );
-            }
-
-         }
-
-         var bytes = array.Array;
-         if ( idx < bytes.Length )
-         {
-            var tmp = 0;
-            bytes = bytes.CreateAndBlockCopyTo( ref tmp, idx );
-         }
-         return bytes;
-      }
-
-      private static IEnumerable<Object> TransformObjectIdentifierSequence( this IEnumerable<Object> objID )
-      {
-         using ( var enumerator = objID.GetEnumerator() )
-         {
-            if ( !enumerator.MoveNext() )
-            {
-               throw new InvalidOperationException( "Object identifier must contain at least two integers." );
-            }
-
-            var first = enumerator.Current;
-            switch ( Type.GetTypeCode( first?.GetType() ) )
-            {
-               case TypeCode.Byte:
-               case TypeCode.SByte:
-               case TypeCode.Int16:
-               case TypeCode.UInt16:
-               case TypeCode.Int32:
-               case TypeCode.UInt32:
-               case TypeCode.Int64:
-               case TypeCode.UInt64:
-                  break;
-               default:
-                  throw new InvalidOperationException( "The first object of object identifier must be on of the primitive integer types." );
-            }
-            var firstInt = Convert.ToInt64( first ) * 40;
-
-            if ( !enumerator.MoveNext() )
-            {
-               throw new InvalidOperationException( "Object identifier must contain at least two integers." );
-            }
-            var next = enumerator.Current;
-            if ( next is BigInteger )
-            {
-               throw new NotImplementedException( "Serializing big integers is not yet implemented" );
-            }
-            else
-            {
-               yield return firstInt + Convert.ToInt64( next );
-            }
-
-
-            while ( enumerator.MoveNext() )
-            {
-               var obj = enumerator.Current;
-               yield return obj;
-            }
-         }
-      }
-
-      private static ResizableArray<Byte> SerializeObjectIdentifierComponent( this ResizableArray<Byte> array, ref Int32 idx, Int64 value )
-      {
-         array
-            .EnsureThatCanAdd( idx, BinaryUtils.Calculate7BitEncodingLength( value ) )
-            .Array.WriteInt64BEEncoded7Bit( ref idx, value );
-         return array;
-      }
-
-      internal static Int32 CalculateDERComponentLengthSize( this Int32 length )
-      {
-         var retVal = 1;
-         var uval = unchecked((UInt32) length);
-         if ( uval >= 0x80 )
-         {
-            retVal += ( BinaryUtils.Log2( uval ) / 8 ) + 1;
-         }
-
-         return retVal;
-      }
-
-      internal static Byte[] WriteDERComponentLength( this Byte[] array, ref Int32 idx, Int32 length, Int32 calculatedSize )
-      {
-         if ( calculatedSize == 1 )
-         {
-            array.WriteByteToBytes( ref idx, (Byte) length );
+            // m = h * q + mQ
+            retVal = ( h * q.Value ) + mq;
          }
          else
          {
-            array.WriteByteToBytes( ref idx, (Byte) ( calculatedSize | 0x80 ) );
+            // Encryption
 
-            // Integer serialized in big-endian format, except MSB zeroes are not serialized
-            // TODO write some new methods to BinaryExtensions of CommonUtils for this kind of scenario (skipping leading/trailing zeroes in integer serialization)
-            for ( var i = ( calculatedSize - 1 ) * 8; i >= 0; i -= 8 )
+            // c = (i ^ e) Mod m
+            retVal = input.ModPow( parameters.Exponent, parameters.Modulus );
+         }
+
+         return retVal;
+      }
+
+      /// <summary>
+      /// Converts the input binary data to <see cref="BigInteger"/> processable by <see cref="ProcessInteger"/> method.
+      /// </summary>
+      /// <param name="input">The binary data.</param>
+      /// <param name="inOffset">The offset in <paramref name="input"/> where to start reading data form.</param>
+      /// <param name="inCount">The amount of bytes to read from <paramref name="input"/>.</param>
+      /// <param name="parameters">The <see cref="RSAComputedParameters"/>.</param>
+      /// <returns>The integer acting as input for RSA algorithm implemented by <see cref="ProcessInteger"/> method.</returns>
+      /// <exception cref="ArgumentException">If the integer readable from binary data is too large. The value should be less than <see cref="RSAComputedParameters.Modulus"/>.</exception>
+      public BigInteger ConvertInput( Byte[] input, Int32 inOffset, Int32 inCount, RSAComputedParameters parameters )
+      {
+         if ( inCount > BinaryUtils.AmountOfPagesTaken( parameters.Modulus.BitLength, 8 ) )
+         {
+            throw new ArgumentException( "Input too large." );
+         }
+
+         var retVal = BigInteger.ParseFromBinary( input, inOffset, inCount, BigInteger.BinaryEndianness.BigEndian, 1 );
+         if ( retVal >= parameters.Modulus )
+         {
+            throw new ArgumentException( "Input too large." );
+         }
+
+         return retVal;
+      }
+
+      /// <summary>
+      /// Converts the integer produced by <see cref="ProcessInteger"/> into binary output.
+      /// </summary>
+      /// <param name="output">The array to write data to.</param>
+      /// <param name="outOffset">The offset in <paramref name="output"/> to start writing data to.</param>
+      /// <param name="result">The <see cref="BigInteger"/> produced by <see cref="ProcessInteger"/> method.</param>
+      public void ConvertOutput( Byte[] output, Int32 outOffset, BigInteger result )
+      {
+         result.WriteToByteArray( output, outOffset, BigInteger.BinaryEndianness.BigEndian );
+      }
+   }
+
+   /// <summary>
+   /// This class represents the blinded RSA algorithm, suitable to use when creating signatures.
+   /// </summary>
+   public sealed class RSABlindedAlgorithm : AbstractDisposable, CipherAlgorithm<RSAComputedParameters>
+   {
+      private readonly RSAAlgorithm _actualEncryptor;
+      private readonly Random _random;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="RSABlindedAlgorithm"/> with given parameters.
+      /// </summary>
+      /// <param name="actualEncryptor">Optional actual RSA algorithm. If <c>null</c>, the <see cref="RSAAlgorithm.DefaultInstance"/> will be used.</param>
+      /// <param name="random">The <see cref="Random"/> to use when generating random value for blinding. If <c>null</c>, the <see cref="SecureRandom"/> will be used, with automatically seeded <see cref="DigestRandomGenerator"/> using <see cref="SHA2_512"/>.</param>
+      public RSABlindedAlgorithm( RSAAlgorithm actualEncryptor = null, Random random = null )
+      {
+         this._actualEncryptor = actualEncryptor ?? RSAAlgorithm.DefaultInstance;
+         this._random = random ?? new SecureRandom( DigestRandomGenerator.CreateAndSeedWithDefaultLogic( new SHA2_512() ) );
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="input"></param>
+      /// <param name="inOffset"></param>
+      /// <param name="inCount"></param>
+      /// <param name="output"></param>
+      /// <param name="outOffset"></param>
+      /// <param name="parameters"></param>
+      public void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
+      {
+         var inputInt = this._actualEncryptor.ConvertInput( input, inOffset, inCount, parameters );
+         var m = parameters.Modulus;
+         var e = parameters.Exponent;
+         var r = BigInteger.CreateRandomInRange( 1, m - 1, this._random );
+         // Compute output s' of i' = (i * r ^ e) Mod m
+         var blindedOutput = this._actualEncryptor.ProcessInteger( ( inputInt * r.ModPow( e, m ) ).Remainder_Positive( m ), parameters );
+         // Signature s = (s' * r ^ -1) Mod m
+         var outputInt = ( blindedOutput * r.ModInverse( m ) ).Remainder_Positive( m );
+
+         // Timing attack check
+         if ( inputInt != outputInt.ModPow( e, m ) )
+         {
+            throw new InvalidOperationException( "Invalid decryption/signing detected!" );
+         }
+
+         this._actualEncryptor.ConvertOutput( output, outOffset, outputInt );
+      }
+
+      /// <summary>
+      /// Currently, this method does nothing.
+      /// </summary>
+      /// <param name="disposing">Whether we are disposing from a <see cref="AbstractDisposable.Dispose()"/> call.</param>
+      protected override void Dispose( Boolean disposing )
+      {
+         // Nothing to do
+      }
+
+   }
+
+   internal class SecureRandom : Random
+   {
+      private readonly RandomGenerator _generator;
+      private readonly Byte[] _intBytes;
+
+      public SecureRandom( RandomGenerator generator )
+         : base( 0 )
+      {
+         this._generator = ArgumentValidator.ValidateNotNull( "Generator", generator );
+         this._intBytes = new Byte[sizeof( Int64 )];
+      }
+
+      public override Int32 Next()
+      {
+         // The spec is to return non-negative integer.
+         return this.NextInt32() & Int32.MaxValue;
+      }
+
+      public override Int32 Next( Int32 maxValue )
+      {
+         // The spec is to return non-negative integer lesser than maxValue
+         Int32 retVal;
+         if ( maxValue < 2 )
+         {
+            if ( maxValue < 0 )
             {
-               array.WriteByteToBytes( ref idx, (Byte) ( calculatedSize >> i ) );
+               throw new ArgumentOutOfRangeException( "maxValue", "should be at least zero." );
+            }
+            else
+            {
+               // Return 0 for 0 and 1 max value
+               retVal = 0;
             }
          }
-         return array;
+         else
+         {
+            retVal = ( this.NextInt32() & Int32.MaxValue ) % maxValue;
+         }
+
+         return retVal;
       }
 
-      internal static IEnumerable<Int64> GetObjectIdentifier( this AssemblyHashAlgorithm hashAlgo )
+      public override Int32 Next( Int32 minValue, Int32 maxValue )
       {
-         switch ( hashAlgo )
+         // TODO once whole CAM compiles in checked mode, the checks here will also be checked.
+
+         // Here both minValue and maxValue can be negative
+         Int32 retVal;
+         if ( maxValue < minValue )
          {
-            case AssemblyHashAlgorithm.MD5:
-               return GetObjectIdentifier_MD5();
-            case AssemblyHashAlgorithm.SHA1:
-               return GetObjectIdentifier_SHA1();
-            case AssemblyHashAlgorithm.SHA256:
-               return GetObjectIdentifier_NISTAlgorithm( 1 );
-            case AssemblyHashAlgorithm.SHA384:
-               return GetObjectIdentifier_NISTAlgorithm( 2 );
-            case AssemblyHashAlgorithm.SHA512:
-               return GetObjectIdentifier_NISTAlgorithm( 3 );
-            case AssemblyHashAlgorithm.None:
-            default:
-               throw new ArgumentException( "Assembly hash algorithm was not one of the accepted values for RSA signing." );
+            throw new ArgumentException( "Max value should be at least as min value." );
+         }
+         else if ( maxValue == minValue || maxValue == minValue + 1 )
+         {
+            retVal = minValue;
+         }
+         else
+         {
+            // Diff will be always at least 2, since previous if-conditions filter out all other options.
+            var diff = (Int64) maxValue - (Int64) minValue;
+            if ( diff <= Int32.MaxValue )
+            {
+               retVal = minValue + this.Next( (Int32) diff );
+            }
+            else
+            {
+               retVal = (Int32) ( (Int64) minValue + ( this.NextInt64() & Int64.MaxValue ) % diff );
+            }
+         }
+         return retVal;
+      }
+
+      public override void NextBytes( Byte[] buffer )
+      {
+         this.NextBytes( buffer, 0, buffer.Length );
+      }
+
+      public void NextBytes( Byte[] buffer, Int32 offset, Int32 length )
+      {
+         this._generator.NextBytes( buffer, offset, length );
+      }
+
+      public override Double NextDouble()
+      {
+         const Double scale = Int64.MaxValue;
+         return Convert.ToDouble( (UInt64) this.NextInt64() ) / scale;
+      }
+
+      public Int32 NextInt32()
+      {
+         this.NextBytes( this._intBytes, 0, sizeof( Int32 ) );
+         return this._intBytes.ReadInt32BEFromBytesNoRef( 0 ); // Endianness shouldn't matter here since bytes are random.
+      }
+
+      public Int64 NextInt64()
+      {
+         this.NextBytes( this._intBytes, 0, sizeof( Int64 ) );
+         return this._intBytes.ReadInt64BEFromBytesNoRef( 0 );
+      }
+   }
+
+   internal interface RandomGenerator
+   {
+      void AddSeedMaterial( Byte[] material, Int32 offset, Int32 count );
+      void AddSeedMaterial( Int64 materialValue );
+      void NextBytes( Byte[] array, Int32 offset, Int32 count );
+   }
+
+   internal abstract class AbstractRandomGenerator : RandomGenerator
+   {
+
+      protected AbstractRandomGenerator()
+      {
+         this.ArrayForLong = new Byte[sizeof( Int64 )];
+      }
+
+      public void AddSeedMaterial( Int64 materialValue )
+      {
+         this.ArrayForLong.WriteInt64LEToBytesNoRef( 0, materialValue );
+         this.AddSeedMaterial( this.ArrayForLong, 0, sizeof( Int64 ) );
+      }
+
+      public abstract void AddSeedMaterial( Byte[] material, Int32 offset, Int32 count );
+      public abstract void NextBytes( Byte[] array, Int32 offset, Int32 count );
+
+      // Do *not* use this inside AddSeedMaterial method!
+      protected Byte[] ArrayForLong { get; }
+   }
+
+   internal class DigestRandomGenerator : AbstractRandomGenerator
+   {
+      private const Int32 DEFAULT_SEED_CYCLE_COUNT = 10;
+
+      private readonly Int32 _seedCycleCount;
+      private readonly Byte[] _seed;
+      private readonly Byte[] _state;
+
+      private Int64 _stateCounter;
+      private Int64 _seedCounter;
+
+      public DigestRandomGenerator(
+         BlockDigestAlgorithm algorithm,
+         Int32 seedCycleCount = DEFAULT_SEED_CYCLE_COUNT
+         )
+      {
+         this.Algorithm = ArgumentValidator.ValidateNotNull( "Algorithm", algorithm );
+         this._seed = new Byte[this.Algorithm.DigestByteCount];
+         this._state = new Byte[this.Algorithm.DigestByteCount];
+
+         this._stateCounter = 0; // When state is first time generated, the state counter will be increased to 1
+         this._seedCounter = 0;
+         this._seedCycleCount = seedCycleCount;
+      }
+
+      public override void AddSeedMaterial( Byte[] material, Int32 offset, Int32 count )
+      {
+         this.Algorithm.ProcessBlock( material, offset, count );
+         this.Algorithm.ProcessBlock( this._seed );
+         this.Algorithm.WriteDigest( this._seed );
+      }
+
+      public override void NextBytes( Byte[] array, Int32 offset, Int32 count )
+      {
+         var state = this._state;
+         do
+         {
+            this.PopulateState();
+            Array.Copy( state, 0, array, offset, Math.Min( count, state.Length ) );
+         } while ( ( count -= state.Length ) > 0 );
+      }
+
+      protected BlockDigestAlgorithm Algorithm { get; }
+
+      private void PopulateState()
+      {
+         var newStateCounter = this.AlgorithmProcessInt64( Interlocked.Increment( ref this._stateCounter ) );
+         this.Algorithm.ProcessBlock( this._state );
+         this.Algorithm.ProcessBlock( this._seed );
+         this.Algorithm.WriteDigest( this._state );
+
+         if ( newStateCounter % this._seedCycleCount == 0 )
+         {
+            this.PopulateSeed();
          }
       }
 
-      private static IEnumerable<Int64> GetObjectIdentifier_MD5()
+      private void PopulateSeed()
       {
-         // iso(1) member-body(2) US(840) rsadsi(113549) DigestAlgorithm(2) 5
-         yield return 1;
-         yield return 2;
-         yield return 840;
-         yield return 113549;
-         yield return 2;
-         yield return 5;
+         this.Algorithm.ProcessBlock( this._seed );
+         this.AlgorithmProcessInt64( Interlocked.Increment( ref this._seedCounter ) );
+         this.Algorithm.WriteDigest( this._seed );
       }
 
-      private static IEnumerable<Int64> GetObjectIdentifier_SHA1()
+      private Int64 AlgorithmProcessInt64( Int64 val )
       {
-         // iso(1) identified-organization(3) oiw(14) secsig(3) algorithms(2) 26
-         yield return 1;
-         yield return 3;
-         yield return 14;
-         yield return 3;
-         yield return 2;
-         yield return 26;
+         this.ArrayForLong.WriteInt64LEToBytesNoRef( 0, val );
+         this.Algorithm.ProcessBlock( this.ArrayForLong );
+         return val;
       }
 
-      private static IEnumerable<Int64> GetObjectIdentifier_NISTAlgorithm( Int32 algoID )
+      public static DigestRandomGenerator CreateAndSeedWithDefaultLogic( BlockDigestAlgorithm algorithm, Int32 seedCycleCount = DEFAULT_SEED_CYCLE_COUNT )
       {
-         // iso/itu(2) joint-assign(16) us(840) organization(1) gov(101) csor(3) nistalgorithms(4) hashalgs(2)
-         yield return 2;
-         yield return 16;
-         yield return 840;
-         yield return 1;
-         yield return 101;
-         yield return 3;
-         yield return 4;
-         yield return 2;
-         yield return algoID;
+
+         var retVal = new DigestRandomGenerator( algorithm, seedCycleCount );
+         // Use Guid as random source (should be version 4)
+         retVal.AddSeedMaterial( Guid.NewGuid().ToByteArray() );
+
+         // Use current ticks
+         retVal.AddSeedMaterial( DateTime.Now.Ticks );
+
+         // Use Guid again
+         retVal.AddSeedMaterial( Guid.NewGuid().ToByteArray() );
+         return retVal;
       }
+
+   }
+
+   /// <summary>
+   /// This class encapsulates the same data that is stored in <see cref="RSAParameters"/>, but the binary array objects are now parsed into <see cref="BigInteger"/>s.
+   /// </summary>
+   public struct RSAComputedParameters
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="RSAComputedParameters"/> from given <see cref="RSAParameters"/>.
+      /// </summary>
+      /// <param name="rParams">The <see cref="RSAParameters"/>.</param>
+      public RSAComputedParameters( RSAParameters rParams )
+      {
+         this.Exponent = BigInteger.ParseFromBinary( rParams.Exponent, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.Modulus = BigInteger.ParseFromBinary( rParams.Modulus, BigInteger.BinaryEndianness.BigEndian, 1 );
+
+         this.D = BigInteger.ParseFromBinaryOrNull( rParams.D, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.DP = BigInteger.ParseFromBinaryOrNull( rParams.DP, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.DQ = BigInteger.ParseFromBinaryOrNull( rParams.DQ, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.InverseQ = BigInteger.ParseFromBinaryOrNull( rParams.InverseQ, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.P = BigInteger.ParseFromBinaryOrNull( rParams.P, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.Q = BigInteger.ParseFromBinaryOrNull( rParams.Q, BigInteger.BinaryEndianness.BigEndian, 1 );
+      }
+
+      /// <summary>
+      /// Gets the public exponent.
+      /// </summary>
+      /// <value>The public exponent.</value>
+      public BigInteger Exponent { get; }
+
+      /// <summary>
+      /// Gets the (public) modulus.
+      /// </summary>
+      /// <value>The (public) modulus.</value>
+      public BigInteger Modulus { get; }
+
+      /// <summary>
+      /// Gets the private exponent.
+      /// </summary>
+      /// <value>The private exponent.</value>
+      public BigInteger? D { get; }
+
+      /// <summary>
+      /// Gets the factor of <see cref="D"/> related to <see cref="P"/> such that <c>dp = d mod (p - 1)</c>.
+      /// </summary>
+      /// <value>The factor of <see cref="D"/> related to <see cref="P"/>.</value>
+      public BigInteger? DP { get; }
+
+      /// <summary>
+      /// Gets the factor of <see cref="D"/> related to <see cref="Q"/> such that <c>dq = d mod (q - 1)</c>.
+      /// </summary>
+      /// <value>The factor of <see cref="D"/> related to <see cref="Q"/>.</value>
+      public BigInteger? DQ { get; }
+
+      /// <summary>
+      /// Gets the inverse of <see cref="Q"/> so that <c>(qinv * q) mod p = 1</c>.
+      /// </summary>
+      /// <value>The inverse of <see cref="Q"/> modulo <see cref="P"/>.</value>
+      public BigInteger? InverseQ { get; }
+
+      /// <summary>
+      /// Gets the first prime number of the private key.
+      /// </summary>
+      /// <value>The first prime number of the private key.</value>
+      public BigInteger? P { get; }
+
+      /// <summary>
+      /// Gets the second prime number of the private key.
+      /// </summary>
+      /// <value>The second prime number of the private key.</value>
+      public BigInteger? Q { get; }
+
+   }
+
+
+}
+
+#pragma warning disable 1591
+public static partial class E_CILPhysical
+#pragma warning restore 1591
+{
+   internal static void AddSeedMaterial( this RandomGenerator generator, Byte[] array )
+   {
+      generator.AddSeedMaterial( array, 0, array.Length );
+   }
+
+   internal static void NextBytes( this RandomGenerator generator, Byte[] array )
+   {
+      generator.NextBytes( array, 0, array.Length );
    }
 }

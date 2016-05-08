@@ -40,12 +40,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
       Byte[] ExtractPublicKeyFromCSPContainer( String containerName );
 
       /// <summary>
-      /// Given an <see cref="AssemblyHashAlgorithm"/>, creates a new <see cref="BlockHashAlgorithm"/> struct to be used for cryptographic purposes (e.g. computing public key token, or calculating storng name signature).
+      /// Given an <see cref="AssemblyHashAlgorithm"/>, creates a new <see cref="BlockDigestAlgorithm"/> struct to be used for cryptographic purposes (e.g. computing public key token, or calculating storng name signature).
       /// </summary>
       /// <param name="algorithm">The <see cref="AssemblyHashAlgorithm"/> enumeration.</param>
-      /// <returns>A <see cref="BlockHashAlgorithm"/> for given <paramref name="algorithm"/>.</returns>
-      /// <seealso cref="BlockHashAlgorithm"/>
-      BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
+      /// <returns>A <see cref="BlockDigestAlgorithm"/> for given <paramref name="algorithm"/>.</returns>
+      /// <seealso cref="BlockDigestAlgorithm"/>
+      BlockDigestAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
 
       /// <summary>
       /// Computes a signature from a hash bytes, using given algorithm.
@@ -154,20 +154,17 @@ namespace CILAssemblyManipulator.Physical.Crypto
                      var byteHalfLength = byteLength >> 1;
 
                      // Exponent
-                     var exp = blob.CreateAndBlockCopyTo( ref offset, 4 );
-                     //if ( BitConverter.IsLittleEndian )
-                     //{
-                     Array.Reverse( exp );
-                     //}
+                     const Int32 EXP_LEN = 4;
+                     var exp = blob.CreateAndBlockCopyTo( ref offset, EXP_LEN );
                      var tmp = 0;
                      // Trim exponent
-                     while ( exp[tmp] == 0 )
+                     while ( exp[EXP_LEN - 1 - tmp] == 0 )
                      {
                         ++tmp;
                      }
                      if ( tmp != 0 )
                      {
-                        exp = exp.Skip( tmp ).ToArray();
+                        exp = exp.Take( EXP_LEN - tmp ).ToArray();
                      }
                      result.Exponent = exp;
 
@@ -196,21 +193,6 @@ namespace CILAssemblyManipulator.Physical.Crypto
                         // private exponent
                         result.D = blob.CreateAndBlockCopyTo( ref offset, byteLength );
                      }
-
-                     //if ( BitConverter.IsLittleEndian )
-                     //{
-                     // Reverse arrays, since they are stored in big-endian format in BLOB
-                     Array.Reverse( result.Modulus );
-                     //if ( isPrivateKey )
-                     //{
-                     Array.Reverse( result.P );
-                     Array.Reverse( result.Q );
-                     Array.Reverse( result.DP );
-                     Array.Reverse( result.DQ );
-                     Array.Reverse( result.InverseQ );
-                     Array.Reverse( result.D );
-                     //}
-                     //}
 
                      retVal = true;
                   }

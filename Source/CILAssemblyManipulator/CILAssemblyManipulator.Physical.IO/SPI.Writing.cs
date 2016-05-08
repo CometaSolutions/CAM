@@ -953,7 +953,7 @@ public static partial class E_CILPhysical
                }
             }
 
-            strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( algo, hasher.TransformFinalBlock(), rParams, containerName );
+            strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( algo, hasher.CreateDigest(), rParams, containerName );
          }
 
 

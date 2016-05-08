@@ -26,16 +26,17 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <summary>
    /// This class provides skeleton implementation for <see cref="CryptoCallbacks"/>.
    /// </summary>
-   public abstract class AbstractCryptoCallbacks : AbstractDisposable, CryptoCallbacks
+   public abstract class AbstractCryptoCallbacks<TRSA> : AbstractDisposable, CryptoCallbacks
+      where TRSA : IDisposable
    {
-      private readonly LocklessInstancePoolForClasses<BlockHashAlgorithm> _sha1Pool;
+      private readonly LocklessInstancePoolForClasses<BlockDigestAlgorithm> _sha1Pool;
 
       /// <summary>
-      /// Creates a new instance of <see cref="AbstractCryptoCallbacks"/>.
+      /// Creates a new instance of <see cref="AbstractCryptoCallbacks{TRSA}"/>.
       /// </summary>
       public AbstractCryptoCallbacks()
       {
-         this._sha1Pool = new LocklessInstancePoolForClasses<BlockHashAlgorithm>();
+         this._sha1Pool = new LocklessInstancePoolForClasses<BlockDigestAlgorithm>();
       }
 
       /// <inheritdoc />
@@ -43,7 +44,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          if ( disposing )
          {
-            BlockHashAlgorithm algo;
+            BlockDigestAlgorithm algo;
             while ( ( algo = this._sha1Pool.TakeInstance() ) != null )
             {
                algo.DisposeSafely();
@@ -52,13 +53,19 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public abstract BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
+      public abstract BlockDigestAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
 
       /// <inheritdoc />
-      public abstract Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName );
+      public Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
+      {
+         using ( var rsa = String.IsNullOrEmpty( containerName ) ? this.CreateRSAFromParameters( rParams ) : this.CreateRSAFromCSPContainer( containerName ) )
+         {
+            return this.DoCreateRSASignature( hashAlgorithm, contentsHash, rParams, rsa );
+         }
+      }
 
       /// <inheritdoc />
-      public abstract Byte[] ExtractPublicKeyFromCSPContainer( String containterName );
+      public abstract Byte[] ExtractPublicKeyFromCSPContainer( String containerName );
 
       /// <inheritdoc />
       public Byte[] ComputePublicKeyToken( Byte[] fullPublicKey )
@@ -90,12 +97,75 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return retVal;
       }
 
+      /// <summary>
+      /// This method is called by <see cref="CreateRSASignature"/> when the RSA is needed to be created from CSP container name.
+      /// </summary>
+      /// <param name="containerName">The CSP container name. Will be non-empty, non-<c>null</c> string.</param>
+      /// <returns>A new instance of RSA algorithm.</returns>
+      protected abstract TRSA CreateRSAFromCSPContainer( String containerName );
 
+      /// <summary>
+      /// This method is called by <see cref="CreateRSASignature"/> when the RSA is needed to be created from <see cref="RSAParameters"/>.
+      /// </summary>
+      /// <param name="parameters">The RSA parameters.</param>
+      /// <returns>A new instance of RSA algorithm.</returns>
+      protected abstract TRSA CreateRSAFromParameters( RSAParameters parameters );
+
+      /// <summary>
+      /// This method is called by <see cref="CreateRSASignature"/> to actually create signature.
+      /// </summary>
+      /// <param name="hashAlgorithm">The hash algorithm used to produce the hash.</param>
+      /// <param name="contentsHash">The hash that was produced.</param>
+      /// <param name="parameters">The <see cref="RSAParameters"/> passed to <see cref="CreateRSASignature"/> method.</param>
+      /// <param name="rsa">The instance of RSA algorithm, as created by one of <see cref="CreateRSAFromParameters"/> or <see cref="CreateRSAFromCSPContainer"/> methods.</param>
+      /// <returns>A RSA signature of the hash.</returns>
+      protected abstract Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, TRSA rsa );
    }
 
-   internal class DefaultCryptoCallbacks : AbstractCryptoCallbacks
+   /// <summary>
+   /// This class provides default implementation for cryptographic functionality required by CAM.Physical framework.
+   /// The support for hash algorithms and for RSA is provided, but support for CSP is not.
+   /// </summary>
+   public class DefaultCryptoCallbacks : AbstractCryptoCallbacks<RSABlindedAlgorithm>
    {
-      public override BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
+      private static IDictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier> ObjIDCache { get; }
+      static DefaultCryptoCallbacks()
+      {
+         ObjIDCache = new Dictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier>();
+      }
+
+      /// <summary>
+      /// This will create an instance of <see cref="BlockDigestAlgorithm"/> by following rules:
+      /// <list type="table">
+      /// <listheader>
+      /// <term>The <see cref="AssemblyHashAlgorithm"/> value</term>
+      /// <term>The return value type</term>
+      /// </listheader>
+      /// <item>
+      /// <term><see cref="AssemblyHashAlgorithm.MD5"/></term>
+      /// <term><see cref="MD5"/></term>
+      /// </item>
+      /// <item>
+      /// <term><see cref="AssemblyHashAlgorithm.SHA1"/></term>
+      /// <term><see cref="SHA1_128"/></term>
+      /// </item>
+      /// <item>
+      /// <term><see cref="AssemblyHashAlgorithm.SHA256"/></term>
+      /// <term><see cref="SHA2_256"/></term>
+      /// </item>
+      /// <item>
+      /// <term><see cref="AssemblyHashAlgorithm.SHA384"/></term>
+      /// <term><see cref="SHA2_384"/></term>
+      /// </item>
+      /// <item>
+      /// <term><see cref="AssemblyHashAlgorithm.SHA512"/></term>
+      /// <term><see cref="SHA2_512"/></term>
+      /// </item>
+      /// </list>
+      /// </summary>
+      /// <param name="algorithm"></param>
+      /// <returns></returns>
+      public override BlockDigestAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
       {
          switch ( algorithm )
          {
@@ -116,14 +186,61 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      public override Byte[] ExtractPublicKeyFromCSPContainer( String containterName )
+      /// <summary>
+      /// Always throws <see cref="NotSupportedException"/> as CSP is not supported in PCL environment.
+      /// </summary>
+      /// <param name="containerName">The CSP container name, ignored.</param>
+      /// <returns>Never returns value.</returns>
+      public override Byte[] ExtractPublicKeyFromCSPContainer( String containerName )
       {
          throw new NotSupportedException( "CSP is not supported in portable environment." );
       }
 
-      public override Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
+      /// <summary>
+      /// Always throws <see cref="NotSupportedException"/> as CSP is not supported in PCL environment.
+      /// </summary>
+      /// <param name="containerName">The CSP container name, ignored.</param>
+      /// <returns>Never returns value.</returns>
+      protected override RSABlindedAlgorithm CreateRSAFromCSPContainer( string containerName )
       {
-         throw new NotImplementedException();
+         throw new NotSupportedException( "CSP is not supported in portable environment." );
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="RSABlindedAlgorithm"/>.
+      /// </summary>
+      /// <param name="parameters">Ignored.</param>
+      /// <returns>A new instance of <see cref="RSABlindedAlgorithm"/>.</returns>
+      protected override RSABlindedAlgorithm CreateRSAFromParameters( RSAParameters parameters )
+      {
+         return new RSABlindedAlgorithm();
+      }
+
+      /// <summary>
+      /// Formats hash as ASN.1 DER-encoded value, further encoded with PKCS#1 scheme, and then creates signature of the resulting data using given RSA.
+      /// </summary>
+      /// <param name="hashAlgorithm">The hash algorithm used to create the hash.</param>
+      /// <param name="contentsHash">The hash value.</param>
+      /// <param name="parameters"></param>
+      /// <param name="rsa"></param>
+      /// <returns></returns>
+      protected override Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, RSABlindedAlgorithm rsa )
+      {
+         // 1. Format data
+         var pkcs = PKCS1Encoder.Create(
+            parameters.Modulus.Length * 8,
+            ASNFormatter.Create(
+               contentsHash,
+               ObjIDCache.GetOrAdd_NotThreadSafe( hashAlgorithm, algo => new ASN1ObjectIdentifier( algo.GetObjectIdentifier() ) )
+            )
+         );
+         var data = new Byte[pkcs.DataSize];
+         pkcs.PopulateData( data, 0 );
+
+         // 2. Create signature
+         var output = new Byte[pkcs.DataSize];
+         rsa.ProcessBlock( data, 0, data.Length, output, 0, new RSAComputedParameters( parameters ) );
+         return output;
       }
    }
 

@@ -26,6 +26,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Security.Cryptography;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
@@ -33,11 +34,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// This class implements the <see cref="CryptoCallbacks"/> using standard .NET framework cryptographic services.
    /// </summary>
    /// <remarks>
-   /// When creating <see cref="BlockHashAlgorithm"/>, this class always tries the managed version first, then the <c>cng</c> version, and the <c>csp</c> version when creating the <see cref="System.Security.Cryptography.HashAlgorithm"/> transform.
+   /// When creating <see cref="BlockDigestAlgorithm"/>, this class always tries the managed version first, then the <c>cng</c> version, and the <c>csp</c> version when creating the <see cref="System.Security.Cryptography.HashAlgorithm"/> transform.
    /// </remarks>
-   public class CryptoCallbacksDotNET : AbstractCryptoCallbacks
+   public class CryptoCallbacksDotNET : AbstractCryptoCallbacks<System.Security.Cryptography.RSA>
    {
-      private sealed class BlockHashAlgorithmWrapper : AbstractDisposable, BlockHashAlgorithm
+      private sealed class BlockHashAlgorithmWrapper : AbstractDisposable, BlockDigestAlgorithm
       {
          private System.Security.Cryptography.HashAlgorithm _algorithm;
 
@@ -59,13 +60,21 @@ namespace CILAssemblyManipulator.Physical.Crypto
             this._algorithm.TransformBlock( data, offset, count, null, -1 );
          }
 
-         public Byte[] ProcessFinalBlock( Byte[] data, Int32 offset, Int32 count )
+         public void WriteDigest( Byte[] array, Int32 offset )
          {
-            this._algorithm.TransformFinalBlock( data ?? Empty<Byte>.Array, offset, count );
+            this._algorithm.TransformFinalBlock( Empty<Byte>.Array, 0, 0 );
             var retVal = this._algorithm.Hash;
+            Array.Copy( retVal, 0, array, offset, retVal.Length );
             // We have to explicitly initialize - TransformFinalBlock won't do this in .NET algorithms
             this._algorithm.Initialize();
-            return retVal;
+         }
+
+         public Int32 DigestByteCount
+         {
+            get
+            {
+               return this._algorithm.HashSize / 8;
+            }
          }
 
       }
@@ -83,7 +92,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public override BlockHashAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
+      public override BlockDigestAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
       {
          System.Security.Cryptography.HashAlgorithm transform;
          switch ( algorithm )
@@ -113,7 +122,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      private System.Security.Cryptography.RSA CreateRSAFromCSPContainer( String containerName )
+      protected override System.Security.Cryptography.RSA CreateRSAFromCSPContainer( String containerName )
       {
          var csp = new System.Security.Cryptography.CspParameters { Flags = System.Security.Cryptography.CspProviderFlags.UseMachineKeyStore };
          if ( containerName != null )
@@ -125,20 +134,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      private System.Security.Cryptography.RSA CreateRSAFromParameters( RSAParameters parameters )
+      protected override System.Security.Cryptography.RSA CreateRSAFromParameters( RSAParameters parameters )
       {
          System.Security.Cryptography.RSA result = null;
-         var rParams = new System.Security.Cryptography.RSAParameters()
-         {
-            D = parameters.D,
-            DP = parameters.DP,
-            DQ = parameters.DQ,
-            Exponent = parameters.Exponent,
-            InverseQ = parameters.InverseQ,
-            Modulus = parameters.Modulus,
-            P = parameters.P,
-            Q = parameters.Q
-         };
+         var rParams = parameters.CreateDotNETParameters();
+
          try
          {
             result = System.Security.Cryptography.RSA.Create();
@@ -168,14 +168,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc />
-      public override Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
+      protected override Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, RSA rsa )
       {
-         using ( var rsa = String.IsNullOrEmpty( containerName ) ? this.CreateRSAFromParameters( rParams ) : this.CreateRSAFromCSPContainer( containerName ) )
-         {
-            var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( rsa );
-            formatter.SetHashAlgorithm( GetAlgorithmName( hashAlgorithm ) );
-            return formatter.CreateSignature( contentsHash );
-         }
+         var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( rsa );
+         formatter.SetHashAlgorithm( GetAlgorithmName( hashAlgorithm ) );
+         return formatter.CreateSignature( contentsHash );
       }
 
       private System.Security.Cryptography.HashAlgorithm GetTransform(
@@ -375,4 +372,82 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
    }
 }
+
+#pragma warning disable 1591
+public static partial class E_CILPhysical
+#pragma warning restore 1591
+{
+   /// <summary>
+   /// Helper method to create a new instance of CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/> from .NET <see cref="RSAParameters"/>.
+   /// </summary>
+   /// <param name="dotNetParams">The .NET <see cref="RSAParameters"/>.</param>
+   /// <returns>The new instance of CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/>.</returns>
+   /// <remarks>
+   /// Since the .NET <see cref="RSAParameters"/> are in LE format and CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/> expects them to be in BE format (as they are stored in key BLOB), the byte arrays are reversed.
+   /// </remarks>
+   public static CILAssemblyManipulator.Physical.Crypto.RSAParameters CreateCAMParameters( this RSAParameters dotNetParams )
+   {
+      var retVal = new CILAssemblyManipulator.Physical.Crypto.RSAParameters()
+      {
+         D = dotNetParams.D.CreateBlockCopy(),
+         DP = dotNetParams.DP.CreateBlockCopy(),
+         DQ = dotNetParams.DQ.CreateBlockCopy(),
+         Exponent = dotNetParams.Exponent.CreateBlockCopy(),
+         InverseQ = dotNetParams.InverseQ.CreateBlockCopy(),
+         Modulus = dotNetParams.Modulus.CreateBlockCopy(),
+         P = dotNetParams.P.CreateBlockCopy(),
+         Q = dotNetParams.Q.CreateBlockCopy()
+      };
+
+      // The .NET RSAParameters are in LE format, but the CAM.Physical RSAParameters just reads them from key BLOB, where they are in BE format.
+      // So reverse them here
+      Array.Reverse( retVal.D );
+      Array.Reverse( retVal.DP );
+      Array.Reverse( retVal.DQ );
+      Array.Reverse( retVal.Exponent );
+      Array.Reverse( retVal.InverseQ );
+      Array.Reverse( retVal.Modulus );
+      Array.Reverse( retVal.P );
+      Array.Reverse( retVal.Q );
+
+      return retVal;
+   }
+
+   /// <summary>
+   /// Helper method to create a new instance of .NET <see cref="RSAParameters"/> from CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/>.
+   /// </summary>
+   /// <param name="camParams">The CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/>.</param>
+   /// <returns>The new instance of CAM <see cref="RSAParameters"/>.</returns>
+   /// <remarks>
+   /// Since the .NET <see cref="RSAParameters"/> are in LE format and CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/> expects them to be in BE format (as they are stored in key BLOB), the byte arrays are reversed.
+   /// </remarks>
+   public static RSAParameters CreateDotNETParameters( this CILAssemblyManipulator.Physical.Crypto.RSAParameters camParams )
+   {
+      var retVal = new System.Security.Cryptography.RSAParameters()
+      {
+         D = camParams.D.CreateBlockCopy(),
+         DP = camParams.DP.CreateBlockCopy(),
+         DQ = camParams.DQ.CreateBlockCopy(),
+         Exponent = camParams.Exponent.CreateBlockCopy(),
+         InverseQ = camParams.InverseQ.CreateBlockCopy(),
+         Modulus = camParams.Modulus.CreateBlockCopy(),
+         P = camParams.P.CreateBlockCopy(),
+         Q = camParams.Q.CreateBlockCopy()
+      };
+
+      // The .NET RSAParameters are in LE format, but the CAM.Physical RSAParameters just reads them from key BLOB, where they are in BE format.
+      // So reverse them here
+      Array.Reverse( retVal.D );
+      Array.Reverse( retVal.DP );
+      Array.Reverse( retVal.DQ );
+      Array.Reverse( retVal.Exponent );
+      Array.Reverse( retVal.InverseQ );
+      Array.Reverse( retVal.Modulus );
+      Array.Reverse( retVal.P );
+      Array.Reverse( retVal.Q );
+
+      return retVal;
+   }
+}
+
 #endif

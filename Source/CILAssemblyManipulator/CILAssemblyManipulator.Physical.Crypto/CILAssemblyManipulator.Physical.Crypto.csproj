@@ -78,7 +78,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BigInteger.cs" />
     <Compile Include="CryptoCallbacks.cs" />
+    <Compile Include="DataFormatting.cs" />
     <Compile Include="DefaultCryptoCallbacks.cs" />
     <Compile Include="HashAlgorithms.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
