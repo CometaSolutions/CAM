@@ -377,6 +377,8 @@ namespace CommonUtils
    {
       // TODO add option to treat null arrays and empty arrays as equal!
 
+      // TODO add option to specify start indices when comparing arrays...
+
       private static readonly IEqualityComparer<T[]> INSTANCE = new ArrayEqualityComparer<T>( ComparerFromFunctions.GetDefaultItemComparerForSomeSequence<T>() );
 
       /// <summary>

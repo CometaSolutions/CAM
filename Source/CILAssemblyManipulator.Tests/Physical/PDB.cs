@@ -51,7 +51,7 @@ namespace CILAssemblyManipulator.Tests.Physical
    [Category( "CAM.Physical" )]
    public class PDBTest : AbstractCAMTest
    {
-      [Test]
+      [Test, Ignore]
       public void TestPDB()
       {
          PerformPDBTest(

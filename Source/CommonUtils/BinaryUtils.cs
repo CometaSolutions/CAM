@@ -157,7 +157,7 @@ namespace CommonUtils
       /// <param name="value">The value.</param>
       /// <returns>Log base 2 of <paramref name="value"/>.</returns>
       /// <remarks>
-      /// The return value is also the position of the MSB set.
+      /// The return value is also the position of the MSB set, with zero-based indexing.
       /// The algorithm is from <see href="http://graphics.stanford.edu/~seander/bithacks.html#IntegerLogLookup"/> .
       /// </remarks>
       [CLSCompliant( false )]
@@ -189,7 +189,7 @@ namespace CommonUtils
       /// <param name="value">The value.</param>
       /// <returns>Log base 2 of <paramref name="value"/>.</returns>
       /// <remarks>
-      /// The return value is also the position of the MSB set.
+      /// The return value is also the position of the MSB set, with zero-based indexing.
       /// The algorithm uses <see cref="Log2(UInt32)"/> method to calculate return value.
       /// </remarks>
       [CLSCompliant( false )]
@@ -393,9 +393,12 @@ namespace CommonUtils
       [CLSCompliant( false )]
       public static UInt32 CountBitsSetU32( UInt32 value )
       {
-         value = value - ( ( value >> 1 ) & 0x55555555u );
-         value = ( value & 0x33333333u ) + ( ( value >> 2 ) & 0x33333333u );
-         return ( ( value + ( value >> 4 ) & 0x0F0F0F0Fu ) * 0x01010101u ) >> 24;
+         unchecked
+         {
+            value = value - ( ( value >> 1 ) & 0x55555555u );
+            value = ( value & 0x33333333u ) + ( ( value >> 2 ) & 0x33333333u );
+            return ( ( value + ( value >> 4 ) & 0x0F0F0F0Fu ) * 0x01010101u ) >> 24;
+         }
       }
 
       /// <summary>
@@ -422,9 +425,12 @@ namespace CommonUtils
       [CLSCompliant( false )]
       public static UInt32 CountBitsSetU64( UInt64 value )
       {
-         value = value - ( ( value >> 1 ) & 0x5555555555555555UL );
-         value = ( value & 0x3333333333333333UL ) + ( ( value >> 2 ) & 0x3333333333333333UL );
-         return (UInt32) ( ( ( value + ( value >> 4 ) & 0x0F0F0F0F0F0F0F0FUL ) * 0x0101010101010101UL ) >> 56 );
+         unchecked
+         {
+            value = value - ( ( value >> 1 ) & 0x5555555555555555UL );
+            value = ( value & 0x3333333333333333UL ) + ( ( value >> 2 ) & 0x3333333333333333UL );
+            return (UInt32) ( ( ( value + ( value >> 4 ) & 0x0F0F0F0F0F0F0F0FUL ) * 0x0101010101010101UL ) >> 56 );
+         }
       }
 
       /// <summary>
@@ -463,7 +469,7 @@ namespace CommonUtils
       [CLSCompliant( false )]
       public static Boolean IsPowerOfTwo( this UInt32 val )
       {
-         return val != 0 && ( val & ( val - 1 ) ) == 0;
+         return val != 0 && unchecked(( val & ( val - 1 ) )) == 0;
       }
 
       /// <summary>
@@ -474,7 +480,31 @@ namespace CommonUtils
       [CLSCompliant( false )]
       public static Boolean IsPowerOfTwo( this UInt64 val )
       {
-         return val != 0 && ( val & ( val - 1 ) ) == 0;
+         return val != 0 && unchecked(( val & ( val - 1 ) )) == 0;
+      }
+
+      /// <summary>
+      /// Checks whehter given unsigned integer is even.
+      /// Zero is considered to be even.
+      /// </summary>
+      /// <param name="val">The integer to check.</param>
+      /// <returns><c>true</c> if the integer is even; <c>false</c> otherwise.</returns>
+      [CLSCompliant( false )]
+      public static Boolean IsEven( this UInt32 val )
+      {
+         return ( val & 1 ) == 0;
+      }
+
+      /// <summary>
+      /// Checks whehter given unsigned integer is even.
+      /// Zero is considered to be even.
+      /// </summary>
+      /// <param name="val">The integer to check.</param>
+      /// <returns><c>true</c> if the integer is even; <c>false</c> otherwise.</returns>
+      [CLSCompliant( false )]
+      public static Boolean IsEven( this UInt64 val )
+      {
+         return ( val & 1 ) == 0;
       }
    }
 }

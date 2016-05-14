@@ -360,6 +360,19 @@ public static partial class E_CommonUtils
    }
 
    /// <summary>
+   /// Gets the element at given index, or returns default if index is out of range.
+   /// </summary>
+   /// <typeparam name="T">The array element type.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="index">The index in the <paramref name="array"/>.</param>
+   /// <param name="defaultValue">The default value to return, if index is out of range.</param>
+   /// <returns>The element at given index in given array, if index is valid; <paramref name="defaultValue"/> otherwise.</returns>
+   public static T GetElementOrDefault<T>( this T[] array, Int32 index, T defaultValue = default( T ) )
+   {
+      return index < 0 || index >= array.Length ? defaultValue : array[index];
+   }
+
+   /// <summary>
    /// Checks that the enumerable is either empty, or all of its values are considered to be same.
    /// </summary>
    /// <typeparam name="T">The enumerable element type.</typeparam>

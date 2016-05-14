@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+using CILAssemblyManipulator.Physical.Crypto;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ using System.Text;
 namespace CILAssemblyManipulator.Physical.Crypto
 {
 #pragma warning disable 1591
-   public struct BigInteger : IComparable<BigInteger>, IEquatable<BigInteger>
+   public partial struct BigInteger : IComparable<BigInteger>, IEquatable<BigInteger>
    {
 
       public enum BinaryEndianness
@@ -32,6 +33,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
          LittleEndian,
          BigEndian
       }
+
+      private const Int32 BITS_32 = 8 * sizeof( Int32 );
+      private const Int64 INT_32_MASK = 0xFFFFFFFFL;
 
       #region Static properties
 
@@ -60,7 +64,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       #region Instance fields
 
       private readonly Int32 _sign;
-      private readonly UInt32[] _bits;
+      private readonly UInt32[] _bits; // Bits are in LE order, makes some arithmetic operations easier
 
       #endregion
 
@@ -68,33 +72,117 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       public BigInteger( Int32 intValue )
       {
-         var arrays = ArraysForNativeIntegers;
-         var array = arrays.TakeInstance();
-         if ( array == null )
+         if ( intValue == 0 )
          {
-            array = new Byte[sizeof( Int64 )];
+            this = Zero;
          }
+         else
+         {
+            UInt32 u32;
+            Int32 sign;
 
-         try
-         {
-            array.WriteInt32BEToBytesNoRef( 0, Math.Abs( intValue ) );
-            ParseFromBinary( array, 0, sizeof( Int32 ), BinaryEndianness.BigEndian, intValue < 0 ? -1 : ( intValue > 0 ? 1 : 0 ), out this._sign, out this._bits );
-         }
-         finally
-         {
-            arrays.ReturnInstance( array );
+            if ( intValue < 0 )
+            {
+               sign = -1;
+               u32 = unchecked((UInt32) ( -intValue ));
+            }
+            else
+            {
+               sign = 1;
+               u32 = (UInt32) intValue;
+            }
+
+            this._sign = sign;
+            this._bits = new UInt32[] { u32 };
          }
       }
 
-      private BigInteger( Int32 bitLength, Random random )
+      public BigInteger( Int64 intValue )
       {
-         throw new NotImplementedException();
+         if ( intValue == 0 )
+         {
+            this = Zero;
+         }
+         else
+         {
+            UInt64 u64;
+            Int32 sign;
+            if ( intValue < 0 )
+            {
+               sign = -1;
+               u64 = unchecked((UInt64) ( -intValue ));
+            }
+            else
+            {
+               sign = 1;
+               u64 = (UInt64) intValue;
+            }
+
+            this._sign = sign;
+            var hi = (UInt32) ( u64 >> BITS_32 );
+            var lo = unchecked((UInt32) u64);
+            this._bits = hi == 0 ?
+               new UInt32[] { lo } :
+               new UInt32[] { lo, hi };
+         }
       }
 
-      private BigInteger( Int32 sign, UInt32[] bits )
+      [CLSCompliant( false )]
+      public BigInteger( UInt32 value )
+         : this( 1, value )
       {
-         this._sign = ValidateSign( sign );
-         this._bits = sign == 0 ? Empty<UInt32>.Array : bits;
+
+      }
+
+      private BigInteger( Int32 sign, UInt32 value )
+      {
+         if ( value == 0 )
+         {
+            this = Zero;
+         }
+         else
+         {
+            this._sign = sign;
+            this._bits = new UInt32[] { value };
+         }
+      }
+
+      [CLSCompliant( false )]
+      public BigInteger( UInt64 intValue )
+      {
+         if ( intValue == 0 )
+         {
+            this = Zero;
+         }
+         else
+         {
+            var hi = (UInt32) ( intValue >> BITS_32 );
+            var lo = unchecked((UInt32) intValue);
+            this._sign = 1;
+            this._bits = hi == 0 ?
+               new UInt32[] { lo } :
+               new UInt32[] { lo, hi };
+         }
+      }
+
+
+      private BigInteger( Int32 sign, UInt32[] bits, Boolean checkBitsForLeadingZeroes )
+      {
+         if ( checkBitsForLeadingZeroes )
+         {
+            this._bits = CheckForTrailingZeroes( bits, sign, out this._sign );
+         }
+         else
+         {
+            this._sign = ValidateSign( sign, bits );
+            this._bits = sign == 0 ? Empty<UInt32>.Array : bits;
+         }
+
+         // Check for sign and leading zeroes in debug mode
+         System.Diagnostics.Debug.Assert(
+            ( this._bits.IsNullOrEmpty() && this._sign == 0 )
+            || ( !this._bits.IsNullOrEmpty() && this._bits[this._bits.Length - 1] != 0 )
+            );
       }
 
       #endregion
@@ -105,11 +193,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          get
          {
-            throw new NotImplementedException();
+            return CalculateBitLength( this._bits );
          }
       }
 
-      public Int32 ByteLength
+      private Int32 ByteLength
       {
          get
          {
@@ -121,7 +209,67 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          get
          {
-            return this._sign == 0;
+            return this.Sign == 0;
+         }
+      }
+
+      public Boolean IsOne
+      {
+         get
+         {
+            return this.Sign == 1 && this._bits[0] == 1;
+         }
+      }
+
+      public Boolean IsMinusOne
+      {
+         get
+         {
+            return this.Sign == -1 && this._bits[0] == 1;
+         }
+      }
+
+      public Int32 Sign
+      {
+         get
+         {
+            return this._sign;
+         }
+      }
+
+      public Boolean IsPowerOfTwo
+      {
+         get
+         {
+            return this.Sign == 1
+               && this._bits[this._bits.Length - 1].IsPowerOfTwo()
+               && this._bits.Take( this._bits.Length - 1 ).All( b => b == 0 );
+         }
+      }
+
+      public Boolean IsEven
+      {
+         get
+         {
+            return this._bits.IsNullOrEmpty() || this._bits[0].IsEven();
+         }
+      }
+
+      // Will throw if default!
+      private Boolean IsSmall
+      {
+         get
+         {
+            return AreSmallBits( this._bits );
+         }
+      }
+
+      // Will throw if default or zero!
+      private UInt32 SmallValue
+      {
+         get
+         {
+            return this._bits[0];
          }
       }
 
@@ -156,18 +304,46 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       public BigInteger DivideRemainder( BigInteger divisor, out BigInteger remainder )
       {
-         throw new NotImplementedException();
-      }
-
-      // Same as Remainder, but always returns positive
-      public BigInteger Remainder_Positive( BigInteger other )
-      {
-         throw new NotImplementedException();
+         BigInteger modulus = default( BigInteger ), quotient = default( BigInteger );
+         PerformDivMod( this, divisor, true, true, ref modulus, ref quotient );
+         remainder = modulus;
+         return quotient;
       }
 
       public BigInteger ModPow( BigInteger exponent, BigInteger modulus )
       {
-         throw new NotImplementedException();
+         BigInteger retVal;
+         if ( modulus.IsNegative() )
+         {
+            throw new ArithmeticException( "Modulus must be positive." );
+         }
+         else if ( modulus.IsOne || this.IsZero )
+         {
+            retVal = Zero;
+         }
+         else if ( exponent.IsZero )
+         {
+            retVal = One;
+         }
+         else
+         {
+            var retValBits = new UInt32[] { 1 };
+            if ( exponent.IsSmall )
+            {
+               var copy = this._bits.CreateArrayCopy();
+               ModPow_Small( ref copy, modulus._bits, ref retValBits, exponent.SmallValue );
+            }
+            else
+            {
+               ModPow( this._bits.CreateArrayCopy(), modulus._bits, ref retValBits, exponent._bits );
+            }
+            retVal = new BigInteger(
+               this.IsPositive() ? 1 : ( exponent.IsEven ? 1 : -1 ), // Result is negative for negative values with odd exponents
+               retValBits,
+               true
+               );
+         }
+         return retVal;
       }
 
       public BigInteger ModInverse( BigInteger x )
@@ -177,7 +353,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       public Int32 CompareTo( BigInteger other )
       {
-         throw new NotImplementedException();
+         var retVal = this.Sign.CompareTo( other.Sign );
+         if ( retVal == 0 && this.Sign != 0 )
+         {
+            retVal = Compare( this._bits, other._bits );
+         }
+         return retVal;
       }
 
       public void WriteToByteArray( Byte[] array, Int32 offset, BinaryEndianness endianness )
@@ -197,7 +378,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       public override Int32 GetHashCode()
       {
-         throw new NotImplementedException();
+         var retVal = ArrayEqualityComparer<UInt32>.GetHashCode( this._bits );
+         var sign = this._sign;
+         if ( sign != 0 )
+         {
+            retVal = unchecked(retVal * sign);
+         }
+         return retVal;
       }
 
       public override String ToString()
@@ -209,68 +396,76 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          else
          {
-            // TODO compile CAM with /checked
-
             // The largest possible 10^x number suitable in UInt32 is 10^9: 1000000000
             // So we first convert to that, and then we convert the individual ints using the traditional algorithm
             const UInt32 convBase = 1000000000;
             const Int32 convBasePower = 9;
-            var thisByteLen = this.ByteLength;
-            var thisBits = this._bits;
-            var newBits = new UInt32[thisByteLen * 10 / 9 + 2];
-            var newBitsIdx = 0;
-
-            for ( var i = thisByteLen - 1; i >= 0; --i )
+            try
             {
-               var carry = thisBits[i];
-               for ( var j = 0; j < newBitsIdx; ++j )
-               {
-                  var cur = ToUInt64( newBits[j], carry );
-                  newBits[j] = (UInt32) ( cur % convBase );
-                  carry = (UInt32) ( cur / convBase );
-               }
+               var thisByteLen = this.ByteLength;
+               var thisBits = this._bits;
+               var newBits = new UInt32[thisByteLen * 10 / 9 + 2];
+               var newBitsIdx = 0;
 
-               if ( carry != 0 )
+               for ( var i = thisByteLen - 1; i >= 0; --i )
                {
-                  newBits[newBitsIdx++] = carry % convBase;
-                  carry /= convBase;
+                  var carry = thisBits[i];
+                  for ( var j = 0; j < newBitsIdx; ++j )
+                  {
+                     var cur = ToUInt64( newBits[j], carry );
+                     unchecked
+                     {
+                        newBits[j] = (UInt32) ( cur % convBase );
+                        carry = (UInt32) ( cur / convBase );
+                     }
+                  }
+
                   if ( carry != 0 )
                   {
-                     newBits[newBitsIdx++] = carry;
+                     newBits[newBitsIdx++] = carry % convBase;
+                     carry /= convBase;
+                     if ( carry != 0 )
+                     {
+                        newBits[newBitsIdx++] = carry;
+                     }
                   }
                }
-            }
 
-            // Each integer in newBits takes at most 9 characters in base10
-            var charCount = newBitsIdx * convBasePower;
-            var isNegative = this._sign < 0;
-            if ( isNegative )
-            {
-               // Space for '-'
-               ++charCount;
-            }
-
-            // Create char array and populate it using traditional algorithm
-            var chars = new Char[charCount];
-            var charIdx = charCount;
-            for ( var i = 0; i < newBitsIdx; ++i )
-            {
-               var cur = newBits[i];
-               // For last iteration of newBits array, don't produce extra zeroes.
-               for ( var j = convBasePower - 1; j >= 0 && ( i < newBitsIdx - 1 || cur != 0 ); --j )
+               // Each integer in newBits takes at most 9 characters in base10
+               var charCount = newBitsIdx * convBasePower;
+               var isNegative = this.IsNegative();
+               if ( isNegative )
                {
-                  chars[--charIdx] = (Char) ( cur % 10 + '0' );
-                  cur /= 10;
+                  // Space for '-'
+                  ++charCount;
                }
-            }
 
-            // Set minus sign, if needed
-            if ( isNegative )
+               // Create char array and populate it using traditional algorithm
+               var chars = new Char[charCount];
+               var charIdx = charCount;
+               for ( var i = 0; i < newBitsIdx; ++i )
+               {
+                  var cur = newBits[i];
+                  // For last iteration of newBits array, don't produce extra zeroes.
+                  for ( var j = convBasePower - 1; j >= 0 && ( i < newBitsIdx - 1 || cur != 0 ); --j )
+                  {
+                     chars[--charIdx] = (Char) ( cur % 10 + '0' );
+                     cur /= 10;
+                  }
+               }
+
+               // Set minus sign, if needed
+               if ( isNegative )
+               {
+                  chars[--charIdx] = '-';
+               }
+
+               retVal = new String( chars, charIdx, charCount - charIdx );
+            }
+            catch ( OverflowException oe )
             {
-               chars[--charIdx] = '-';
+               throw new FormatException( "This integer is too big for .ToString()", oe );
             }
-
-            retVal = new String( chars, charIdx, charCount - charIdx );
          }
 
          return retVal;
@@ -300,7 +495,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          UInt32[] bits; Int32 actualSign;
          ParseFromBinary( array, offset, length, endianness, sign, out actualSign, out bits );
-         return new BigInteger( actualSign, bits );
+         return new BigInteger( actualSign, bits, false );
       }
 
       private static void ParseFromBinary( Byte[] array, Int32 offset, Int32 length, BinaryEndianness endianness, Int32 sign, out Int32 signResult, out UInt32[] bits )
@@ -345,19 +540,36 @@ namespace CILAssemblyManipulator.Physical.Crypto
                Boolean valid;
                do
                {
-                  retVal = new BigInteger( max.BitLength, random );
+                  retVal = CreateRandom( max.BitLength, random );
                   valid = retVal >= min && retVal < max;
                } while ( !valid && ( ++i ) < 100 );
 
                if ( !valid )
                {
                   // Faster, but less entropy
-                  retVal = min + new BigInteger( ( max - min ).BitLength - 1, random );
+                  retVal = min + CreateRandom( ( max - min ).BitLength - 1, random );
                }
             }
          }
 
+         System.Diagnostics.Debug.Assert( retVal >= min && retVal <= max, "Returned random integer must be in correct range." );
+
          return retVal;
+      }
+
+      private static BigInteger CreateRandom( Int32 bitLength, Random random )
+      {
+         // Create and populate bytes
+         var byteCount = BinaryUtils.AmountOfPagesTaken( bitLength, 8 );
+         var bytes = new Byte[byteCount];
+         random.NextBytes( bytes );
+
+         // Strip excess bits
+         var excessBits = byteCount * 8 - bitLength;
+         bytes[0] = (Byte) ( Byte.MaxValue >> excessBits );
+
+         // Create BigInteger
+         return ParseFromBinary( bytes, BinaryEndianness.BigEndian, 1 );
       }
 
       public static BigInteger Remainder( BigInteger divident, BigInteger divisor )
@@ -383,6 +595,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public static BigInteger Divide( BigInteger left, BigInteger right )
       {
          return left / right;
+      }
+
+      private static Int32 ValidateSign( Int32 sign, UInt32[] bits )
+      {
+         return bits.IsNullOrEmpty() ? 0 : ValidateSign( sign );
       }
 
       private static Int32 ValidateSign( Int32 sign )
@@ -442,34 +659,37 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             var intCount = BinaryUtils.AmountOfPagesTaken( byteCount, sizeof( UInt32 ) );
             bits = new UInt32[intCount];
-
-            // Index of int array where we will write
-            var idx = 0;
-            // Start with the remainder
+            // The index to start writing into int array is the last element of the int array
+            // We still iterate the byte array normally
+            var idx = intCount - 1;
+            UInt32 firstInt;
             switch ( byteCount % sizeof( UInt32 ) )
             {
                case 0:
-                  // The amount of bytes is even - start from first integer
+                  // One full integer left
+                  firstInt = bytes.ReadUInt32BEFromBytes( ref offset );
                   break;
                case 1:
-                  // One extra byte
-                  bits[idx++] = bytes.ReadByteFromBytes( ref offset );
+                  // One byte left
+                  firstInt = bytes.ReadByteFromBytes( ref offset );
                   break;
                case 2:
-                  // Two extra bytes
-                  bits[idx++] = bytes.ReadUInt16BEFromBytes( ref offset );
+                  // Two bytes left
+                  firstInt = bytes.ReadUInt16BEFromBytes( ref offset );
                   break;
-               case 3:
-                  // Three extra bytes
-                  bits[idx++] = ( (UInt32) bytes.ReadUInt16BEFromBytes( ref offset ) << 8 ) | bytes.ReadByteFromBytes( ref offset );
+               default:
+                  // Three bytes left
+                  firstInt = ( (UInt32) bytes.ReadUInt16BEFromBytes( ref offset ) << 8 ) | bytes.ReadByteFromBytes( ref offset );
                   break;
+            }
+            bits[idx--] = firstInt;
+
+            while ( idx >= 0 )
+            {
+               bits[idx--] = bytes.ReadUInt32BEFromBytes( ref offset );
             }
 
-            // Read the rest of the bytes
-            while ( idx < intCount )
-            {
-               bits[idx++] = bytes.ReadUInt32BEFromBytes( ref offset );
-            }
+
          }
 
          System.Diagnostics.Debug.Assert( offset == max, "All bytes must've been read." );
@@ -500,35 +720,35 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             var intCount = BinaryUtils.AmountOfPagesTaken( byteCount, sizeof( UInt32 ) );
             bits = new UInt32[intCount];
-            // The index to start writing into int array is the last element of the int array
-            // We still iterate the byte array normally
-            var idx = intCount - 1;
-            while ( idx > 0 )
+            // Index of int array where we will write
+            var idx = 0;
+            // Read the bytes
+            while ( idx < intCount - 1 )
             {
-               bits[idx--] = bytes.ReadUInt32LEFromBytes( ref offset );
+               bits[idx++] = bytes.ReadUInt32LEFromBytes( ref offset );
             }
 
-            UInt32 lastInt;
+            // Read last integer
             switch ( byteCount % sizeof( UInt32 ) )
             {
                case 0:
-                  // One full integer left
-                  lastInt = bytes.ReadUInt32LEFromBytes( ref offset );
+                  // The amount of bytes is even - start from first integer
                   break;
                case 1:
-                  // One byte left
-                  lastInt = bytes.ReadByteFromBytes( ref offset );
+                  // One extra byte
+                  bits[idx++] = bytes.ReadByteFromBytes( ref offset );
                   break;
                case 2:
-                  // Two bytes left
-                  lastInt = bytes.ReadUInt16LEFromBytes( ref offset );
+                  // Two extra bytes
+                  bits[idx++] = bytes.ReadUInt16LEFromBytes( ref offset );
                   break;
-               default:
-                  // Three bytes left
-                  lastInt = ( (UInt32) bytes.ReadByteFromBytes( ref offset ) << 8 ) | bytes.ReadUInt16LEFromBytes( ref offset );
+               case 3:
+                  // Three extra bytes
+                  bits[idx++] = ( (UInt32) bytes.ReadUInt16LEFromBytes( ref offset ) ) | ( (UInt32) bytes.ReadByteFromBytes( ref offset ) << 16 );
                   break;
             }
-            bits[0] = lastInt;
+
+
          }
 
          System.Diagnostics.Debug.Assert( offset == max, "All bytes must've been read." );
@@ -538,36 +758,322 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private static UInt64 ToUInt64( UInt32 high, UInt32 low )
       {
-         return ( ( (UInt64) high ) << ( sizeof( UInt32 ) * 8 ) ) | low;
+         return ( ( (UInt64) high ) << BITS_32 ) | low;
+      }
+
+      private static Int32 CalculateBitLength( UInt32[] bits )
+      {
+         Int32 retVal;
+         if ( bits == null )
+         {
+            retVal = 0;
+         }
+         else
+         {
+            // This class never has trailing zeroes
+            retVal = BITS_32 * ( bits.Length - 1 ) // Amount of bits in other integers
+               + BinaryUtils.Log2( bits[bits.Length - 1] ); // Amount of bits in last integer
+         }
+         return retVal;
+      }
+
+      // We must return always either -1, 0, or 1, since the result of this method is used in multiplication operations for sign
+      private static Int32 Compare( UInt32[] xBits, UInt32[] yBits )
+      {
+         return Compare( xBits, xBits.Length, yBits, yBits.Length );
+      }
+
+      private static Int32 Compare( UInt32[] xBits, Int32 xCount, UInt32[] yBits, Int32 yCount )
+      {
+         var lengthDiff = ( xBits.Length - xCount ) - ( yBits.Length - yCount );
+         Int32 retVal;
+         if ( lengthDiff != 0 )
+         {
+            // Different length of bits - we can return right away
+            retVal = lengthDiff < 0 ? -1 : 1;
+         }
+         else
+         {
+            retVal = 0;
+            for ( --xCount, --yCount; xCount >= 0 && retVal == 0; --xCount, --yCount )
+            {
+               UInt32 x, y;
+               if ( ( x = xBits[xCount] ) != ( y = yBits[yCount] ) )
+               {
+                  retVal = x < y ? -1 : 1;
+               }
+            }
+         }
+
+         return retVal;
+      }
+
+      private static UInt32[] CheckForTrailingZeroes( UInt32[] bits, Int32 sign, out Int32 signResult )
+      {
+         var i = CheckForTrailingZeroes( bits );
+
+         if ( i <= 0 )
+         {
+            bits = Empty<UInt32>.Array;
+            signResult = 0;
+         }
+         else
+         {
+            signResult = sign;
+            if ( i < bits.Length - 1 )
+            {
+               var tmp = bits;
+               bits = new UInt32[i + 1];
+               Array.Copy( tmp, 0, bits, 0, i + 1 );
+            }
+         }
+
+         return bits;
+      }
+
+      private static Int32 CheckForTrailingZeroes( UInt32[] bits )
+      {
+         var i = bits.Length - 1;
+         while ( i >= 0 && bits[i] == 0 )
+         {
+            --i;
+         }
+         return Math.Max( 0, i );
+      }
+
+
+      private static void PerformDivMod(
+         BigInteger divident,
+         BigInteger divisor,
+         Boolean computeModulus,
+         Boolean computeQuotient,
+         ref BigInteger modulusResult,
+         ref BigInteger quotientResult
+         )
+      {
+         if ( divisor.IsZero )
+         {
+            throw new ArithmeticException( "Division by zero." );
+         }
+         else if ( divident.IsZero )
+         {
+            if ( computeQuotient )
+            {
+               quotientResult = divident;
+            }
+            if ( computeModulus )
+            {
+               modulusResult = divident;
+            }
+         }
+         else if ( divisor.IsOne )
+         {
+            if ( computeQuotient )
+            {
+               quotientResult = divident;
+            }
+            if ( computeModulus )
+            {
+               modulusResult = Zero;
+            }
+         }
+         else if ( divisor.IsMinusOne )
+         {
+            if ( computeQuotient )
+            {
+               quotientResult = -divident;
+            }
+            if ( computeModulus )
+            {
+               modulusResult = Zero;
+            }
+         }
+         else
+         {
+            var dividentBits = divident._bits;
+            if ( divisor.IsSmall )
+            {
+               if ( computeQuotient )
+               {
+                  // DivideWithRemainder_Small will store quotient directly to divident, if we are computing quotient, so we need to create a copy
+                  dividentBits = dividentBits.CreateArrayCopy();
+               }
+               var modulus = DivideWithRemainder_Small( dividentBits, divisor.SmallValue, computeQuotient );
+               if ( computeModulus )
+               {
+                  modulusResult = new BigInteger( divident.Sign, modulus );
+               }
+               if ( computeQuotient )
+               {
+                  quotientResult = new BigInteger( divident.Sign, dividentBits, true );
+               }
+
+            }
+            else
+            {
+               // DivideWithRemainder will store modulus always directly to divident, so we need to create a copy
+               dividentBits = dividentBits.CreateArrayCopy();
+               var quotient = DivideWithRemainder( dividentBits, divisor._bits, computeQuotient );
+               if ( computeModulus )
+               {
+                  modulusResult = new BigInteger( divident.Sign, dividentBits, true );
+               }
+               if ( computeQuotient )
+               {
+                  quotientResult = new BigInteger( divident.Sign, quotient, true );
+               }
+            }
+         }
+      }
+
+      private static Boolean AreSmallBits( UInt32[] bits )
+      {
+         return bits.Length <= 1;
       }
 
       #endregion
 
       #region Operators
 
-      public static BigInteger operator %( BigInteger divident, BigInteger divisor )
+      public static BigInteger operator +( BigInteger left, BigInteger right )
       {
-         throw new NotImplementedException();
-      }
+         BigInteger retVal;
+         if ( right.IsZero )
+         {
+            retVal = left;
+         }
+         else if ( left.IsZero )
+         {
+            retVal = right;
+         }
+         else if ( left.Sign == right.Sign )
+         {
+            Boolean checkLeadingZeroes;
+            var newBits = Add( left._bits, right._bits, out checkLeadingZeroes );
+            retVal = new BigInteger( left.Sign, newBits, checkLeadingZeroes );
+         }
+         else
+         {
+            // Don't use .CompareTo directly, as that takes sign into the account.
+            var compareResult = Compare( left._bits, right._bits );
+            if ( compareResult == 0 )
+            {
+               retVal = Zero;
+            }
+            else
+            {
+               BigInteger greater, smaller;
+               if ( compareResult < 0 )
+               {
+                  greater = right;
+                  smaller = left;
+               }
+               else
+               {
+                  greater = left;
+                  smaller = right;
+               }
+               retVal = new BigInteger( left.Sign * compareResult, Subtract( greater._bits.CreateArrayCopy(), smaller._bits ), true );
+            }
+         }
 
-      public static BigInteger operator *( BigInteger left, BigInteger right )
-      {
-         throw new NotImplementedException();
+         return retVal;
       }
 
       public static BigInteger operator -( BigInteger left, BigInteger right )
       {
-         throw new NotImplementedException();
+         BigInteger retVal;
+         if ( right.IsZero )
+         {
+            retVal = left;
+         }
+         else if ( left.IsZero )
+         {
+            retVal = -right;
+         }
+         else if ( left.Sign != right.Sign )
+         {
+            Boolean checkLeadingZeroes;
+            var newBits = Add( left._bits, right._bits, out checkLeadingZeroes );
+            retVal = new BigInteger( left.Sign, newBits, checkLeadingZeroes );
+         }
+         else
+         {
+            var compareResult = Compare( left._bits, right._bits );
+            if ( compareResult == 0 )
+            {
+               retVal = Zero;
+            }
+            else
+            {
+               BigInteger greater, smaller;
+               if ( compareResult < 0 )
+               {
+                  greater = right;
+                  smaller = left;
+               }
+               else
+               {
+                  greater = left;
+                  smaller = right;
+               }
+               retVal = new BigInteger( left.Sign * compareResult, Subtract( greater._bits.CreateArrayCopy(), smaller._bits ), true );
+            }
+         }
+         return retVal;
       }
 
-      public static BigInteger operator +( BigInteger left, BigInteger right )
+      public static BigInteger operator -( BigInteger x )
       {
-         throw new NotImplementedException();
+         return new BigInteger( -x.Sign, x._bits, false );
       }
 
-      public static BigInteger operator /( BigInteger left, BigInteger right )
+      public static BigInteger operator %( BigInteger divident, BigInteger divisor )
       {
-         throw new NotImplementedException();
+         BigInteger modulus = default( BigInteger ), quotient = default( BigInteger );
+         PerformDivMod( divident, divisor, true, false, ref modulus, ref quotient );
+         return modulus;
+      }
+
+      public static BigInteger operator /( BigInteger divident, BigInteger divisor )
+      {
+         BigInteger modulus = default( BigInteger ), quotient = default( BigInteger );
+         PerformDivMod( divident, divisor, false, true, ref modulus, ref quotient );
+         return quotient;
+      }
+
+      public static BigInteger operator *( BigInteger left, BigInteger right )
+      {
+         BigInteger retVal;
+         if ( left.IsZero || right.IsZero )
+         {
+            retVal = Zero;
+         }
+         else if ( left.IsOne )
+         {
+            retVal = right;
+         }
+         else if ( left.IsMinusOne )
+         {
+            retVal = -right;
+         }
+         else if ( right.IsOne )
+         {
+            retVal = left;
+         }
+         else if ( right.IsMinusOne )
+         {
+            retVal = -left;
+         }
+         else
+         {
+            retVal = new BigInteger(
+               left.Sign * right.Sign,// Since at this point, both left and right are non-zero, sign multiplication will always produce the right result
+               Multiply_SmallOrBig( left._bits, right._bits ), // Actual bits
+               !left.IsSmall && !right.IsSmall // Check for leading zeroes only if did big multiplication
+               );
+         }
+         return retVal;
       }
 
       public static Boolean operator >( BigInteger left, BigInteger right )
@@ -609,9 +1115,50 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return new BigInteger( value );
       }
 
+      [CLSCompliant( false )]
+      public static implicit operator BigInteger( UInt32 value )
+      {
+         return new BigInteger( value );
+      }
+
+      public static implicit operator BigInteger( Int64 value )
+      {
+         return new BigInteger( value );
+      }
+
+      [CLSCompliant( false )]
+      public static implicit operator BigInteger( UInt64 value )
+      {
+         return new BigInteger( value );
+      }
+
       #endregion
    }
 
+}
+
+public static partial class E_CILPhysical
+{
+   // Same as Remainder, but always returns positive
+   public static BigInteger Remainder_Positive( this BigInteger divident, BigInteger divisor )
+   {
+      if ( divisor.IsNegative() )
+      {
+         throw new ArgumentException( "Divisor must be positive." );
+      }
+      var retVal = divident % divisor;
+      return retVal.Sign >= 0 ? retVal : ( retVal + divisor );
+   }
+
+   internal static Boolean IsNegative( this BigInteger integer )
+   {
+      return integer.Sign < 0;
+   }
+
+   internal static Boolean IsPositive( this BigInteger integer )
+   {
+      return integer.Sign > 0;
+   }
 }
 
 #pragma warning restore 1591

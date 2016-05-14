@@ -525,97 +525,99 @@ namespace CILAssemblyManipulator.Physical.Crypto
          const UInt32 Y2 = 0x6ed9eba1;
          const UInt32 Y3 = 0x8f1bbcdc;
          const UInt32 Y4 = 0xca62c1d6;
-
-         // Prepare variables
-         var h1 = state[0];
-         var h2 = state[1];
-         var h3 = state[2];
-         var h4 = state[3];
-         var h5 = state[4];
-
-         // Phase 1
-         var i = 0;
-         for ( ; i < 20; i += 5 )
+         unchecked
          {
-            h5 += h1.RotateLeft( 5 ) + F( h2, h3, h4 ) + x[i] + Y1;
-            h2 = h2.RotateLeft( 30 );
+            // Prepare variables
+            var h1 = state[0];
+            var h2 = state[1];
+            var h3 = state[2];
+            var h4 = state[3];
+            var h5 = state[4];
 
-            h4 += h5.RotateLeft( 5 ) + F( h1, h2, h3 ) + x[i + 1] + Y1;
-            h1 = h1.RotateLeft( 30 );
+            // Phase 1
+            var i = 0;
+            for ( ; i < 20; i += 5 )
+            {
+               h5 += h1.RotateLeft( 5 ) + F( h2, h3, h4 ) + x[i] + Y1;
+               h2 = h2.RotateLeft( 30 );
 
-            h3 += h4.RotateLeft( 5 ) + F( h5, h1, h2 ) + x[i + 2] + Y1;
-            h5 = h5.RotateLeft( 30 );
+               h4 += h5.RotateLeft( 5 ) + F( h1, h2, h3 ) + x[i + 1] + Y1;
+               h1 = h1.RotateLeft( 30 );
 
-            h2 += h3.RotateLeft( 5 ) + F( h4, h5, h1 ) + x[i + 3] + Y1;
-            h4 = h4.RotateLeft( 30 );
+               h3 += h4.RotateLeft( 5 ) + F( h5, h1, h2 ) + x[i + 2] + Y1;
+               h5 = h5.RotateLeft( 30 );
 
-            h1 += h2.RotateLeft( 5 ) + F( h3, h4, h5 ) + x[i + 4] + Y1;
-            h3 = h3.RotateLeft( 30 );
+               h2 += h3.RotateLeft( 5 ) + F( h4, h5, h1 ) + x[i + 3] + Y1;
+               h4 = h4.RotateLeft( 30 );
+
+               h1 += h2.RotateLeft( 5 ) + F( h3, h4, h5 ) + x[i + 4] + Y1;
+               h3 = h3.RotateLeft( 30 );
+            }
+
+            // Phase 2
+            for ( ; i < 40; i += 5 )
+            {
+               h5 += h1.RotateLeft( 5 ) + H( h2, h3, h4 ) + x[i] + Y2;
+               h2 = h2.RotateLeft( 30 );
+
+               h4 += h5.RotateLeft( 5 ) + H( h1, h2, h3 ) + x[i + 1] + Y2;
+               h1 = h1.RotateLeft( 30 );
+
+               h3 += h4.RotateLeft( 5 ) + H( h5, h1, h2 ) + x[i + 2] + Y2;
+               h5 = h5.RotateLeft( 30 );
+
+               h2 += h3.RotateLeft( 5 ) + H( h4, h5, h1 ) + x[i + 3] + Y2;
+               h4 = h4.RotateLeft( 30 );
+
+               h1 += h2.RotateLeft( 5 ) + H( h3, h4, h5 ) + x[i + 4] + Y2;
+               h3 = h3.RotateLeft( 30 );
+            }
+
+            // Phase 3
+            for ( ; i < 60; i += 5 )
+            {
+               h5 += h1.RotateLeft( 5 ) + G( h2, h3, h4 ) + x[i] + Y3;
+               h2 = h2.RotateLeft( 30 );
+
+               h4 += h5.RotateLeft( 5 ) + G( h1, h2, h3 ) + x[i + 1] + Y3;
+               h1 = h1.RotateLeft( 30 );
+
+               h3 += h4.RotateLeft( 5 ) + G( h5, h1, h2 ) + x[i + 2] + Y3;
+               h5 = h5.RotateLeft( 30 );
+
+               h2 += h3.RotateLeft( 5 ) + G( h4, h5, h1 ) + x[i + 3] + Y3;
+               h4 = h4.RotateLeft( 30 );
+
+               h1 += h2.RotateLeft( 5 ) + G( h3, h4, h5 ) + x[i + 4] + Y3;
+               h3 = h3.RotateLeft( 30 );
+            }
+
+            // Phase 4
+            for ( ; i < 80; i += 5 )
+            {
+               h5 += h1.RotateLeft( 5 ) + H( h2, h3, h4 ) + x[i] + Y4;
+               h2 = h2.RotateLeft( 30 );
+
+               h4 += h5.RotateLeft( 5 ) + H( h1, h2, h3 ) + x[i + 1] + Y4;
+               h1 = h1.RotateLeft( 30 );
+
+               h3 += h4.RotateLeft( 5 ) + H( h5, h1, h2 ) + x[i + 2] + Y4;
+               h5 = h5.RotateLeft( 30 );
+
+               h2 += h3.RotateLeft( 5 ) + H( h4, h5, h1 ) + x[i + 3] + Y4;
+               h4 = h4.RotateLeft( 30 );
+
+               h1 += h2.RotateLeft( 5 ) + H( h3, h4, h5 ) + x[i + 4] + Y4;
+               h3 = h3.RotateLeft( 30 );
+            }
+
+            // Update state
+            state[0] += h1;
+            state[1] += h2;
+            state[2] += h3;
+            state[3] += h4;
+            state[4] += h5;
          }
-
-         // Phase 2
-         for ( ; i < 40; i += 5 )
-         {
-            h5 += h1.RotateLeft( 5 ) + H( h2, h3, h4 ) + x[i] + Y2;
-            h2 = h2.RotateLeft( 30 );
-
-            h4 += h5.RotateLeft( 5 ) + H( h1, h2, h3 ) + x[i + 1] + Y2;
-            h1 = h1.RotateLeft( 30 );
-
-            h3 += h4.RotateLeft( 5 ) + H( h5, h1, h2 ) + x[i + 2] + Y2;
-            h5 = h5.RotateLeft( 30 );
-
-            h2 += h3.RotateLeft( 5 ) + H( h4, h5, h1 ) + x[i + 3] + Y2;
-            h4 = h4.RotateLeft( 30 );
-
-            h1 += h2.RotateLeft( 5 ) + H( h3, h4, h5 ) + x[i + 4] + Y2;
-            h3 = h3.RotateLeft( 30 );
-         }
-
-         // Phase 3
-         for ( ; i < 60; i += 5 )
-         {
-            h5 += h1.RotateLeft( 5 ) + G( h2, h3, h4 ) + x[i] + Y3;
-            h2 = h2.RotateLeft( 30 );
-
-            h4 += h5.RotateLeft( 5 ) + G( h1, h2, h3 ) + x[i + 1] + Y3;
-            h1 = h1.RotateLeft( 30 );
-
-            h3 += h4.RotateLeft( 5 ) + G( h5, h1, h2 ) + x[i + 2] + Y3;
-            h5 = h5.RotateLeft( 30 );
-
-            h2 += h3.RotateLeft( 5 ) + G( h4, h5, h1 ) + x[i + 3] + Y3;
-            h4 = h4.RotateLeft( 30 );
-
-            h1 += h2.RotateLeft( 5 ) + G( h3, h4, h5 ) + x[i + 4] + Y3;
-            h3 = h3.RotateLeft( 30 );
-         }
-
-         // Phase 4
-         for ( ; i < 80; i += 5 )
-         {
-            h5 += h1.RotateLeft( 5 ) + H( h2, h3, h4 ) + x[i] + Y4;
-            h2 = h2.RotateLeft( 30 );
-
-            h4 += h5.RotateLeft( 5 ) + H( h1, h2, h3 ) + x[i + 1] + Y4;
-            h1 = h1.RotateLeft( 30 );
-
-            h3 += h4.RotateLeft( 5 ) + H( h5, h1, h2 ) + x[i + 2] + Y4;
-            h5 = h5.RotateLeft( 30 );
-
-            h2 += h3.RotateLeft( 5 ) + H( h4, h5, h1 ) + x[i + 3] + Y4;
-            h4 = h4.RotateLeft( 30 );
-
-            h1 += h2.RotateLeft( 5 ) + H( h3, h4, h5 ) + x[i + 4] + Y4;
-            h3 = h3.RotateLeft( 30 );
-         }
-
-         // Update state
-         state[0] += h1;
-         state[1] += h2;
-         state[2] += h3;
-         state[3] += h4;
-         state[4] += h5;
 
       }
 
@@ -699,7 +701,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <returns></returns>
       protected override UInt32 Expand( UInt32[] x, Int32 idx )
       {
-         return Theta1( x[idx - 2] ) + x[idx - 7] + Theta0( x[idx - 15] ) + x[idx - 16];
+         unchecked
+         {
+            return Theta1( x[idx - 2] ) + x[idx - 7] + Theta0( x[idx - 15] ) + x[idx - 16];
+         }
       }
 
       /// <summary>
@@ -709,69 +714,71 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="state"></param>
       protected override void DoTransformAfterExpanding( UInt32[] x, UInt32[] state )
       {
-         // Prepare variables
-         var h1 = state[0];
-         var h2 = state[1];
-         var h3 = state[2];
-         var h4 = state[3];
-         var h5 = state[4];
-         var h6 = state[5];
-         var h7 = state[6];
-         var h8 = state[7];
-
-         for ( var i = 0; i < EXPANDED_BLOCK_SIZE; )
+         unchecked
          {
-            h8 += Sum1Ch( h5, h6, h7 ) + K[i] + x[i];
-            h4 += h8;
-            h8 += Sum0Maj( h1, h2, h3 );
-            ++i;
+            // Prepare variables
+            var h1 = state[0];
+            var h2 = state[1];
+            var h3 = state[2];
+            var h4 = state[3];
+            var h5 = state[4];
+            var h6 = state[5];
+            var h7 = state[6];
+            var h8 = state[7];
+            for ( var i = 0; i < EXPANDED_BLOCK_SIZE; )
+            {
+               h8 += Sum1Ch( h5, h6, h7 ) + K[i] + x[i];
+               h4 += h8;
+               h8 += Sum0Maj( h1, h2, h3 );
+               ++i;
 
-            h7 += Sum1Ch( h4, h5, h6 ) + K[i] + x[i];
-            h3 += h7;
-            h7 += Sum0Maj( h8, h1, h2 );
-            ++i;
+               h7 += Sum1Ch( h4, h5, h6 ) + K[i] + x[i];
+               h3 += h7;
+               h7 += Sum0Maj( h8, h1, h2 );
+               ++i;
 
-            h6 += Sum1Ch( h3, h4, h5 ) + K[i] + x[i];
-            h2 += h6;
-            h6 += Sum0Maj( h7, h8, h1 );
-            ++i;
+               h6 += Sum1Ch( h3, h4, h5 ) + K[i] + x[i];
+               h2 += h6;
+               h6 += Sum0Maj( h7, h8, h1 );
+               ++i;
 
-            h5 += Sum1Ch( h2, h3, h4 ) + K[i] + x[i];
-            h1 += h5;
-            h5 += Sum0Maj( h6, h7, h8 );
-            ++i;
+               h5 += Sum1Ch( h2, h3, h4 ) + K[i] + x[i];
+               h1 += h5;
+               h5 += Sum0Maj( h6, h7, h8 );
+               ++i;
 
-            h4 += Sum1Ch( h1, h2, h3 ) + K[i] + x[i];
-            h8 += h4;
-            h4 += Sum0Maj( h5, h6, h7 );
-            ++i;
+               h4 += Sum1Ch( h1, h2, h3 ) + K[i] + x[i];
+               h8 += h4;
+               h4 += Sum0Maj( h5, h6, h7 );
+               ++i;
 
-            h3 += Sum1Ch( h8, h1, h2 ) + K[i] + x[i];
-            h7 += h3;
-            h3 += Sum0Maj( h4, h5, h6 );
-            ++i;
+               h3 += Sum1Ch( h8, h1, h2 ) + K[i] + x[i];
+               h7 += h3;
+               h3 += Sum0Maj( h4, h5, h6 );
+               ++i;
 
-            h2 += Sum1Ch( h7, h8, h1 ) + K[i] + x[i];
-            h6 += h2;
-            h2 += Sum0Maj( h3, h4, h5 );
-            ++i;
+               h2 += Sum1Ch( h7, h8, h1 ) + K[i] + x[i];
+               h6 += h2;
+               h2 += Sum0Maj( h3, h4, h5 );
+               ++i;
 
-            h1 += Sum1Ch( h6, h7, h8 ) + K[i] + x[i];
-            h5 += h1;
-            h1 += Sum0Maj( h2, h3, h4 );
-            ++i;
+               h1 += Sum1Ch( h6, h7, h8 ) + K[i] + x[i];
+               h5 += h1;
+               h1 += Sum0Maj( h2, h3, h4 );
+               ++i;
 
+            }
+
+            // Update state
+            state[0] += h1;
+            state[1] += h2;
+            state[2] += h3;
+            state[3] += h4;
+            state[4] += h5;
+            state[5] += h6;
+            state[6] += h7;
+            state[7] += h8;
          }
-
-         // Update state
-         state[0] += h1;
-         state[1] += h2;
-         state[2] += h3;
-         state[3] += h4;
-         state[4] += h5;
-         state[5] += h6;
-         state[6] += h7;
-         state[7] += h8;
       }
 
       private static UInt32 Theta0( UInt32 val )
@@ -786,14 +793,20 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private static UInt32 Sum0Maj( UInt32 x, UInt32 y, UInt32 z )
       {
-         return ( x.RotateRight( 2 ) ^ x.RotateRight( 13 ) ^ x.RotateRight( 22 ) ) // Sum0
-            + ( ( x & y ) ^ ( x & z ) ^ ( y & z ) ); // Maj
+         unchecked
+         {
+            return ( x.RotateRight( 2 ) ^ x.RotateRight( 13 ) ^ x.RotateRight( 22 ) ) // Sum0
+               + ( ( x & y ) ^ ( x & z ) ^ ( y & z ) ); // Maj
+         }
       }
 
       private static UInt32 Sum1Ch( UInt32 x, UInt32 y, UInt32 z )
       {
-         return ( x.RotateRight( 6 ) ^ x.RotateRight( 11 ) ^ x.RotateRight( 25 ) ) // Sum1
-            + ( ( x & y ) ^ ( ( ~x ) & z ) ); // Ch
+         unchecked
+         {
+            return ( x.RotateRight( 6 ) ^ x.RotateRight( 11 ) ^ x.RotateRight( 25 ) ) // Sum1
+               + ( ( x & y ) ^ ( ( ~x ) & z ) ); // Ch
+         }
       }
    }
 
@@ -849,7 +862,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <returns></returns>
       protected override UInt64 Expand( UInt64[] x, Int32 idx )
       {
-         return Sigma1( x[idx - 2] ) + x[idx - 7] + Sigma0( x[idx - 15] ) + x[idx - 16];
+         unchecked
+         {
+            return Sigma1( x[idx - 2] ) + x[idx - 7] + Sigma0( x[idx - 15] ) + x[idx - 16];
+         }
       }
 
       /// <summary>
@@ -859,69 +875,72 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="state"></param>
       protected override void DoTransformAfterExpanding( UInt64[] x, UInt64[] state )
       {
-         // Prepare variables
-         var h1 = state[0];
-         var h2 = state[1];
-         var h3 = state[2];
-         var h4 = state[3];
-         var h5 = state[4];
-         var h6 = state[5];
-         var h7 = state[6];
-         var h8 = state[7];
-
-         for ( var i = 0; i < EXPANDED_BLOCK_SIZE; )
+         unchecked
          {
-            h8 += Sum1Ch( h5, h6, h7 ) + K[i] + x[i];
-            h4 += h8;
-            h8 += Sum0Maj( h1, h2, h3 );
-            ++i;
+            // Prepare variables
+            var h1 = state[0];
+            var h2 = state[1];
+            var h3 = state[2];
+            var h4 = state[3];
+            var h5 = state[4];
+            var h6 = state[5];
+            var h7 = state[6];
+            var h8 = state[7];
 
-            h7 += Sum1Ch( h4, h5, h6 ) + K[i] + x[i];
-            h3 += h7;
-            h7 += Sum0Maj( h8, h1, h2 );
-            ++i;
+            for ( var i = 0; i < EXPANDED_BLOCK_SIZE; )
+            {
+               h8 += Sum1Ch( h5, h6, h7 ) + K[i] + x[i];
+               h4 += h8;
+               h8 += Sum0Maj( h1, h2, h3 );
+               ++i;
 
-            h6 += Sum1Ch( h3, h4, h5 ) + K[i] + x[i];
-            h2 += h6;
-            h6 += Sum0Maj( h7, h8, h1 );
-            ++i;
+               h7 += Sum1Ch( h4, h5, h6 ) + K[i] + x[i];
+               h3 += h7;
+               h7 += Sum0Maj( h8, h1, h2 );
+               ++i;
 
-            h5 += Sum1Ch( h2, h3, h4 ) + K[i] + x[i];
-            h1 += h5;
-            h5 += Sum0Maj( h6, h7, h8 );
-            ++i;
+               h6 += Sum1Ch( h3, h4, h5 ) + K[i] + x[i];
+               h2 += h6;
+               h6 += Sum0Maj( h7, h8, h1 );
+               ++i;
 
-            h4 += Sum1Ch( h1, h2, h3 ) + K[i] + x[i];
-            h8 += h4;
-            h4 += Sum0Maj( h5, h6, h7 );
-            ++i;
+               h5 += Sum1Ch( h2, h3, h4 ) + K[i] + x[i];
+               h1 += h5;
+               h5 += Sum0Maj( h6, h7, h8 );
+               ++i;
 
-            h3 += Sum1Ch( h8, h1, h2 ) + K[i] + x[i];
-            h7 += h3;
-            h3 += Sum0Maj( h4, h5, h6 );
-            ++i;
+               h4 += Sum1Ch( h1, h2, h3 ) + K[i] + x[i];
+               h8 += h4;
+               h4 += Sum0Maj( h5, h6, h7 );
+               ++i;
 
-            h2 += Sum1Ch( h7, h8, h1 ) + K[i] + x[i];
-            h6 += h2;
-            h2 += Sum0Maj( h3, h4, h5 );
-            ++i;
+               h3 += Sum1Ch( h8, h1, h2 ) + K[i] + x[i];
+               h7 += h3;
+               h3 += Sum0Maj( h4, h5, h6 );
+               ++i;
 
-            h1 += Sum1Ch( h6, h7, h8 ) + K[i] + x[i];
-            h5 += h1;
-            h1 += Sum0Maj( h2, h3, h4 );
-            ++i;
+               h2 += Sum1Ch( h7, h8, h1 ) + K[i] + x[i];
+               h6 += h2;
+               h2 += Sum0Maj( h3, h4, h5 );
+               ++i;
 
+               h1 += Sum1Ch( h6, h7, h8 ) + K[i] + x[i];
+               h5 += h1;
+               h1 += Sum0Maj( h2, h3, h4 );
+               ++i;
+
+            }
+
+            // Update state
+            state[0] += h1;
+            state[1] += h2;
+            state[2] += h3;
+            state[3] += h4;
+            state[4] += h5;
+            state[5] += h6;
+            state[6] += h7;
+            state[7] += h8;
          }
-
-         // Update state
-         state[0] += h1;
-         state[1] += h2;
-         state[2] += h3;
-         state[3] += h4;
-         state[4] += h5;
-         state[5] += h6;
-         state[6] += h7;
-         state[7] += h8;
       }
 
       private static UInt64 Sigma0( UInt64 x )
@@ -936,14 +955,20 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private static UInt64 Sum0Maj( UInt64 x, UInt64 y, UInt64 z )
       {
-         return ( x.RotateRight( 28 ) ^ x.RotateRight( 34 ) ^ x.RotateRight( 39 ) ) // Sum0
-            + ( ( x & y ) ^ ( x & z ) ^ ( y & z ) ); // Maj
+         unchecked
+         {
+            return ( x.RotateRight( 28 ) ^ x.RotateRight( 34 ) ^ x.RotateRight( 39 ) ) // Sum0
+               + ( ( x & y ) ^ ( x & z ) ^ ( y & z ) ); // Maj
+         }
       }
 
       private static UInt64 Sum1Ch( UInt64 x, UInt64 y, UInt64 z )
       {
-         return ( x.RotateRight( 14 ) ^ x.RotateRight( 18 ) ^ x.RotateRight( 41 ) ) // Sum1
-            + ( ( x & y ) ^ ( ( ~x ) & z ) ); // Ch
+         unchecked
+         {
+            return ( x.RotateRight( 14 ) ^ x.RotateRight( 18 ) ^ x.RotateRight( 41 ) ) // Sum1
+               + ( ( x & y ) ^ ( ( ~x ) & z ) ); // Ch
+         }
       }
    }
 
@@ -1068,88 +1093,91 @@ namespace CILAssemblyManipulator.Physical.Crypto
          const Int32 S43 = 15;
          const Int32 S44 = 21;
 
-         // Prepare variables
-         var a = state[0];
-         var b = state[1];
-         var c = state[2];
-         var d = state[3];
+         unchecked
+         {
+            // Prepare variables
+            var a = state[0];
+            var b = state[1];
+            var c = state[2];
+            var d = state[3];
 
-         // F cycle
-         a = ( a + F( b, c, d ) + x[0] + 0xd76aa478 ).RotateLeft( S11 ) + b;
-         d = ( d + F( a, b, c ) + x[1] + 0xe8c7b756 ).RotateLeft( S12 ) + a;
-         c = ( c + F( d, a, b ) + x[2] + 0x242070db ).RotateLeft( S13 ) + d;
-         b = ( b + F( c, d, a ) + x[3] + 0xc1bdceee ).RotateLeft( S14 ) + c;
-         a = ( a + F( b, c, d ) + x[4] + 0xf57c0faf ).RotateLeft( S11 ) + b;
-         d = ( d + F( a, b, c ) + x[5] + 0x4787c62a ).RotateLeft( S12 ) + a;
-         c = ( c + F( d, a, b ) + x[6] + 0xa8304613 ).RotateLeft( S13 ) + d;
-         b = ( b + F( c, d, a ) + x[7] + 0xfd469501 ).RotateLeft( S14 ) + c;
-         a = ( a + F( b, c, d ) + x[8] + 0x698098d8 ).RotateLeft( S11 ) + b;
-         d = ( d + F( a, b, c ) + x[9] + 0x8b44f7af ).RotateLeft( S12 ) + a;
-         c = ( c + F( d, a, b ) + x[10] + 0xffff5bb1 ).RotateLeft( S13 ) + d;
-         b = ( b + F( c, d, a ) + x[11] + 0x895cd7be ).RotateLeft( S14 ) + c;
-         a = ( a + F( b, c, d ) + x[12] + 0x6b901122 ).RotateLeft( S11 ) + b;
-         d = ( d + F( a, b, c ) + x[13] + 0xfd987193 ).RotateLeft( S12 ) + a;
-         c = ( c + F( d, a, b ) + x[14] + 0xa679438e ).RotateLeft( S13 ) + d;
-         b = ( b + F( c, d, a ) + x[15] + 0x49b40821 ).RotateLeft( S14 ) + c;
+            // F cycle
+            a = ( a + F( b, c, d ) + x[0] + 0xd76aa478 ).RotateLeft( S11 ) + b;
+            d = ( d + F( a, b, c ) + x[1] + 0xe8c7b756 ).RotateLeft( S12 ) + a;
+            c = ( c + F( d, a, b ) + x[2] + 0x242070db ).RotateLeft( S13 ) + d;
+            b = ( b + F( c, d, a ) + x[3] + 0xc1bdceee ).RotateLeft( S14 ) + c;
+            a = ( a + F( b, c, d ) + x[4] + 0xf57c0faf ).RotateLeft( S11 ) + b;
+            d = ( d + F( a, b, c ) + x[5] + 0x4787c62a ).RotateLeft( S12 ) + a;
+            c = ( c + F( d, a, b ) + x[6] + 0xa8304613 ).RotateLeft( S13 ) + d;
+            b = ( b + F( c, d, a ) + x[7] + 0xfd469501 ).RotateLeft( S14 ) + c;
+            a = ( a + F( b, c, d ) + x[8] + 0x698098d8 ).RotateLeft( S11 ) + b;
+            d = ( d + F( a, b, c ) + x[9] + 0x8b44f7af ).RotateLeft( S12 ) + a;
+            c = ( c + F( d, a, b ) + x[10] + 0xffff5bb1 ).RotateLeft( S13 ) + d;
+            b = ( b + F( c, d, a ) + x[11] + 0x895cd7be ).RotateLeft( S14 ) + c;
+            a = ( a + F( b, c, d ) + x[12] + 0x6b901122 ).RotateLeft( S11 ) + b;
+            d = ( d + F( a, b, c ) + x[13] + 0xfd987193 ).RotateLeft( S12 ) + a;
+            c = ( c + F( d, a, b ) + x[14] + 0xa679438e ).RotateLeft( S13 ) + d;
+            b = ( b + F( c, d, a ) + x[15] + 0x49b40821 ).RotateLeft( S14 ) + c;
 
-         // G cycle
-         a = ( a + G( b, c, d ) + x[1] + 0xf61e2562 ).RotateLeft( S21 ) + b;
-         d = ( d + G( a, b, c ) + x[6] + 0xc040b340 ).RotateLeft( S22 ) + a;
-         c = ( c + G( d, a, b ) + x[11] + 0x265e5a51 ).RotateLeft( S23 ) + d;
-         b = ( b + G( c, d, a ) + x[0] + 0xe9b6c7aa ).RotateLeft( S24 ) + c;
-         a = ( a + G( b, c, d ) + x[5] + 0xd62f105d ).RotateLeft( S21 ) + b;
-         d = ( d + G( a, b, c ) + x[10] + 0x02441453 ).RotateLeft( S22 ) + a;
-         c = ( c + G( d, a, b ) + x[15] + 0xd8a1e681 ).RotateLeft( S23 ) + d;
-         b = ( b + G( c, d, a ) + x[4] + 0xe7d3fbc8 ).RotateLeft( S24 ) + c;
-         a = ( a + G( b, c, d ) + x[9] + 0x21e1cde6 ).RotateLeft( S21 ) + b;
-         d = ( d + G( a, b, c ) + x[14] + 0xc33707d6 ).RotateLeft( S22 ) + a;
-         c = ( c + G( d, a, b ) + x[3] + 0xf4d50d87 ).RotateLeft( S23 ) + d;
-         b = ( b + G( c, d, a ) + x[8] + 0x455a14ed ).RotateLeft( S24 ) + c;
-         a = ( a + G( b, c, d ) + x[13] + 0xa9e3e905 ).RotateLeft( S21 ) + b;
-         d = ( d + G( a, b, c ) + x[2] + 0xfcefa3f8 ).RotateLeft( S22 ) + a;
-         c = ( c + G( d, a, b ) + x[7] + 0x676f02d9 ).RotateLeft( S23 ) + d;
-         b = ( b + G( c, d, a ) + x[12] + 0x8d2a4c8a ).RotateLeft( S24 ) + c;
+            // G cycle
+            a = ( a + G( b, c, d ) + x[1] + 0xf61e2562 ).RotateLeft( S21 ) + b;
+            d = ( d + G( a, b, c ) + x[6] + 0xc040b340 ).RotateLeft( S22 ) + a;
+            c = ( c + G( d, a, b ) + x[11] + 0x265e5a51 ).RotateLeft( S23 ) + d;
+            b = ( b + G( c, d, a ) + x[0] + 0xe9b6c7aa ).RotateLeft( S24 ) + c;
+            a = ( a + G( b, c, d ) + x[5] + 0xd62f105d ).RotateLeft( S21 ) + b;
+            d = ( d + G( a, b, c ) + x[10] + 0x02441453 ).RotateLeft( S22 ) + a;
+            c = ( c + G( d, a, b ) + x[15] + 0xd8a1e681 ).RotateLeft( S23 ) + d;
+            b = ( b + G( c, d, a ) + x[4] + 0xe7d3fbc8 ).RotateLeft( S24 ) + c;
+            a = ( a + G( b, c, d ) + x[9] + 0x21e1cde6 ).RotateLeft( S21 ) + b;
+            d = ( d + G( a, b, c ) + x[14] + 0xc33707d6 ).RotateLeft( S22 ) + a;
+            c = ( c + G( d, a, b ) + x[3] + 0xf4d50d87 ).RotateLeft( S23 ) + d;
+            b = ( b + G( c, d, a ) + x[8] + 0x455a14ed ).RotateLeft( S24 ) + c;
+            a = ( a + G( b, c, d ) + x[13] + 0xa9e3e905 ).RotateLeft( S21 ) + b;
+            d = ( d + G( a, b, c ) + x[2] + 0xfcefa3f8 ).RotateLeft( S22 ) + a;
+            c = ( c + G( d, a, b ) + x[7] + 0x676f02d9 ).RotateLeft( S23 ) + d;
+            b = ( b + G( c, d, a ) + x[12] + 0x8d2a4c8a ).RotateLeft( S24 ) + c;
 
-         // H cycle
-         a = ( a + H( b, c, d ) + x[5] + 0xfffa3942 ).RotateLeft( S31 ) + b;
-         d = ( d + H( a, b, c ) + x[8] + 0x8771f681 ).RotateLeft( S32 ) + a;
-         c = ( c + H( d, a, b ) + x[11] + 0x6d9d6122 ).RotateLeft( S33 ) + d;
-         b = ( b + H( c, d, a ) + x[14] + 0xfde5380c ).RotateLeft( S34 ) + c;
-         a = ( a + H( b, c, d ) + x[1] + 0xa4beea44 ).RotateLeft( S31 ) + b;
-         d = ( d + H( a, b, c ) + x[4] + 0x4bdecfa9 ).RotateLeft( S32 ) + a;
-         c = ( c + H( d, a, b ) + x[7] + 0xf6bb4b60 ).RotateLeft( S33 ) + d;
-         b = ( b + H( c, d, a ) + x[10] + 0xbebfbc70 ).RotateLeft( S34 ) + c;
-         a = ( a + H( b, c, d ) + x[13] + 0x289b7ec6 ).RotateLeft( S31 ) + b;
-         d = ( d + H( a, b, c ) + x[0] + 0xeaa127fa ).RotateLeft( S32 ) + a;
-         c = ( c + H( d, a, b ) + x[3] + 0xd4ef3085 ).RotateLeft( S33 ) + d;
-         b = ( b + H( c, d, a ) + x[6] + 0x04881d05 ).RotateLeft( S34 ) + c;
-         a = ( a + H( b, c, d ) + x[9] + 0xd9d4d039 ).RotateLeft( S31 ) + b;
-         d = ( d + H( a, b, c ) + x[12] + 0xe6db99e5 ).RotateLeft( S32 ) + a;
-         c = ( c + H( d, a, b ) + x[15] + 0x1fa27cf8 ).RotateLeft( S33 ) + d;
-         b = ( b + H( c, d, a ) + x[2] + 0xc4ac5665 ).RotateLeft( S34 ) + c;
+            // H cycle
+            a = ( a + H( b, c, d ) + x[5] + 0xfffa3942 ).RotateLeft( S31 ) + b;
+            d = ( d + H( a, b, c ) + x[8] + 0x8771f681 ).RotateLeft( S32 ) + a;
+            c = ( c + H( d, a, b ) + x[11] + 0x6d9d6122 ).RotateLeft( S33 ) + d;
+            b = ( b + H( c, d, a ) + x[14] + 0xfde5380c ).RotateLeft( S34 ) + c;
+            a = ( a + H( b, c, d ) + x[1] + 0xa4beea44 ).RotateLeft( S31 ) + b;
+            d = ( d + H( a, b, c ) + x[4] + 0x4bdecfa9 ).RotateLeft( S32 ) + a;
+            c = ( c + H( d, a, b ) + x[7] + 0xf6bb4b60 ).RotateLeft( S33 ) + d;
+            b = ( b + H( c, d, a ) + x[10] + 0xbebfbc70 ).RotateLeft( S34 ) + c;
+            a = ( a + H( b, c, d ) + x[13] + 0x289b7ec6 ).RotateLeft( S31 ) + b;
+            d = ( d + H( a, b, c ) + x[0] + 0xeaa127fa ).RotateLeft( S32 ) + a;
+            c = ( c + H( d, a, b ) + x[3] + 0xd4ef3085 ).RotateLeft( S33 ) + d;
+            b = ( b + H( c, d, a ) + x[6] + 0x04881d05 ).RotateLeft( S34 ) + c;
+            a = ( a + H( b, c, d ) + x[9] + 0xd9d4d039 ).RotateLeft( S31 ) + b;
+            d = ( d + H( a, b, c ) + x[12] + 0xe6db99e5 ).RotateLeft( S32 ) + a;
+            c = ( c + H( d, a, b ) + x[15] + 0x1fa27cf8 ).RotateLeft( S33 ) + d;
+            b = ( b + H( c, d, a ) + x[2] + 0xc4ac5665 ).RotateLeft( S34 ) + c;
 
-         // K cycle
-         a = ( a + K( b, c, d ) + x[0] + 0xf4292244 ).RotateLeft( S41 ) + b;
-         d = ( d + K( a, b, c ) + x[7] + 0x432aff97 ).RotateLeft( S42 ) + a;
-         c = ( c + K( d, a, b ) + x[14] + 0xab9423a7 ).RotateLeft( S43 ) + d;
-         b = ( b + K( c, d, a ) + x[5] + 0xfc93a039 ).RotateLeft( S44 ) + c;
-         a = ( a + K( b, c, d ) + x[12] + 0x655b59c3 ).RotateLeft( S41 ) + b;
-         d = ( d + K( a, b, c ) + x[3] + 0x8f0ccc92 ).RotateLeft( S42 ) + a;
-         c = ( c + K( d, a, b ) + x[10] + 0xffeff47d ).RotateLeft( S43 ) + d;
-         b = ( b + K( c, d, a ) + x[1] + 0x85845dd1 ).RotateLeft( S44 ) + c;
-         a = ( a + K( b, c, d ) + x[8] + 0x6fa87e4f ).RotateLeft( S41 ) + b;
-         d = ( d + K( a, b, c ) + x[15] + 0xfe2ce6e0 ).RotateLeft( S42 ) + a;
-         c = ( c + K( d, a, b ) + x[6] + 0xa3014314 ).RotateLeft( S43 ) + d;
-         b = ( b + K( c, d, a ) + x[13] + 0x4e0811a1 ).RotateLeft( S44 ) + c;
-         a = ( a + K( b, c, d ) + x[4] + 0xf7537e82 ).RotateLeft( S41 ) + b;
-         d = ( d + K( a, b, c ) + x[11] + 0xbd3af235 ).RotateLeft( S42 ) + a;
-         c = ( c + K( d, a, b ) + x[2] + 0x2ad7d2bb ).RotateLeft( S43 ) + d;
-         b = ( b + K( c, d, a ) + x[9] + 0xeb86d391 ).RotateLeft( S44 ) + c;
+            // K cycle
+            a = ( a + K( b, c, d ) + x[0] + 0xf4292244 ).RotateLeft( S41 ) + b;
+            d = ( d + K( a, b, c ) + x[7] + 0x432aff97 ).RotateLeft( S42 ) + a;
+            c = ( c + K( d, a, b ) + x[14] + 0xab9423a7 ).RotateLeft( S43 ) + d;
+            b = ( b + K( c, d, a ) + x[5] + 0xfc93a039 ).RotateLeft( S44 ) + c;
+            a = ( a + K( b, c, d ) + x[12] + 0x655b59c3 ).RotateLeft( S41 ) + b;
+            d = ( d + K( a, b, c ) + x[3] + 0x8f0ccc92 ).RotateLeft( S42 ) + a;
+            c = ( c + K( d, a, b ) + x[10] + 0xffeff47d ).RotateLeft( S43 ) + d;
+            b = ( b + K( c, d, a ) + x[1] + 0x85845dd1 ).RotateLeft( S44 ) + c;
+            a = ( a + K( b, c, d ) + x[8] + 0x6fa87e4f ).RotateLeft( S41 ) + b;
+            d = ( d + K( a, b, c ) + x[15] + 0xfe2ce6e0 ).RotateLeft( S42 ) + a;
+            c = ( c + K( d, a, b ) + x[6] + 0xa3014314 ).RotateLeft( S43 ) + d;
+            b = ( b + K( c, d, a ) + x[13] + 0x4e0811a1 ).RotateLeft( S44 ) + c;
+            a = ( a + K( b, c, d ) + x[4] + 0xf7537e82 ).RotateLeft( S41 ) + b;
+            d = ( d + K( a, b, c ) + x[11] + 0xbd3af235 ).RotateLeft( S42 ) + a;
+            c = ( c + K( d, a, b ) + x[2] + 0x2ad7d2bb ).RotateLeft( S43 ) + d;
+            b = ( b + K( c, d, a ) + x[9] + 0xeb86d391 ).RotateLeft( S44 ) + c;
 
-         state[0] += a;
-         state[1] += b;
-         state[2] += c;
-         state[3] += d;
+            state[0] += a;
+            state[1] += b;
+            state[2] += c;
+            state[3] += d;
+         }
       }
 
       /// <summary>

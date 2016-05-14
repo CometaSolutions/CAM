@@ -651,7 +651,7 @@ namespace CILAssemblyManipulator.Tests.Physical
    }
 }
 
-public static class E_Util
+public static partial class E_Util
 {
    internal static ArrayRecord CreateArrayRecord<T>( this T[] array, Func<T, Object> itemProcessor = null )
    {
@@ -708,7 +708,7 @@ public static class E_Util
 
    public static Int64 NextInt64( this Random rng )
    {
-      return ( (Int64) rng.NextInt32() ) | ( (Int64) rng.NextInt32() << 32 );
+      return ( (Int64) rng.NextInt32() ) | ( ( (Int64) rng.NextInt32() ) << 32 );
    }
 
    // From Jon Skeet's answer on http://stackoverflow.com/questions/609501/generating-a-random-decimal-in-c-sharp
