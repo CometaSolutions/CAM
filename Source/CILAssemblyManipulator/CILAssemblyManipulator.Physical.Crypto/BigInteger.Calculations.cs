@@ -48,7 +48,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       // This method adds xBits to yBits, but not in-place.
-      private static UInt32[] Add( UInt32[] xBits, UInt32[] yBits, out Boolean checkReturnValueLeadingZeroes )
+      private static UInt32[] Add( UInt32[] xBits, UInt32[] yBits, out Boolean checkReturnValueTrailingZeroes )
       {
          UInt32[] greater, smaller;
          if ( xBits.Length < yBits.Length )
@@ -62,18 +62,18 @@ namespace CILAssemblyManipulator.Physical.Crypto
             smaller = yBits;
          }
 
-         // We don't allow leading zeroes, so check if we really need to allocate extra integer.
+         // We don't allow trailing zeroes, so check if we really need to allocate extra integer.
          var max = UInt32.MaxValue;
          if ( xBits.Length == yBits.Length )
          {
-            max -= smaller[smaller.Length - 1];
+            max -= smaller[0];
          }
 
-         checkReturnValueLeadingZeroes = greater[0] >= max;
+         checkReturnValueTrailingZeroes = greater[greater.Length - 1] >= max;
 
          // Because of BE format, we would rather allocate new array right here.
          UInt32[] greaterCopy;
-         if ( checkReturnValueLeadingZeroes )
+         if ( checkReturnValueTrailingZeroes )
          {
             // We *may* overflow
             greaterCopy = new UInt32[greater.Length + 1];
@@ -109,66 +109,112 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private static UInt32[] Multiply_SmallOrBig( UInt32[] left, UInt32[] right )
       {
+         UInt32[] result = null;
+         var resultLength = -1;
+         Multiply_SmallOrBig( left, left.Length, right, right.Length, ref result, ref resultLength );
+         return result;
+      }
+
+      private static void Multiply_SmallOrBig(
+         UInt32[] left,
+         Int32 leftLength,
+         UInt32[] right,
+         Int32 rightLength,
+         ref UInt32[] result,
+         ref Int32 resultLength
+         )
+      {
          if ( AreSmallBits( left ) )
          {
-            return Multiply_Small( right.CreateArrayCopy(), left[0] );
+            var small = left[0];
+            switch ( small )
+            {
+               case 0:
+                  // Result is always zero
+                  SetSmall( ref result, ref resultLength, 0 );
+                  break;
+               case 1:
+                  // Result is always same as value
+                  SetAsCopy( ref result, ref resultLength, right, rightLength );
+                  break;
+               default:
+                  // Perform small multiply
+                  Multiply_Small( right, rightLength, small, ref result, ref resultLength );
+                  break;
+            }
          }
          else if ( AreSmallBits( right ) )
          {
-            return Multiply_Small( left.CreateArrayCopy(), right[0] );
+            var small = right[0];
+            switch ( small )
+            {
+               case 0:
+                  // Result is always zero
+                  SetSmall( ref result, ref resultLength, 0 );
+                  break;
+               case 1:
+                  // Result is always same as value
+                  SetAsCopy( ref result, ref resultLength, left, leftLength );
+                  break;
+               default:
+                  Multiply_Small( left, leftLength, small, ref result, ref resultLength );
+                  break;
+            }
          }
          else
          {
-            return Multiply( left, right );
+            Multiply( left, leftLength, right, rightLength, ref result, ref resultLength );
          }
       }
 
-      // This method computes big = big * y in-place for big.
-      // It resizes array if necessary, and returns it
-      private static UInt32[] Multiply_Small( UInt32[] big, UInt32 small )
+      // This method computes result = big * small. The 'big' array is unmodified.
+      private static void Multiply_Small( UInt32[] big, Int32 bigLength, UInt32 small, ref UInt32[] result, ref Int32 resultLength )
       {
+         // First check that result is big enough
+         resultLength = ResizeBits( ref result, resultLength, bigLength );
+
+         // Do multiplication
          var carry = 0u;
-         for ( var i = 0; i < big.Length; ++i )
+         for ( var i = 0; i < bigLength; ++i )
          {
-            carry = MultiplyWithCarry( ref big[i], small, carry );
+            carry = MultiplyWithCarry( ref result[i], big[i], small, carry );
          }
 
+         // Apply carry, and resize if necessary
          if ( carry != 0 )
          {
-            var tmp = big;
-            big = new UInt32[big.Length + 1];
-            tmp.CopyTo( big, 0 );
-            big[big.Length - 1] = carry;
+            resultLength = ResizeBits( ref result, resultLength, resultLength + 1 );
+            result[resultLength - 1] = carry;
          }
-
-         return big;
       }
 
       // This method computes x * y and returns resulting array
       // The resulting array may have leading zeroes
-      private static UInt32[] Multiply( UInt32[] x, UInt32[] y )
+      private static void Multiply( UInt32[] x, Int32 xLength, UInt32[] y, Int32 yLength, ref UInt32[] result, ref Int32 resultLength )
       {
-         var retVal = new UInt32[x.Length + y.Length];
-         for ( var i = 0; i < x.Length; ++i )
+         resultLength = ResizeBits( ref result, resultLength, xLength + yLength );
+         // Clear bits since we are reading from result as well
+         Array.Clear( result, 0, resultLength );
+         for ( var i = 0; i < xLength; ++i )
          {
             var cur = x[i];
             if ( cur > 0 )
             {
                var carry = 0u;
                var retValIdx = i;
-               for ( var j = 0; j < y.Length; ++j )
+               for ( var j = 0; j < yLength; ++j )
                {
-                  carry = MultiplyAndAddWithCarry( ref retVal[retValIdx++], cur, y[j], carry );
+                  carry = MultiplyAndAddWithCarry( ref result[retValIdx++], cur, y[j], carry );
                }
                // Propagate carry
                while ( carry > 0 )
                {
-                  carry = AddWithCarry( ref retVal[retValIdx++], 0, carry );
+                  carry = AddWithCarry( ref result[retValIdx++], 0, carry );
                }
             }
          }
 
-         return retVal;
+         MinimizeBitsLength( result, ref resultLength );
       }
 
 
@@ -177,8 +223,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
       // Returns modulus
       private static UInt32 DivideWithRemainder_Small( UInt32[] divident, UInt32 divisor, Boolean assignToDivident )
       {
+         var dividentLength = divident.Length;
+         return DivideWithRemainder_Small( divident, ref dividentLength, divisor, assignToDivident );
+      }
+
+      private static UInt32 DivideWithRemainder_Small( UInt32[] divident, ref Int32 dividentLength, UInt32 divisor, Boolean assignToDivident )
+      {
          var retVal = 0u;
-         for ( var i = divident.Length - 1; i >= 0; --i )
+         for ( var i = dividentLength - 1; i >= 0; --i )
          {
             var cur = ToUInt64( retVal, divident[i] );
             if ( assignToDivident )
@@ -188,6 +240,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             retVal = (UInt32) ( cur % divisor );
          }
 
+         MinimizeBitsLength( divident, ref dividentLength );
          return retVal;
       }
 
@@ -196,7 +249,17 @@ namespace CILAssemblyManipulator.Physical.Crypto
       private static UInt32[] DivideWithRemainder( UInt32[] divident, UInt32[] divisor, Boolean returnQuotient )
       {
          var dividentLength = divident.Length;
-         var divisorLength = divisor.Length;
+         var retVal = DivideWithRemainder( divident, ref dividentLength, divisor, divisor.Length, returnQuotient );
+         // Remember trailing zeroes for divident
+         for ( var i = dividentLength; i < divident.Length; ++i )
+         {
+            divident[i] = 0;
+         }
+         return retVal;
+      }
+
+      private static UInt32[] DivideWithRemainder( UInt32[] divident, ref Int32 dividentLength, UInt32[] divisor, Int32 divisorLength, Boolean returnQuotient )
+      {
          UInt32[] retVal;
          if ( dividentLength < divisorLength ) // Divident is definetly smaller than divisor, so the modulus is divident, and quotient is zero
          {
@@ -323,12 +386,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
                      }
                   }
                }
+               dividentLength = divisorLength;
+               MinimizeBitsLength( divident, ref dividentLength );
 
-               // Remember trailing zeroes for divident
-               for ( var i = divisorLength; i < dividentLength; ++i )
-               {
-                  divident[i] = 0;
-               }
             }
          }
 
@@ -367,12 +427,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      private static UInt32 MultiplyWithCarry( ref UInt32 first, UInt32 second, UInt32 carry )
+      private static UInt32 MultiplyWithCarry( ref UInt32 store, UInt32 first, UInt32 second, UInt32 carry )
       {
          var result = (UInt64) first * second + carry;
          unchecked
          {
-            first = (UInt32) result;
+            store = (UInt32) result;
             // If we got overflow, carry will have its 33th -> bits set
             return (UInt32) ( result >> BITS_32 );
          }
@@ -388,14 +448,24 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      private static void ModPow_Small( ref UInt32[] value, UInt32[] modulus, ref UInt32[] result, UInt32 exponent )
+      // TODO refactor all the parameters into single ModPowCalculationState object.
+      private static void ModPow_Small(
+         ref UInt32[] value,
+         ref Int32 valueLength,
+         UInt32[] modulus,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         UInt32 exponent,
+         ref UInt32[] tmp,
+         ref Int32 tmpLength
+         )
       {
          while ( exponent != 0 )
          {
             if ( !exponent.IsEven() )
             {
                // Perform extra step for odd exponent
-               ModPow_Step( result, value, modulus, ref result );
+               ModPow_Step( result, resultLength, value, valueLength, modulus, ref result, ref resultLength, ref tmp, ref tmpLength );
             }
 
             if ( exponent == 1 )
@@ -405,66 +475,126 @@ namespace CILAssemblyManipulator.Physical.Crypto
             }
 
             // Perform step
-            ModPow_Step( value, value, modulus, ref value );
+            ModPow_Step( value, valueLength, value, valueLength, modulus, ref value, ref valueLength, ref tmp, ref tmpLength );
 
             // Shift right once
             exponent >>= 1;
          }
       }
 
-      private static void ModPow_Small_32( ref UInt32[] value, UInt32[] modulus, ref UInt32[] result, UInt32 exponent )
+      private static void ModPow_Small_32(
+         ref UInt32[] value,
+         ref Int32 valueLength,
+         UInt32[] modulus,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         UInt32 exponent,
+         ref UInt32[] tmp,
+         ref Int32 tmpLength
+         )
       {
          // Same as ModPow_Small except that we are always iterating 32 times
          for ( var i = 0; i < BITS_32; ++i )
          {
             if ( !exponent.IsEven() )
             {
-               ModPow_Step( result, value, modulus, ref result );
+               ModPow_Step( result, resultLength, value, valueLength, modulus, ref result, ref resultLength, ref tmp, ref tmpLength );
             }
-            ModPow_Step( value, value, modulus, ref value );
+            ModPow_Step( value, valueLength, value, valueLength, modulus, ref value, ref valueLength, ref tmp, ref tmpLength );
 
             exponent >>= 1;
          }
       }
 
-      private static void ModPow( UInt32[] value, UInt32[] modulus, ref UInt32[] result, UInt32[] exponent )
+      private static void ModPow(
+         UInt32[] value,
+         UInt32[] modulus,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         UInt32[] exponent,
+         UInt32[] tmp,
+         Int32 tmpLength
+         )
       {
-         // Iterate all except for last byte
+         // Iterate all except for last integer
+         var valueLength = value.Length;
          for ( var i = 0; i < exponent.Length - 1; ++i )
          {
-            ModPow_Small_32( ref value, modulus, ref result, exponent[i] );
+            ModPow_Small_32( ref value, ref valueLength, modulus, ref result, ref resultLength, exponent[i], ref tmp, ref tmpLength );
          }
 
          // Last step
-         ModPow_Small( ref value, modulus, ref result, exponent[exponent.Length - 1] );
+         ModPow_Small( ref value, ref valueLength, modulus, ref result, ref resultLength, exponent[exponent.Length - 1], ref tmp, ref tmpLength );
       }
 
-      private static void ModPow_Step( UInt32[] x, UInt32[] y, UInt32[] modulus, ref UInt32[] result )
+      private static void ModPow_Step(
+         UInt32[] x,
+         Int32 xLength,
+         UInt32[] y,
+         Int32 yLength,
+         UInt32[] modulus,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         ref UInt32[] tmp,
+         ref Int32 tmpLength
+         )
       {
          // result = ( x * y ) % modulus
-         result = Multiply_SmallOrBig( x, y ); // TODO this is not the most efficient thing to do right now, as x or y will be copied (we could use temp array here to avoid extra allocations)
+         Multiply_SmallOrBig( x, xLength, y, yLength, ref tmp, ref tmpLength );
          if ( modulus.Length > 1 )
          {
             // Big modulus.
-            // TODO this is also not the most efficient thing to do right now...
-            if ( result[result.Length - 1] == 0 )
-            {
-               result = new BigInteger( 1, result, true )._bits;
-            }
-            DivideWithRemainder( result, modulus, false );
+            DivideWithRemainder( tmp, ref tmpLength, modulus, modulus.Length, false );
          }
          else
          {
             // Small modulus
-            result[0] = DivideWithRemainder_Small( result, modulus[0], false );
-            // Clear array for trailing zeroes
-            Array.Clear( result, 1, result.Length - 1 );
+            result[0] = DivideWithRemainder_Small( tmp, ref tmpLength, modulus[0], false );
          }
 
-         if ( result[result.Length - 1] == 0 )
+         var swap = tmp;
+         tmp = result;
+         result = swap;
+
+         var swap2 = tmpLength;
+         tmpLength = resultLength;
+         resultLength = swap2;
+      }
+
+      private static Int32 ResizeBits( ref UInt32[] bits, Int32 curLength, Int32 newLength )
+      {
+         if ( bits == null )
          {
-            result = new BigInteger( 1, result, true )._bits;
+            bits = new UInt32[newLength];
          }
+         else if ( bits.Length < newLength )
+         {
+            var tmp = bits;
+            bits = new UInt32[newLength];
+            // Don't copy *all* elements of the array, since there may be garbage at the end
+            Array.Copy( tmp, 0, bits, 0, curLength );
+         }
+         return newLength;
+      }
+
+      private static void MinimizeBitsLength( UInt32[] bits, ref Int32 length )
+      {
+         while ( length > 0 && bits[length - 1] == 0 )
+         {
+            --length;
+         }
+      }
+
+      private static void SetSmall( ref UInt32[] result, ref Int32 resultLength, UInt32 smallValue )
+      {
+         resultLength = ResizeBits( ref result, resultLength, 1 );
+         result[0] = smallValue;
+      }
+
+      private static void SetAsCopy( ref UInt32[] result, ref Int32 resultLength, UInt32[] value, Int32 valueLength )
+      {
+         resultLength = ResizeBits( ref result, resultLength, valueLength );
+         Array.Copy( value, result, valueLength );
       }
 
    }

@@ -161,6 +161,10 @@ namespace CILAssemblyManipulator.Tests.Physical
          Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, manualSig ) );
 
          var manualCAM = ManualRSA_CAM( nativeData );
+         // Big-endian serialization is not yet implemented
+         var manualSigCAM = manualCAM.ToByteArray( BigInteger.BinaryEndianness.LittleEndian, includeSign: false );
+         Array.Reverse( manualSigCAM );
+         Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, manualSigCAM ) );
 
          //var pkcs = PKCS1Encoder.Create(
          //   rParams.Modulus.Length * 8,
@@ -264,7 +268,6 @@ namespace CILAssemblyManipulator.Tests.Physical
          var iq = BigInteger.ParseFromBinary( parameters.InverseQ, BigInteger.BinaryEndianness.BigEndian, 1 );
          var input = BigInteger.ParseFromBinary( inputData, BigInteger.BinaryEndianness.BigEndian, 1 );
          BigInteger retVal;
-
          //if ( p.HasValue && q.HasValue && dp.HasValue && dq.HasValue )
          //{
          // Decryption

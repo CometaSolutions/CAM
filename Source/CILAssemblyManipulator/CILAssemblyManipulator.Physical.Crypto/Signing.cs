@@ -151,7 +151,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="result">The <see cref="BigInteger"/> produced by <see cref="ProcessInteger"/> method.</param>
       public void ConvertOutput( Byte[] output, Int32 outOffset, BigInteger result )
       {
-         result.WriteToByteArray( output, outOffset, BigInteger.BinaryEndianness.BigEndian );
+         var resultByteCount = BinaryUtils.AmountOfPagesTaken( result.BitLength, 8 );
+         result.WriteToByteArray( output, outOffset, Math.Min( resultByteCount, output.Length - outOffset ), BigInteger.BinaryEndianness.BigEndian, includeSign: false );
       }
    }
 

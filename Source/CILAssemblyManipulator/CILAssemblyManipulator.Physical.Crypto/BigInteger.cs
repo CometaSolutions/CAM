@@ -34,7 +34,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
          BigEndian
       }
 
-      private const Int32 BITS_32 = 8 * sizeof( Int32 );
+      private const Int32 BITS_BYTE = 8;
+      private const Int32 BITS_32 = BITS_BYTE * sizeof( Int32 );
+      private const Int32 BYTES_32 = BITS_32 / BITS_BYTE;
       private const Int64 INT_32_MASK = 0xFFFFFFFFL;
 
       #region Static properties
@@ -197,7 +199,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      private Int32 ByteLength
+      internal Int32 BitsArrayLength
       {
          get
          {
@@ -328,14 +330,20 @@ namespace CILAssemblyManipulator.Physical.Crypto
          else
          {
             var retValBits = new UInt32[] { 1 };
+            var retValLength = 1;
+            var thisBits = this._bits;
+            var thisLength = thisBits.Length;
+            var tmpLength = thisBits.Length;
+            var tmp = new UInt32[tmpLength];
+
             if ( exponent.IsSmall )
             {
                var copy = this._bits.CreateArrayCopy();
-               ModPow_Small( ref copy, modulus._bits, ref retValBits, exponent.SmallValue );
+               ModPow_Small( ref copy, ref thisLength, modulus._bits, ref retValBits, ref retValLength, exponent.SmallValue, ref tmp, ref tmpLength );
             }
             else
             {
-               ModPow( this._bits.CreateArrayCopy(), modulus._bits, ref retValBits, exponent._bits );
+               ModPow( this._bits.CreateArrayCopy(), modulus._bits, ref retValBits, ref retValLength, exponent._bits, tmp, tmpLength );
             }
             retVal = new BigInteger(
                this.IsPositive() ? 1 : ( exponent.IsEven ? 1 : -1 ), // Result is negative for negative values with odd exponents
@@ -361,9 +369,34 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return retVal;
       }
 
-      public void WriteToByteArray( Byte[] array, Int32 offset, BinaryEndianness endianness )
+      public void WriteToByteArray( Byte[] array, Int32 offset, Int32 count, BinaryEndianness endianness, Boolean includeSign = true )
       {
-         throw new NotImplementedException();
+         array.CheckArrayArguments( offset, count );
+
+         if ( count > 0 )
+         {
+            if ( this.IsZero )
+            {
+               if ( includeSign )
+               {
+                  array[offset] = 0;
+               }
+            }
+            else
+            {
+               switch ( endianness )
+               {
+                  case BinaryEndianness.LittleEndian:
+                     this.WriteBitsLE( array, offset, count, includeSign );
+                     break;
+                  case BinaryEndianness.BigEndian:
+                     this.WriteBitsBE( array, offset, count, includeSign );
+                     break;
+                  default:
+                     throw new ArgumentException( "Unrecognized endianness enum: " + endianness );
+               }
+            }
+         }
       }
 
       public Boolean Equals( BigInteger another )
@@ -402,7 +435,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             const Int32 convBasePower = 9;
             try
             {
-               var thisByteLen = this.ByteLength;
+               var thisByteLen = this.BitsArrayLength;
                var thisBits = this._bits;
                var newBits = new UInt32[thisByteLen * 10 / 9 + 2];
                var newBitsIdx = 0;
@@ -471,6 +504,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return retVal;
       }
 
+      internal Int32 GetSerializedByteCount( Boolean includeSign )
+      {
+         return BinaryUtils.AmountOfPagesTaken(
+            includeSign || this.Sign < 0 ? ( this.BitLength + 1 ) : this.BitLength, // Amount of bits
+            BITS_BYTE ); // Bits per byte
+      }
+
 
       #endregion
 
@@ -507,6 +547,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          else
          {
+            if ( sign < 0 )
+            {
+               throw new NotImplementedException( "Implement two-complement deserialization" );
+            }
+
             bits = ParseBits( array, offset, length, endianness );
             signResult = bits.Length < 1 ? 0 : sign;
          }
@@ -754,6 +799,103 @@ namespace CILAssemblyManipulator.Physical.Crypto
          System.Diagnostics.Debug.Assert( offset == max, "All bytes must've been read." );
 
          return bits;
+      }
+
+      // This method assumes this is not zero
+      private void WriteBitsLE( Byte[] array, Int32 offset, Int32 count, Boolean includeSign )
+      {
+         var sign = this.Sign;
+         if ( sign < 0 )
+         {
+            throw new NotImplementedException( "Implement two-complement LE serialization." );
+         }
+
+         var bits = this._bits;
+         // Write whole integers as much as we can first
+         var bytesForWholeIntegers = count - offset;
+         var wholeIntegerCount = Math.Min( this.BitsArrayLength - 1, ( count - offset ) / BYTES_32 );
+         var bitsIdx = 0;
+         var isTwoComplement = includeSign && sign < 0;
+         var carry = isTwoComplement;
+         for ( ; bitsIdx < wholeIntegerCount; ++bitsIdx )
+         {
+            var cur = bits[bitsIdx];
+            if ( isTwoComplement )
+            {
+               MakeTwoComplement( ref cur, ref carry );
+            }
+
+            array.WriteUInt32LEToBytes( ref offset, cur );
+         }
+
+         // Write last integer
+         var lastInteger = bits[bitsIdx];
+         if ( isTwoComplement )
+         {
+            MakeTwoComplement( ref lastInteger, ref carry );
+         }
+         var roomForLastInteger = count - offset;
+         var needExtraByte = includeSign && (
+            carry // We have all bits set in all integers, and this is negative value
+            || ( sign > 0 && ( lastInteger & 0x80000000u ) != 0 ) // This is positive value, and highest bit is set
+            );
+         if ( needExtraByte )
+         {
+            --roomForLastInteger;
+         }
+         if ( roomForLastInteger > 0 )
+         {
+            var lastIntegerBytes = roomForLastInteger % BYTES_32;
+            switch ( lastIntegerBytes )
+            {
+               case 0:
+                  // Room to write full integer
+                  array.WriteUInt32LEToBytes( ref offset, lastInteger );
+                  lastIntegerBytes = 4;
+                  break;
+               case 1:
+                  // Room for one byte - write highermost byte
+                  throw new NotImplementedException();
+               case 2:
+                  // Room for two bytes - write two highermost bytes
+                  throw new NotImplementedException();
+               default:
+                  // Room for three bytes - write three highermost bytes
+                  throw new NotImplementedException();
+            }
+            roomForLastInteger -= lastIntegerBytes;
+         }
+
+         // Write sign, if needed
+         if ( roomForLastInteger > 0 && includeSign )
+         {
+            Int32 newByte;
+            if ( needExtraByte )
+            {
+               newByte = sign > 0 ? 0x00 : 0xFF;
+               array[offset] = (Byte) newByte;
+            }
+            else if ( sign < 0 )
+            {
+               var oldByte = array[offset];
+               newByte = oldByte | 0x80;
+               array[offset] = (Byte) newByte;
+            }
+         }
+      }
+
+      private void MakeTwoComplement( ref UInt32 current, ref Boolean carry )
+      {
+         current = ~current;
+         if ( carry )
+         {
+            carry = unchecked(++current) == 0;
+         }
+      }
+
+      private void WriteBitsBE( Byte[] array, Int32 offset, Int32 count, Boolean includeSign )
+      {
+         throw new NotImplementedException( "Implement BE serialization." );
       }
 
       private static UInt64 ToUInt64( UInt32 high, UInt32 low )
@@ -1158,6 +1300,18 @@ public static partial class E_CILPhysical
    internal static Boolean IsPositive( this BigInteger integer )
    {
       return integer.Sign > 0;
+   }
+
+   public static Byte[] ToByteArray( this BigInteger integer, BigInteger.BinaryEndianness endianness, Boolean includeSign = true )
+   {
+      var retVal = new Byte[integer.GetSerializedByteCount( includeSign )];
+      integer.WriteToByteArray( retVal, endianness, includeSign );
+      return retVal;
+   }
+
+   public static void WriteToByteArray( this BigInteger integer, Byte[] array, BigInteger.BinaryEndianness endianness, Boolean includeSign = true )
+   {
+      integer.WriteToByteArray( array, 0, array.Length, endianness, includeSign );
    }
 }
 
