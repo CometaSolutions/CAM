@@ -345,6 +345,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
             {
                ModPow( this._bits.CreateArrayCopy(), modulus._bits, ref retValBits, ref retValLength, exponent._bits, tmp, tmpLength );
             }
+            // Fill with zeroes
+            if ( retValLength < retValBits.Length )
+            {
+               Array.Clear( retValBits, retValLength, retValBits.Length - retValLength );
+            }
             retVal = new BigInteger(
                this.IsPositive() ? 1 : ( exponent.IsEven ? 1 : -1 ), // Result is negative for negative values with odd exponents
                retValBits,
