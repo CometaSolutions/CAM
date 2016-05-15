@@ -50,6 +50,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// </summary>
       /// <value></value>
       Int32 DigestByteCount { get; }
+
+      /// <summary>
+      /// Resets this digest algorithm instance to its initial state.
+      /// </summary>
+      void Reset();
    }
 
    /// <summary>
@@ -99,7 +104,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      private void Reset()
+      /// <inheritdoc />
+      public void Reset()
       {
          Array.Clear( this._block, 0, this._block.Length );
          this._count = 0UL;

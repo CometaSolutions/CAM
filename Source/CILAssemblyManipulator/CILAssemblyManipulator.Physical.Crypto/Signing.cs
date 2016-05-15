@@ -161,20 +161,25 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <summary>
    /// This class represents the blinded RSA algorithm, suitable to use when the actual RSA algorithm should not know the input nor the output.
    /// </summary>
-   public sealed class RSABlindedAlgorithm : CipherAlgorithm<RSAComputingParameters>
+   public sealed class RSABlindedAlgorithm : AbstractDisposable, CipherAlgorithm<RSAComputingParameters>
    {
       private readonly RSAAlgorithm _actualEncryptor;
       private readonly Random _random;
+      private readonly Boolean _randomCreatedByConstructor;
 
       /// <summary>
       /// Creates a new instance of <see cref="RSABlindedAlgorithm"/> with given parameters.
       /// </summary>
       /// <param name="actualEncryptor">Optional actual RSA algorithm. If <c>null</c>, the <see cref="RSAAlgorithm.DefaultInstance"/> will be used.</param>
       /// <param name="random">The <see cref="Random"/> to use when generating random value for blinding. If <c>null</c>, the <see cref="SecureRandom"/> will be used, with automatically seeded <see cref="DigestRandomGenerator"/> using <see cref="SHA2_512"/>.</param>
+      /// <remarks>
+      /// If given <paramref name="random"/> is not <c>null</c>, it will *not* be disposed when this <see cref="RSABlindedAlgorithm"/> is disposed.
+      /// </remarks>
       public RSABlindedAlgorithm( RSAAlgorithm actualEncryptor = null, Random random = null )
       {
          this._actualEncryptor = actualEncryptor ?? RSAAlgorithm.DefaultInstance;
          this._random = random ?? new SecureRandom( DigestRandomGenerator.CreateAndSeedWithDefaultLogic( new SHA2_512() ) );
+         this._randomCreatedByConstructor = random == null;
       }
 
       /// <summary>
@@ -191,7 +196,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          var inputInt = this._actualEncryptor.ConvertInput( input, inOffset, inCount, parameters );
          var m = parameters.Modulus;
          var e = parameters.Exponent;
-         var r = BigInteger.CreateRandomInRange( 1, m - 1, this._random );
+         var r = this._random.NextBigInt( 1, m - 1 );
          // Compute output s' of i' = (i * r ^ e) Mod m
          var blindedOutput = this._actualEncryptor.ProcessInteger( ( inputInt * r.ModPow( e, m ) ).Remainder_Positive( m ), parameters );
          // Signature s = (s' * r ^ -1) Mod m
@@ -206,9 +211,18 @@ namespace CILAssemblyManipulator.Physical.Crypto
          this._actualEncryptor.ConvertOutput( output, outOffset, outputInt, parameters.OutputEndianness );
       }
 
+      /// <inheritdoc />
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( this._randomCreatedByConstructor )
+         {
+            ( this._random as IDisposable )?.DisposeSafely();
+         }
+      }
+
    }
 
-   internal class SecureRandom : Random
+   internal class SecureRandom : Random, IDisposable
    {
       private readonly RandomGenerator _generator;
       private readonly Byte[] _intBytes;
@@ -307,16 +321,34 @@ namespace CILAssemblyManipulator.Physical.Crypto
          this.NextBytes( this._intBytes, 0, sizeof( Int64 ) );
          return this._intBytes.ReadInt64BEFromBytesNoRef( 0 );
       }
+
+      public void Dispose()
+      {
+         this._generator.DisposeSafely();
+         Array.Clear( this._intBytes, 0, this._intBytes.Length );
+      }
+
+      ~SecureRandom()
+      {
+         try
+         {
+            this.Dispose();
+         }
+         catch
+         {
+            // Ignore
+         }
+      }
    }
 
-   internal interface RandomGenerator
+   internal interface RandomGenerator : IDisposable
    {
       void AddSeedMaterial( Byte[] material, Int32 offset, Int32 count );
       void AddSeedMaterial( Int64 materialValue );
       void NextBytes( Byte[] array, Int32 offset, Int32 count );
    }
 
-   internal abstract class AbstractRandomGenerator : RandomGenerator
+   internal abstract class AbstractRandomGenerator : AbstractDisposable, RandomGenerator
    {
 
       protected AbstractRandomGenerator()
@@ -376,7 +408,15 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             this.PopulateState();
             Array.Copy( state, 0, array, offset, Math.Min( count, state.Length ) );
-         } while ( ( count -= state.Length ) > 0 );
+            offset += state.Length;
+         } while ( count - offset > 0 );
+      }
+
+      protected override void Dispose( Boolean disposing )
+      {
+         this.Algorithm.Reset();
+         Array.Clear( this._state, 0, this._state.Length );
+         Array.Clear( this._seed, 0, this._seed.Length );
       }
 
       protected BlockDigestAlgorithm Algorithm { get; }

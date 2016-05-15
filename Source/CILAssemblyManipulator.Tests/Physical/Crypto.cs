@@ -211,8 +211,14 @@ namespace CILAssemblyManipulator.Tests.Physical
          //var hashString = "var sourceHash = new Byte[] { " + String.Join( ", ", hash.Select( b => "0x" + b.ToString( "x2" ) ) ) + "};";
          //var sigString = "var expectedSignature = new Byte[] { " + String.Join( ", ", nativeSignature.Select( b => "0x" + b.ToString( "x2" ) ) ) + "};";
 
+         TestCAMSignature( hash, nativeSignature, () => DefaultCryptoCallbacks.DefaultInstance );
+         TestCAMSignature( hash, nativeSignature, () => DefaultCryptoCallbacks.CreateWithBlindedRSA() );
+      }
+
+      private static void TestCAMSignature( Byte[] hash, Byte[] nativeSignature, Func<CryptoCallbacks> cryptoFactory )
+      {
          Byte[] camSignature;
-         using ( var camCrypto = new DefaultCryptoCallbacks() )
+         using ( var camCrypto = cryptoFactory() )
          {
             // Don't use rParams.CreateCAMParameters() since the rsa.ExportParameters() already did the LE -> BE conversion
             camSignature = camCrypto.CreateSignature(
@@ -224,7 +230,6 @@ namespace CILAssemblyManipulator.Tests.Physical
             Array.Reverse( camSignature );
          }
          Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality( nativeSignature, camSignature ) );
-
       }
 
       private static System.Numerics.BigInteger ManualRSA_Native( Byte[] inputData )
@@ -295,6 +300,20 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          return retVal;
       }
+
+
+
+      [Test]
+      public void AAAAAAAAA()
+      {
+         System.Numerics.BigInteger x, y;
+         var gcd = E_Util.ExtEuclid(
+            System.Numerics.BigInteger.Parse( "25479459043512328517527108710381031297214769381153017490531927176093354887364759880371906316855344909604933461284034115970507513544763616790593017648048908605646856205019809423862997356905217956884777117421775777374632185444768135854056438016611889657186601384410993928071271545983484706392504468724213902390" ),
+            System.Numerics.BigInteger.Parse( "125485645865176613296088799022654473344738924644014825020110719547769621006264988346208373240226984298574110541650496347096681884258247292678017323962295729138445562372943163398105622097312122628659004982017533988306142250922401989119086389942248192634653902828978409361977827183045154029315942797270773916589" ),
+            out x,
+            out y
+            );
+      }
    }
 }
 
@@ -313,5 +332,52 @@ public static partial class E_Util
       }
       var retVal = divident % divisor;
       return retVal.Sign >= 0 ? retVal : ( retVal + divisor );
+   }
+
+   private sealed class EEState
+   {
+      public System.Numerics.BigInteger U1;
+      public System.Numerics.BigInteger U3;
+      public System.Numerics.BigInteger V1;
+      public System.Numerics.BigInteger V3;
+
+      public override String ToString()
+      {
+         return "U3: " + this.U3 + "\n"
+            + "U1 " + this.U1 + "\n"
+            + "V3: " + this.V3 + "\n"
+            + "V1: " + this.V1;
+      }
+   }
+
+   public static System.Numerics.BigInteger ExtEuclid( System.Numerics.BigInteger a, System.Numerics.BigInteger b, out System.Numerics.BigInteger x, out System.Numerics.BigInteger y )
+   {
+      var state = new EEState()
+      {
+         U1 = 1,
+         U3 = a, // 
+         V1 = 0,
+         V3 = b // 
+      };
+
+      while ( state.V3 != 0 )
+      {
+         System.Numerics.BigInteger mod;
+         var q = System.Numerics.BigInteger.DivRem( state.U3, state.V3, out mod );
+         state.U3 = state.V3;
+         state.V3 = mod;
+
+         var t1 = state.U1 - q * state.V1;
+         state.U1 = state.V1;
+         state.V1 = t1;
+      }
+
+      x = state.U1;
+      var retVal = state.U3;
+      y = ( retVal - a * x ) / b;
+
+      System.Diagnostics.Debug.Assert( a * x + b * y == retVal );
+
+      return retVal;
    }
 }

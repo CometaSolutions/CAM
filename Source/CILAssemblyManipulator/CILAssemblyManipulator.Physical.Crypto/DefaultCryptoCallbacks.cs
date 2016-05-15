@@ -114,7 +114,15 @@ namespace CILAssemblyManipulator.Physical.Crypto
       protected Byte[] CreateRSASignature( Byte[] contentsHash, RSAKeyBLOBParsingResult parsingResult, String containerName )
       {
          var rParams = parsingResult.RSAParameters;
-         return this.DoCreateRSASignature( parsingResult.HashAlgorithm, contentsHash, rParams, parsingResult == null ? this.CreateRSAFromCSPContainer( containerName ) : this.CreateRSAFromParameters( rParams ) );
+         var rsa = String.IsNullOrEmpty( containerName ) ? this.CreateRSAFromParameters( rParams ) : this.CreateRSAFromCSPContainer( containerName );
+         try
+         {
+            return this.DoCreateRSASignature( parsingResult.HashAlgorithm, contentsHash, rParams, rsa );
+         }
+         finally
+         {
+            ( rsa as IDisposable )?.DisposeSafely();
+         }
       }
 
       /// <summary>
@@ -357,7 +365,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       private static IDictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier> ObjIDCache { get; }
 
       /// <summary>
-      /// Gets the 
+      /// Gets the default instance of <see cref="DefaultCryptoCallbacks"/>, which uses 
       /// </summary>
       public static DefaultCryptoCallbacks DefaultInstance { get; }
 
@@ -367,15 +375,32 @@ namespace CILAssemblyManipulator.Physical.Crypto
          DefaultInstance = new DefaultCryptoCallbacks();
       }
 
-      private readonly CipherAlgorithm<RSAComputingParameters> _rsa;
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <param name="randomToUse"></param>
+      /// <returns></returns>
+      /// <remarks>
+      /// Please note that if <paramref name="randomToUse"/> is not <c>null</c>, it will *not* be disposed when the returned <see cref="DefaultCryptoCallbacks"/> is disposed.
+      /// </remarks>
+      public static DefaultCryptoCallbacks CreateWithBlindedRSA( Random randomToUse = null )
+      {
+         return new DefaultCryptoCallbacks( () => new RSABlindedAlgorithm( RSAAlgorithm.DefaultInstance, randomToUse ) );
+      }
+
+      private readonly Func<CipherAlgorithm<RSAComputingParameters>> _rsaFactory;
 
       /// <summary>
       /// Creates a new instance of <see cref="DefaultCryptoCallbacks"/> with optional given <see cref="CipherAlgorithm{TParameters}"/>, usually <see cref="RSAAlgorithm"/>.
       /// </summary>
-      /// <param name="algorithm">The RSA algorithm. If none is given, then instance of <see cref="RSAAlgorithm"/> is used.</param>
-      public DefaultCryptoCallbacks( CipherAlgorithm<RSAComputingParameters> algorithm = null )
+      /// <param name="algorithmFactory">The callback to create RSA algorithm. If none is given, then such callback is created, that <see cref="RSAAlgorithm.DefaultInstance"/> is used.</param>
+      public DefaultCryptoCallbacks( Func<CipherAlgorithm<RSAComputingParameters>> algorithmFactory = null )
       {
-         this._rsa = algorithm ?? RSAAlgorithm.DefaultInstance;
+         if ( algorithmFactory == null )
+         {
+            algorithmFactory = () => RSAAlgorithm.DefaultInstance;
+         }
+         this._rsaFactory = algorithmFactory;
       }
 
       /// <summary>
@@ -457,7 +482,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <returns>A new instance of <see cref="RSABlindedAlgorithm"/>.</returns>
       protected override CipherAlgorithm<RSAComputingParameters> CreateRSAFromParameters( RSAParameters parameters )
       {
-         return this._rsa;
+         return this._rsaFactory();
       }
 
       /// <summary>

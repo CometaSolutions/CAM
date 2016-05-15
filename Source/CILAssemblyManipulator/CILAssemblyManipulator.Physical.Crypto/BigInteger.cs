@@ -34,9 +34,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
    public partial struct BigInteger : IComparable<BigInteger>, IEquatable<BigInteger>
    {
-      private const Int32 BITS_BYTE = 8;
-      private const Int32 BITS_32 = BITS_BYTE * sizeof( Int32 );
-      private const Int32 BYTES_32 = BITS_32 / BITS_BYTE;
+      internal const Int32 BITS_BYTE = 8;
+      private const Int32 BYTES_32 = BigIntegerCalculations.BITS_32 / BITS_BYTE;
 
       #region Static properties
 
@@ -117,7 +116,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             }
 
             this._sign = sign;
-            var hi = (UInt32) ( u64 >> BITS_32 );
+            var hi = (UInt32) ( u64 >> BigIntegerCalculations.BITS_32 );
             var lo = unchecked((UInt32) u64);
             this._bits = hi == 0 ?
                new UInt32[] { lo } :
@@ -154,7 +153,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          else
          {
-            var hi = (UInt32) ( intValue >> BITS_32 );
+            var hi = (UInt32) ( intValue >> BigIntegerCalculations.BITS_32 );
             var lo = unchecked((UInt32) intValue);
             this._sign = 1;
             this._bits = hi == 0 ?
@@ -173,7 +172,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          else
          {
             this._sign = ValidateSign( sign, bits );
-            this._bits = sign == 0 ? Empty<UInt32>.Array : bits;
+            this._bits = this._sign == 0 ? Empty<UInt32>.Array : bits;
          }
 
          // Check for sign and leading zeroes in debug mode
@@ -183,10 +182,15 @@ namespace CILAssemblyManipulator.Physical.Crypto
             );
       }
 
-      private BigInteger( Int32 sign, UInt32[] bits, Int32 bitsLength )
+      internal BigInteger( Int32 sign, UInt32[] bits, Int32 bitsLength )
       {
+         if ( bitsLength == 0 || ( bitsLength == 1 && ( bits == null || bits[0] == 0 ) ) )
+         {
+            sign = 0;
+         }
+
          this._sign = ValidateSign( sign, bits );
-         this._bits = sign == 0 ?
+         this._bits = this._sign == 0 ?
             Empty<UInt32>.Array :
             ( bitsLength == bits.Length ?
                bits :
@@ -270,8 +274,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      // Will throw if default!
-      private Boolean IsSmall
+
+      internal Boolean IsSmall
       {
          get
          {
@@ -280,7 +284,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       // Will throw if default or zero!
-      private UInt32 SmallValue
+      internal UInt32 SmallValue
       {
          get
          {
@@ -325,45 +329,20 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return quotient;
       }
 
-      public BigInteger ModPow( BigInteger exponent, BigInteger modulus )
+      [CLSCompliant( false )]
+      public UInt32[] GetValuesArrayCopy()
       {
-         BigInteger retVal;
-         if ( modulus.IsNegative() )
-         {
-            throw new ArithmeticException( "Modulus must be positive." );
-         }
-         else if ( modulus.IsOne || this.IsZero )
-         {
-            retVal = Zero;
-         }
-         else if ( exponent.IsZero )
-         {
-            retVal = One;
-         }
-         else
-         {
-            var state = new ModPowCalculationState( exponent._bits, modulus._bits, this._bits.CreateArrayCopy() );
-
-            if ( exponent.IsSmall )
-            {
-               ModPow_Small( state, exponent.SmallValue );
-            }
-            else
-            {
-               ModPow( state );
-            }
-            retVal = new BigInteger(
-               this.IsPositive() ? 1 : ( exponent.IsEven ? 1 : -1 ), // Result is negative for negative values with odd exponents
-               state.Result,
-               state.ResultLength
-               );
-         }
-         return retVal;
+         return this._bits.CreateArrayCopy();
       }
 
-      public BigInteger ModInverse( BigInteger x )
+      internal UInt32[] GetArrayDirect()
       {
-         throw new NotImplementedException();
+         return this._bits;
+      }
+
+      public BigInteger Absolute()
+      {
+         return this.IsNegative() ? -this : this;
       }
 
       public Int32 CompareTo( BigInteger other )
@@ -452,7 +431,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
                   var carry = thisBits[i];
                   for ( var j = 0; j < newBitsIdx; ++j )
                   {
-                     var cur = ToUInt64( newBits[j], carry );
+                     var cur = BigIntegerCalculations.ToUInt64( newBits[j], carry );
                      unchecked
                      {
                         newBits[j] = (UInt32) ( cur % convBase );
@@ -562,66 +541,6 @@ namespace CILAssemblyManipulator.Physical.Crypto
             bits = ParseBits( array, offset, length, endianness );
             signResult = bits.Length < 1 ? 0 : sign;
          }
-      }
-
-      // max is inclusive!!
-      public static BigInteger CreateRandomInRange( BigInteger min, BigInteger max, Random random )
-      {
-         // Compare only once
-         var cmp = min.CompareTo( max );
-         BigInteger retVal;
-         if ( cmp > 0 )
-         {
-            throw new ArgumentException( "Max value should be at least as min value." );
-         }
-         else if ( cmp == 0 )
-         {
-            retVal = min;
-         }
-         else
-         {
-            if ( max.BitLength / 2 < min.BitLength )
-            {
-               // The difference is small enough
-               retVal = min + CreateRandomInRange( Zero, max - min, random );
-            }
-            else
-            {
-               // Slower, but more entropy
-               var i = 0;
-               Boolean valid;
-               do
-               {
-                  retVal = CreateRandom( max.BitLength, random );
-                  valid = retVal >= min && retVal < max;
-               } while ( !valid && ( ++i ) < 100 );
-
-               if ( !valid )
-               {
-                  // Faster, but less entropy
-                  retVal = min + CreateRandom( ( max - min ).BitLength - 1, random );
-               }
-            }
-         }
-
-         System.Diagnostics.Debug.Assert( retVal >= min && retVal <= max, "Returned random integer must be in correct range." );
-
-         return retVal;
-      }
-
-      private static BigInteger CreateRandom( Int32 bitLength, Random random )
-      {
-         // Create and populate bytes
-         var byteCount = BinaryUtils.AmountOfPagesTaken( bitLength, 8 );
-         var bytes = new Byte[byteCount];
-         random.NextBytes( bytes );
-
-         // Strip excess bits
-         var excessBits = byteCount * 8 - bitLength;
-         bytes[0] = (Byte) ( Byte.MaxValue >> excessBits );
-
-         // Create BigInteger
-         return ParseFromBinary( bytes, BinaryEndianness.BigEndian, 1 );
       }
 
       public static BigInteger Remainder( BigInteger divident, BigInteger divisor )
@@ -905,11 +824,6 @@ namespace CILAssemblyManipulator.Physical.Crypto
          throw new NotImplementedException( "Implement BE serialization." );
       }
 
-      private static UInt64 ToUInt64( UInt32 high, UInt32 low )
-      {
-         return ( ( (UInt64) high ) << BITS_32 ) | low;
-      }
-
       private static Int32 CalculateBitLength( UInt32[] bits )
       {
          Int32 retVal;
@@ -920,7 +834,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          else
          {
             // This class never has trailing zeroes
-            retVal = BITS_32 * ( bits.Length - 1 ) // Amount of bits in other integers
+            retVal = BigIntegerCalculations.BITS_32 * ( bits.Length - 1 ) // Amount of bits in other integers
                + BinaryUtils.Log2( bits[bits.Length - 1] ); // Amount of bits in last integer
          }
          return retVal;
@@ -929,33 +843,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
       // We must return always either -1, 0, or 1, since the result of this method is used in multiplication operations for sign
       private static Int32 Compare( UInt32[] xBits, UInt32[] yBits )
       {
-         return Compare( xBits, xBits.Length, yBits, yBits.Length );
+         return BigIntegerCalculations.CompareBits( xBits, xBits.Length, yBits, yBits.Length );
       }
 
-      private static Int32 Compare( UInt32[] xBits, Int32 xCount, UInt32[] yBits, Int32 yCount )
-      {
-         var lengthDiff = ( xBits.Length - xCount ) - ( yBits.Length - yCount );
-         Int32 retVal;
-         if ( lengthDiff != 0 )
-         {
-            // Different length of bits - we can return right away
-            retVal = lengthDiff < 0 ? -1 : 1;
-         }
-         else
-         {
-            retVal = 0;
-            for ( --xCount, --yCount; xCount >= 0 && retVal == 0; --xCount, --yCount )
-            {
-               UInt32 x, y;
-               if ( ( x = xBits[xCount] ) != ( y = yBits[yCount] ) )
-               {
-                  retVal = x < y ? -1 : 1;
-               }
-            }
-         }
-
-         return retVal;
-      }
 
       private static UInt32[] CheckForTrailingZeroes( UInt32[] bits, Int32 sign, out Int32 signResult )
       {
@@ -1039,46 +929,37 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          else
          {
-            var dividentBits = divident._bits;
-            if ( divisor.IsSmall )
+            var dividentBits = divident._bits.CreateArrayCopy();
+            Int32 dividentLength = dividentBits.Length;
+            var divisorBits = divisor._bits;
+            var divisorLength = divisorBits.Length;
+            var sign = divident.Sign;
+            if ( computeModulus && !computeQuotient )
             {
-               if ( computeQuotient )
-               {
-                  // DivideWithRemainder_Small will store quotient directly to divident, if we are computing quotient, so we need to create a copy
-                  dividentBits = dividentBits.CreateArrayCopy();
-               }
-               Int32 quotientLength;
-               var modulus = DivideWithRemainder_Small( dividentBits, divisor.SmallValue, computeQuotient, out quotientLength );
-               if ( computeModulus )
-               {
-                  modulusResult = new BigInteger( divident.Sign, modulus );
-               }
-               if ( computeQuotient )
-               {
-                  quotientResult = new BigInteger( divident.Sign, dividentBits, quotientLength );
-               }
-
+               BigIntegerCalculations.Modulus( dividentBits, ref dividentLength, divisorBits, divisorLength );
+               modulusResult = new BigInteger( sign, dividentBits, dividentLength );
             }
             else
             {
-               // DivideWithRemainder will store modulus always directly to divident, so we need to create a copy
-               dividentBits = dividentBits.CreateArrayCopy();
-               var quotient = DivideWithRemainder( dividentBits, divisor._bits, computeQuotient );
+               UInt32[] quotient = null;
+               Int32 quotientLength = -1;
+               BigIntegerCalculations.DivideWithRemainder( dividentBits, ref dividentLength, divisorBits, divisorLength, ref quotient, ref quotientLength, computeQuotient );
                if ( computeModulus )
                {
-                  modulusResult = new BigInteger( divident.Sign, dividentBits, true );
+                  modulusResult = new BigInteger( sign, dividentBits, dividentLength );
                }
                if ( computeQuotient )
                {
-                  quotientResult = new BigInteger( divident.Sign, quotient, true );
+                  quotientResult = new BigInteger( sign, quotient, quotientLength );
                }
+
             }
          }
       }
 
       private static Boolean AreSmallBits( UInt32[] bits )
       {
-         return bits.Length <= 1;
+         return bits != null && bits.Length <= 1;
       }
 
       #endregion
@@ -1096,35 +977,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             retVal = right;
          }
-         else if ( left.Sign == right.Sign )
-         {
-            Boolean checkLeadingZeroes;
-            var newBits = Add( left._bits, right._bits, out checkLeadingZeroes );
-            retVal = new BigInteger( left.Sign, newBits, checkLeadingZeroes );
-         }
          else
          {
-            // Don't use .CompareTo directly, as that takes sign into the account.
-            var compareResult = Compare( left._bits, right._bits );
-            if ( compareResult == 0 )
-            {
-               retVal = Zero;
-            }
-            else
-            {
-               BigInteger greater, smaller;
-               if ( compareResult < 0 )
-               {
-                  greater = right;
-                  smaller = left;
-               }
-               else
-               {
-                  greater = left;
-                  smaller = right;
-               }
-               retVal = new BigInteger( left.Sign * compareResult, Subtract( greater._bits.CreateArrayCopy(), smaller._bits ), true );
-            }
+            UInt32[] resultBits = null;
+            var resultLength = -1;
+            Int32 resultSign;
+            BigIntegerCalculations.Add( left._bits, left._bits.Length, left.Sign, right._bits, right._bits.Length, right.Sign, ref resultBits, ref resultLength, out resultSign );
+            retVal = new BigInteger( resultSign, resultBits, resultLength );
          }
 
          return retVal;
@@ -1141,34 +1000,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             retVal = -right;
          }
-         else if ( left.Sign != right.Sign )
-         {
-            Boolean checkLeadingZeroes;
-            var newBits = Add( left._bits, right._bits, out checkLeadingZeroes );
-            retVal = new BigInteger( left.Sign, newBits, checkLeadingZeroes );
-         }
          else
          {
-            var compareResult = Compare( left._bits, right._bits );
-            if ( compareResult == 0 )
-            {
-               retVal = Zero;
-            }
-            else
-            {
-               BigInteger greater, smaller;
-               if ( compareResult < 0 )
-               {
-                  greater = right;
-                  smaller = left;
-               }
-               else
-               {
-                  greater = left;
-                  smaller = right;
-               }
-               retVal = new BigInteger( left.Sign * compareResult, Subtract( greater._bits.CreateArrayCopy(), smaller._bits ), true );
-            }
+            UInt32[] resultBits = null;
+            var resultLength = -1;
+            Int32 resultSign;
+            BigIntegerCalculations.Subtract( left._bits, left._bits.Length, left.Sign, right._bits, right._bits.Length, right.Sign, ref resultBits, ref resultLength, out resultSign );
+            retVal = new BigInteger( resultSign, resultBits, resultLength );
          }
          return retVal;
       }
@@ -1217,11 +1055,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          else
          {
-            Int32 resultLength;
-            var retValBits = Multiply_SmallOrBig( left._bits, right._bits, out resultLength ); // Actual bits
+            UInt32[] resultBits = null;
+            var resultLength = -1;
+            BigIntegerCalculations.Multiply( left._bits, left._bits.Length, right._bits, right._bits.Length, ref resultBits, ref resultLength ); // Actual bits
             retVal = new BigInteger(
                left.Sign * right.Sign,// Since at this point, both left and right are non-zero, sign multiplication will always produce the right result
-               retValBits,
+               resultBits,
                resultLength
                );
          }
@@ -1291,6 +1130,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
 public static partial class E_CILPhysical
 {
+
+
    // Same as Remainder, but always returns positive
    public static BigInteger Remainder_Positive( this BigInteger divident, BigInteger divisor )
    {
@@ -1300,6 +1141,28 @@ public static partial class E_CILPhysical
       }
       var retVal = divident % divisor;
       return retVal.Sign >= 0 ? retVal : ( retVal + divisor );
+   }
+
+   public static BigInteger ModInverse( this BigInteger value, BigInteger modulus )
+   {
+      if ( modulus.IsNegative() )
+      {
+         throw new ArithmeticException( "Modulus must be positive." );
+      }
+
+      BigInteger x, y;
+      var gcd = ( value % modulus ).ExtendedEuclidean( modulus, out x, out y, false );
+      if ( !gcd.IsOne )
+      {
+         throw new ArithmeticException( "The modular multiplicative inverse does not exist." );
+      }
+
+      if ( x.IsNegative() )
+      {
+         x += modulus;
+      }
+
+      return x;
    }
 
    internal static Boolean IsNegative( this BigInteger integer )
@@ -1322,6 +1185,44 @@ public static partial class E_CILPhysical
    public static void WriteToByteArray( this BigInteger integer, Byte[] array, BinaryEndianness endianness, Boolean includeSign = true )
    {
       integer.WriteToByteArray( array, 0, array.Length, endianness, includeSign );
+   }
+
+   public static BigInteger NextBigInt( this Random random, BigInteger min, BigInteger max )
+   {
+      // Compare only once
+      var cmp = min.CompareTo( max );
+      BigInteger retVal;
+      if ( cmp > 0 )
+      {
+         throw new ArgumentException( "Max value should be at least as min value." );
+      }
+      else if ( cmp == 0 )
+      {
+         retVal = min;
+      }
+      else
+      {
+         retVal = min + CreateRandom( ( max - min ).BitLength - 1, random );
+      }
+
+      System.Diagnostics.Debug.Assert( retVal >= min && retVal <= max, "Returned random integer must be in correct range." );
+
+      return retVal;
+   }
+
+   private static BigInteger CreateRandom( Int32 bitLength, Random random )
+   {
+      // Create and populate bytes
+      var byteCount = BinaryUtils.AmountOfPagesTaken( bitLength, 8 );
+      var bytes = new Byte[byteCount];
+      random.NextBytes( bytes );
+
+      // Strip excess bits
+      var excessBits = byteCount * 8 - bitLength;
+      bytes[0] &= (Byte) ( Byte.MaxValue >> excessBits );
+
+      // Create BigInteger
+      return BigInteger.ParseFromBinary( bytes, BinaryEndianness.BigEndian, 1 );
    }
 }
 
