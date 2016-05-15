@@ -50,12 +50,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// Computes a signature from a hash bytes, using given algorithm.
       /// </summary>
-      /// <param name="hashAlgorithm">The hash algorithm to use when creating signature.</param>
       /// <param name="contentsHash">The binary contents of the content from which to create signature from.</param>
-      /// <param name="rParams">The RSA parameters. Use <c>default(RSAParameters)</c> if RSA parameters are from CSP container name.</param>
-      /// <param name="containerName">The container name. Use <c>null</c> or empty string to use <paramref name="rParams"/> for RSA.</param>
-      /// <returns>The cryptographic signature created with <paramref name="hashAlgorithm"/> algorithm from <paramref name="contentsHash"/>.</returns>
-      Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName );
+      /// <param name="parsingResult">The parsing result from <see cref="TryParseKeyBLOB"/>.</param>
+      /// <param name="containerName">The container name. Use <c>null</c> or empty string to use <paramref name="parsingResult"/> for RSA.</param>
+      /// <returns>The cryptographic signature created from <paramref name="contentsHash"/>.</returns>
+      Byte[] CreateSignature( Byte[] contentsHash, KeyBLOBParsingResult parsingResult, String containerName );
 
       /// <summary>
       /// This method will compute public key token for a given full public key.
@@ -63,6 +62,60 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="fullPublicKey">The full public key.</param>
       /// <returns>The value of <paramref name="fullPublicKey"/>, if <paramref name="fullPublicKey"/> is <c>null</c> or empty, or the public key token of the <paramref name="fullPublicKey"/>.</returns>
       Byte[] ComputePublicKeyToken( Byte[] fullPublicKey );
+
+      /// <summary>
+      /// Tries to parse public and/or private key information from given key BLOB.
+      /// </summary>
+      /// <param name="keyBLOB">The key BLOB.</param>
+      /// <param name="hashAlgorithmOverride">The optional override to the hash algorithm specified in <paramref name="keyBLOB"/>.</param>
+      /// <returns>Instance of <see cref="KeyBLOBParsingResult"/> if parsing was successul; <c>null</c> otherwise.</returns>
+      KeyBLOBParsingResult TryParseKeyBLOB( Byte[] keyBLOB, AssemblyHashAlgorithm? hashAlgorithmOverride );
+   }
+
+   /// <summary>
+   /// This class represents the result of parsing a cryptographic key(-pair) BLOB.
+   /// </summary>
+   public class KeyBLOBParsingResult
+   {
+
+      /// <summary>
+      /// Creates a new instance of <see cref="KeyBLOBParsingResult"/> with given parameters.
+      /// </summary>
+      /// <param name="snSize">The size of the strong-name signature in the image, in bytes.</param>
+      /// <param name="publicKey">The public key to use in emitting.</param>
+      /// <param name="hashAlgorithm">The hash algorithm to use.</param>
+      /// <param name="errorMessage">The error message, if key BLOB parsing failed.</param>
+      public KeyBLOBParsingResult( Int32 snSize, Byte[] publicKey, AssemblyHashAlgorithm hashAlgorithm, String errorMessage )
+      {
+         this.StrongNameSize = snSize;
+         this.PublicKey = publicKey;
+         this.ErrorMessage = errorMessage;
+         this.HashAlgorithm = hashAlgorithm;
+      }
+
+      /// <summary>
+      /// Gets the size of the strong-name signature in the image, in bytes.
+      /// </summary>
+      /// <value>The size of the strong-name signature in the image, in bytes.</value>
+      public Int32 StrongNameSize { get; }
+
+      /// <summary>
+      /// Gets the public key to use in emitting.
+      /// </summary>
+      /// <value>The public key to use in emitting.</value>
+      public Byte[] PublicKey { get; }
+
+      /// <summary>
+      /// Gets the error message if key BLOB parsing failed.
+      /// </summary>
+      /// <value>The error message if key BLOB parsing failed.</value>
+      public String ErrorMessage { get; }
+
+      /// <summary>
+      /// Gets the hash algorithm to use when computing hash.
+      /// </summary>
+      /// <value>The hash algorithm to use when computing hash.</value>
+      public AssemblyHashAlgorithm HashAlgorithm { get; }
    }
 
    /// <summary>
@@ -70,207 +123,109 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// </summary>
    public struct RSAParameters
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="RSAParameters"/> with public data.
+      /// </summary>
+      /// <param name="numberEndianness">The endianness of the binary numbers.</param>
+      /// <param name="modulus">The modulus as binary number.</param>
+      /// <param name="publicExponent">The exponent as binary number.</param>
+      /// <remarks>
+      /// This data should be sufficient to encrypt, but not to decrypt operations.
+      /// </remarks>
+      /// <exception cref="ArgumentNullException">If either of <paramref name="modulus"/> or <paramref name="publicExponent"/> is <c>null</c>.</exception>
+      public RSAParameters(
+         BinaryEndianness numberEndianness,
+         Byte[] modulus,
+         Byte[] publicExponent
+         ) : this( numberEndianness, modulus, publicExponent, null, null, null, null, null, null )
+      {
+
+      }
 
       /// <summary>
-      /// Represents the <c>D</c> parameter for the RSA algorithm.
+      /// Creates a new instance of <see cref="RSAParameters"/> with public and private data.
       /// </summary>
-      public Byte[] D;
+      /// <param name="numberEndianness">The endianness of the binary numbers.</param>
+      /// <param name="modulus">The modulus as binary number.</param>
+      /// <param name="publicExponent">The exponent as binary number.</param>
+      /// <param name="privateExponent">The private exponent as binary number.</param>
+      /// <param name="p">The first prime as binary number (used t.</param>
+      /// <param name="q">The second prime as binary number.</param>
+      /// <param name="dp">The helper value for <paramref name="p"/> to be used in Chinese Remainder Theorem calculation.</param>
+      /// <param name="dq">The helper value for <paramref name="q"/> to be used in Chinese Remainder Theorem calculation.</param>
+      /// <param name="inverseQ">Another helper value for <paramref name="q"/> to be used in Chinese Remainder Theorem calculation.</param>
+      /// <remarks>
+      /// Assuming none of the parameters is <c>null</c>, this data should be sufficient to both encrypt and decrypt operations.
+      /// </remarks>
+      /// <exception cref="ArgumentNullException">If either of <paramref name="modulus"/> or <paramref name="publicExponent"/> is <c>null</c>.</exception>
+      public RSAParameters(
+         BinaryEndianness numberEndianness,
+         Byte[] modulus,
+         Byte[] publicExponent,
+         Byte[] privateExponent,
+         Byte[] p,
+         Byte[] q,
+         Byte[] dp,
+         Byte[] dq,
+         Byte[] inverseQ
+         )
+      {
+         this.NumberEndianness = numberEndianness;
+         this.Modulus = ArgumentValidator.ValidateNotNull( "Modulus", modulus );
+         this.Exponent = ArgumentValidator.ValidateNotNull( "Public exponent", publicExponent );
+         this.D = privateExponent;
+         this.P = p;
+         this.Q = q;
+         this.DP = dp;
+         this.DQ = dq;
+         this.InverseQ = inverseQ;
+      }
+      /// <summary>
+      /// Represents the <c>D</c> parameter (private exponent) for the RSA algorithm.
+      /// </summary>
+      public Byte[] D { get; }
 
       /// <summary>
       /// Represents the <c>DP</c> parameter for the RSA algorithm.
       /// </summary>
-      public Byte[] DP;
+      public Byte[] DP { get; }
 
       /// <summary>
       /// Represents the <c>DQ</c> parameter for the RSA algorithm.
       /// </summary>
-      public Byte[] DQ;
+      public Byte[] DQ { get; }
 
       /// <summary>
       /// Represents the <c>Exponent</c> parameter for the RSA algorithm.
       /// </summary>
-      public Byte[] Exponent;
+      public Byte[] Exponent { get; }
 
       /// <summary>
       /// Represents the <c>InverseQ</c> parameter for the RSA algorithm.
       /// </summary>
-      public Byte[] InverseQ;
+      public Byte[] InverseQ { get; }
 
       /// <summary>
       /// Represents the <c>Modulus</c> parameter for the RSA algorithm.
       /// </summary>
-      public Byte[] Modulus;
+      public Byte[] Modulus { get; }
 
       /// <summary>
       /// Represents the <c>P</c> parameter for the RSA algorithm.
       /// </summary>
-      public Byte[] P;
+      public Byte[] P { get; }
 
       /// <summary>
       /// Represents the <c>Q</c> parameter for the RSA algorithm.
       /// </summary>
-      public Byte[] Q;
+      public Byte[] Q { get; }
+
+      /// <summary>
+      /// Represents the endianness of the numbers for the RSA algorithm.
+      /// </summary>
+      /// <value>The endianness of the numbers for the RSA algorithm.</value>
+      public BinaryEndianness NumberEndianness { get; }
    }
-
-#pragma warning disable 1591
-   // Most info from http://msdn.microsoft.com/en-us/library/cc250013.aspx 
-   // Note: This class will become internal when merging CAM.Physical DLL.
-   public static class CryptoUtils
-   {
-      private const UInt32 RSA1 = 0x31415352;
-      private const UInt32 RSA2 = 0x32415352;
-      private const Int32 CAPI_HEADER_SIZE = 12;
-      private const Byte PRIVATE_KEY = 0x07;
-      private const Byte PUBLIC_KEY = 0x06;
-
-      internal static Boolean TryCreateRSAParametersFromCapiBLOB( Byte[] blob, Int32 offset, out Int32 pkLen, out Int32 algID, out RSAParameters result, out String errorString )
-      {
-         pkLen = 0;
-         algID = 0;
-         var startOffset = offset;
-         errorString = null;
-         var retVal = false;
-         result = new RSAParameters();
-         if ( startOffset + CAPI_HEADER_SIZE < blob.Length )
-         {
-            try
-            {
-               var firstByte = blob[offset++];
-               if ( ( firstByte == PRIVATE_KEY || firstByte == PUBLIC_KEY ) // Check whether this is private or public key blob
-                   && blob.ReadByteFromBytes( ref offset ) == 0x02 // Version (0x02)
-                  )
-               {
-                  blob.Skip( ref offset, 2 ); // Skip reserved (short, should be zero)
-                  algID = blob.ReadInt32LEFromBytes( ref offset ); // alg-id (should be either 0x0000a400 for RSA_KEYX or 0x00002400 for RSA_SIGN)
-                  var keyType = blob.ReadUInt32LEFromBytes( ref offset );
-                  if ( keyType == RSA2 // RSA2
-                      || keyType == RSA1 ) // RSA1
-                  {
-                     var isPrivateKey = firstByte == PRIVATE_KEY;
-
-
-                     var bitLength = blob.ReadInt32LEFromBytes( ref offset );
-                     var byteLength = bitLength >> 3;
-                     var byteHalfLength = byteLength >> 1;
-
-                     // Exponent
-                     const Int32 EXP_LEN = 4;
-                     var exp = blob.CreateAndBlockCopyTo( ref offset, EXP_LEN );
-                     var tmp = 0;
-                     // Trim exponent
-                     while ( exp[EXP_LEN - 1 - tmp] == 0 )
-                     {
-                        ++tmp;
-                     }
-                     if ( tmp != 0 )
-                     {
-                        exp = exp.Take( EXP_LEN - tmp ).ToArray();
-                     }
-                     result.Exponent = exp;
-
-                     // Modulus
-                     result.Modulus = blob.CreateAndBlockCopyTo( ref offset, byteLength );
-                     pkLen = offset - startOffset;
-
-                     if ( isPrivateKey )
-                     {
-
-                        // prime1
-                        result.P = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
-
-                        // prime2
-                        result.Q = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
-
-                        // exponent1
-                        result.DP = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
-
-                        // exponent2
-                        result.DQ = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
-
-                        // coefficient
-                        result.InverseQ = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
-
-                        // private exponent
-                        result.D = blob.CreateAndBlockCopyTo( ref offset, byteLength );
-                     }
-
-                     retVal = true;
-                  }
-                  else
-                  {
-                     errorString = "Invalid key type: " + keyType;
-                  }
-               }
-               else
-               {
-                  errorString = "Invalid BLOB header.";
-               }
-            }
-            catch
-            {
-               errorString = "Invalid BLOB";
-            }
-         }
-
-         return retVal;
-      }
-
-      public static Boolean TryCreateSigningInformationFromKeyBLOB( Byte[] blob, AssemblyHashAlgorithm? signingAlgorithm, out Byte[] publicKey, out AssemblyHashAlgorithm actualSigningAlgorithm, out RSAParameters rsaParameters, out String errorString )
-      {
-         // There might be actual key after a header, if first byte is zero.
-         var hasHeader = blob[0] == 0x00;
-         Int32 pkLen, algID;
-         var retVal = TryCreateRSAParametersFromCapiBLOB( blob, hasHeader ? CAPI_HEADER_SIZE : 0, out pkLen, out algID, out rsaParameters, out errorString );
-
-         if ( retVal )
-         {
-
-            publicKey = new Byte[pkLen + CAPI_HEADER_SIZE];
-            var idx = 0;
-            if ( hasHeader )
-            {
-               // Just copy from blob
-               publicKey.BlockCopyFrom( ref idx, blob, 0, publicKey.Length );
-               idx = 4;
-               if ( signingAlgorithm.HasValue )
-               {
-                  actualSigningAlgorithm = signingAlgorithm.Value;
-                  publicKey.WriteInt32LEToBytes( ref idx, (Int32) actualSigningAlgorithm );
-               }
-               else
-               {
-                  actualSigningAlgorithm = (AssemblyHashAlgorithm) publicKey.ReadInt32LEFromBytes( ref idx );
-               }
-            }
-            else
-            {
-               // Write public key, including header
-               // Write header explicitly. ALG-ID, followed by AssemblyHashAlgorithmID, followed by the size of the PK
-               actualSigningAlgorithm = signingAlgorithm ?? AssemblyHashAlgorithm.SHA1;// Defaults to SHA1
-               publicKey
-                  .WriteInt32LEToBytes( ref idx, algID )
-                  .WriteInt32LEToBytes( ref idx, (Int32) actualSigningAlgorithm )
-                  .WriteInt32LEToBytes( ref idx, pkLen )
-                  .BlockCopyFrom( ref idx, blob, 0, pkLen );
-            }
-            // Mark PK actually being PK
-            publicKey[CAPI_HEADER_SIZE] = PUBLIC_KEY;
-
-            // Set public key algorithm to RSA1
-            idx = 20;
-            publicKey.WriteUInt32LEToBytes( ref idx, RSA1 );
-         }
-         else
-         {
-            publicKey = null;
-            actualSigningAlgorithm = AssemblyHashAlgorithm.SHA1;
-         }
-
-         return retVal;
-      }
-   }
-
-
 }
 
 // This class will get its documentation from CAM.Physical Core.
@@ -297,20 +252,104 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
+   ///// <summary>
+   ///// Helper method to call <see cref="CryptoCallbacks.CreateRSASignature"/> method and check that the return value is not <c>null</c>.
+   ///// </summary>
+   ///// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
+   ///// <param name="rParams">The RSA parameters. Use <c>default(RSAParameters)</c> if RSA parameters are from CSP container name.</param>
+   ///// <param name="containerName">The container name. Use <c>null</c> or empty string to use <paramref name="rParams"/> for RSA.</param>
+   ///// <param name="hashAlgorithm">The algorithm name to use when creating signature.</param>
+   ///// <param name="contentsHash">The binary data to create signature from.</param>
+   ///// <param name="signatureEndianness">This parameter should contain the endianness of the binary number produced by RSA algorithm.</param>
+   ///// <returns>Non-<c>null</c> signature bytes.</returns>
+   ///// <exception cref="ArgumentNullException">If return value of <see cref="CryptoCallbacks.CreateRSASignature"/> is <c>null</c>.</exception>
+   ///// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
+   //public static Byte[] CreateRSASignatureAndCheck( this CryptoCallbacks callbacks, AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName, out BinaryEndianness signatureEndianness )
+   //{
+   //   return ArgumentValidator.ValidateNotNull( "RSA signature", callbacks.CreateRSASignature( hashAlgorithm, contentsHash, rParams, containerName, out signatureEndianness ) );
+   //}
+
    /// <summary>
-   /// Helper method to call <see cref="CryptoCallbacks.CreateRSASignature"/> method and check that the return value is not <c>null</c>.
+   /// Changes the number endianness of this <see cref="RSAParameters"/>.
    /// </summary>
-   /// <param name="callbacks">This <see cref="CryptoCallbacks"/>.</param>
-   /// <param name="rParams">The RSA parameters. Use <c>default(RSAParameters)</c> if RSA parameters are from CSP container name.</param>
-   /// <param name="containerName">The container name. Use <c>null</c> or empty string to use <paramref name="rParams"/> for RSA.</param>
-   /// <param name="hashAlgorithm">The algorithm name to use when creating signature.</param>
-   /// <param name="contentsHash">The binary data to create signature from.</param>
-   /// <returns>Non-<c>null</c> signature bytes.</returns>
-   /// <exception cref="ArgumentNullException">If return value of <see cref="CryptoCallbacks.CreateRSASignature"/> is <c>null</c>.</exception>
-   /// <exception cref="NullReferenceException">If this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
-   public static Byte[] CreateRSASignatureAndCheck( this CryptoCallbacks callbacks, AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
+   /// <param name="rParams">The <see cref="RSAParameters"/>.</param>
+   /// <param name="newEndianness">The desired number endianness of the return value.</param>
+   /// <param name="inPlace">If reversing is needed, this parameter controls whether to reverse arrays in-place. If <c>true</c>, then the byte arrays of the original <see cref="RSAParameters"/> will be reversed as well.</param>
+   /// <returns>The new <see cref="RSAParameters"/> with given number endianness.</returns>
+   public static RSAParameters ChangeNumberEndianness( this RSAParameters rParams, BinaryEndianness newEndianness, Boolean inPlace = false )
    {
-      return ArgumentValidator.ValidateNotNull( "RSA signature", callbacks.CreateRSASignature( hashAlgorithm, contentsHash, rParams, containerName ) );
+      RSAParameters retVal;
+      if ( rParams.NumberEndianness == newEndianness )
+      {
+         // Nothing to do
+         retVal = rParams;
+      }
+      else
+      {
+         // Save arrays
+         var mod = rParams.Modulus;
+         var exp = rParams.Exponent;
+         var d = rParams.D;
+         var p = rParams.P;
+         var q = rParams.Q;
+         var dp = rParams.DP;
+         var dq = rParams.DQ;
+         var iq = rParams.InverseQ;
+
+         // Create copy if needed
+         if ( !inPlace )
+         {
+            mod = mod.CreateArrayCopy();
+            exp = exp.CreateArrayCopy();
+            d = d.CreateArrayCopy();
+            p = p.CreateArrayCopy();
+            q = q.CreateArrayCopy();
+            dp = dp.CreateArrayCopy();
+            dq = dq.CreateArrayCopy();
+            iq = iq.CreateArrayCopy();
+         }
+
+         // Reverse
+         Array.Reverse( mod );
+         Array.Reverse( exp );
+         if ( d != null )
+         {
+            Array.Reverse( d );
+         }
+         if ( p != null )
+         {
+            Array.Reverse( p );
+         }
+         if ( q != null )
+         {
+            Array.Reverse( q );
+         }
+         if ( dp != null )
+         {
+            Array.Reverse( dp );
+         }
+         if ( dq != null )
+         {
+            Array.Reverse( dq );
+         }
+         if ( iq != null )
+         {
+            Array.Reverse( iq );
+         }
+
+
+         retVal = new RSAParameters( newEndianness, mod, exp, d, p, q, dp, dq, iq );
+      }
+      return retVal;
    }
 
+   /// <summary>
+   /// Helper method to check whether <see cref="KeyBLOBParsingResult"/> represents succeeded key BLOB parsing operation.
+   /// </summary>
+   /// <param name="result">The <see cref="KeyBLOBParsingResult"/>.</param>
+   /// <returns><c>true</c> if the <see cref="KeyBLOBParsingResult"/> is not <c>null</c> and its <see cref="KeyBLOBParsingResult.ErrorMessage"/> is not <c>null</c>; <c>false</c> otherwise.</returns>
+   public static Boolean ParsingSucceeded( this KeyBLOBParsingResult result )
+   {
+      return result != null && result.ErrorMessage == null;
+   }
 }

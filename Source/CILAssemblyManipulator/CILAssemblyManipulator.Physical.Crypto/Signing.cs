@@ -47,7 +47,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <summary>
    /// This class represents the RSA algorithm logic operating with API of <see cref="CipherAlgorithm{TParameters}"/>.
    /// </summary>
-   public class RSAAlgorithm : CipherAlgorithm<RSAComputedParameters>
+   public class RSAAlgorithm : CipherAlgorithm<RSAComputingParameters>
    {
       /// <summary>
       /// The <see cref="RSAAlgorithm"/> itself is stateless, and this instance should be used as default instance.
@@ -60,7 +60,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       /// <inheritdoc/>
-      public void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
+      public void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputingParameters parameters )
       {
          this.ConvertOutput(
             output,
@@ -73,18 +73,19 @@ namespace CILAssemblyManipulator.Physical.Crypto
                   parameters
                   ),
                parameters
-               )
+               ),
+            parameters.OutputEndianness
             );
       }
 
       /// <summary>
       /// This method is the actual implementation of RSA algorithm.
-      /// It uses the values of <see cref="RSAComputedParameters"/> and the Chinese Remainder Theorem to compute an integer value, given another integer value and the <see cref="RSAComputedParameters"/>.
+      /// It uses the values of <see cref="RSAComputingParameters"/> and the Chinese Remainder Theorem to compute an integer value, given another integer value and the <see cref="RSAComputingParameters"/>.
       /// </summary>
       /// <param name="input"></param>
       /// <param name="parameters"></param>
       /// <returns></returns>
-      public BigInteger ProcessInteger( BigInteger input, RSAComputedParameters parameters )
+      public BigInteger ProcessInteger( BigInteger input, RSAComputingParameters parameters )
       {
          var p = parameters.P;
          var q = parameters.Q;
@@ -124,17 +125,17 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="input">The binary data.</param>
       /// <param name="inOffset">The offset in <paramref name="input"/> where to start reading data form.</param>
       /// <param name="inCount">The amount of bytes to read from <paramref name="input"/>.</param>
-      /// <param name="parameters">The <see cref="RSAComputedParameters"/>.</param>
+      /// <param name="parameters">The <see cref="RSAComputingParameters"/>.</param>
       /// <returns>The integer acting as input for RSA algorithm implemented by <see cref="ProcessInteger"/> method.</returns>
-      /// <exception cref="ArgumentException">If the integer readable from binary data is too large. The value should be less than <see cref="RSAComputedParameters.Modulus"/>.</exception>
-      public BigInteger ConvertInput( Byte[] input, Int32 inOffset, Int32 inCount, RSAComputedParameters parameters )
+      /// <exception cref="ArgumentException">If the integer readable from binary data is too large. The value should be less than <see cref="RSAComputingParameters.Modulus"/>.</exception>
+      public BigInteger ConvertInput( Byte[] input, Int32 inOffset, Int32 inCount, RSAComputingParameters parameters )
       {
          if ( inCount > BinaryUtils.AmountOfPagesTaken( parameters.Modulus.BitLength, 8 ) )
          {
             throw new ArgumentException( "Input too large." );
          }
 
-         var retVal = BigInteger.ParseFromBinary( input, inOffset, inCount, BigInteger.BinaryEndianness.BigEndian, 1 );
+         var retVal = BigInteger.ParseFromBinary( input, inOffset, inCount, parameters.InputEndianness, 1 );
          if ( retVal >= parameters.Modulus )
          {
             throw new ArgumentException( "Input too large." );
@@ -149,17 +150,18 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="output">The array to write data to.</param>
       /// <param name="outOffset">The offset in <paramref name="output"/> to start writing data to.</param>
       /// <param name="result">The <see cref="BigInteger"/> produced by <see cref="ProcessInteger"/> method.</param>
-      public void ConvertOutput( Byte[] output, Int32 outOffset, BigInteger result )
+      /// <param name="resultEndianness">The endianness of the serialization of the <paramref name="result"/>.</param>
+      public void ConvertOutput( Byte[] output, Int32 outOffset, BigInteger result, BinaryEndianness resultEndianness )
       {
          var resultByteCount = BinaryUtils.AmountOfPagesTaken( result.BitLength, 8 );
-         result.WriteToByteArray( output, outOffset, Math.Min( resultByteCount, output.Length - outOffset ), BigInteger.BinaryEndianness.BigEndian, includeSign: false );
+         result.WriteToByteArray( output, outOffset, Math.Min( resultByteCount, output.Length - outOffset ), resultEndianness, includeSign: false );
       }
    }
 
    /// <summary>
    /// This class represents the blinded RSA algorithm, suitable to use when creating signatures.
    /// </summary>
-   public sealed class RSABlindedAlgorithm : AbstractDisposable, CipherAlgorithm<RSAComputedParameters>
+   public sealed class RSABlindedAlgorithm : AbstractDisposable, CipherAlgorithm<RSAComputingParameters>
    {
       private readonly RSAAlgorithm _actualEncryptor;
       private readonly Random _random;
@@ -184,7 +186,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="output"></param>
       /// <param name="outOffset"></param>
       /// <param name="parameters"></param>
-      public void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputedParameters parameters )
+      public void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputingParameters parameters )
       {
          var inputInt = this._actualEncryptor.ConvertInput( input, inOffset, inCount, parameters );
          var m = parameters.Modulus;
@@ -201,7 +203,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             throw new InvalidOperationException( "Invalid decryption/signing detected!" );
          }
 
-         this._actualEncryptor.ConvertOutput( output, outOffset, outputInt );
+         this._actualEncryptor.ConvertOutput( output, outOffset, outputInt, parameters.OutputEndianness );
       }
 
       /// <summary>
@@ -435,23 +437,27 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// <summary>
    /// This class encapsulates the same data that is stored in <see cref="RSAParameters"/>, but the binary array objects are now parsed into <see cref="BigInteger"/>s.
    /// </summary>
-   public struct RSAComputedParameters
+   public class RSAComputingParameters
    {
       /// <summary>
-      /// Creates a new instance of <see cref="RSAComputedParameters"/> from given <see cref="RSAParameters"/>.
+      /// Creates a new instance of <see cref="RSAComputingParameters"/> from given <see cref="RSAParameters"/>.
       /// </summary>
       /// <param name="rParams">The <see cref="RSAParameters"/>.</param>
-      public RSAComputedParameters( RSAParameters rParams )
+      /// <param name="inputEndianness">The endianness of the input number.</param>
+      /// <param name="outputEndianness">The endianness of the output number.</param>
+      public RSAComputingParameters( RSAParameters rParams, BinaryEndianness inputEndianness, BinaryEndianness outputEndianness )
       {
-         this.Exponent = BigInteger.ParseFromBinary( rParams.Exponent, BigInteger.BinaryEndianness.BigEndian, 1 );
-         this.Modulus = BigInteger.ParseFromBinary( rParams.Modulus, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.Exponent = BigInteger.ParseFromBinary( rParams.Exponent, rParams.NumberEndianness, 1 );
+         this.Modulus = BigInteger.ParseFromBinary( rParams.Modulus, rParams.NumberEndianness, 1 );
 
-         this.D = BigInteger.ParseFromBinaryOrNull( rParams.D, BigInteger.BinaryEndianness.BigEndian, 1 );
-         this.DP = BigInteger.ParseFromBinaryOrNull( rParams.DP, BigInteger.BinaryEndianness.BigEndian, 1 );
-         this.DQ = BigInteger.ParseFromBinaryOrNull( rParams.DQ, BigInteger.BinaryEndianness.BigEndian, 1 );
-         this.InverseQ = BigInteger.ParseFromBinaryOrNull( rParams.InverseQ, BigInteger.BinaryEndianness.BigEndian, 1 );
-         this.P = BigInteger.ParseFromBinaryOrNull( rParams.P, BigInteger.BinaryEndianness.BigEndian, 1 );
-         this.Q = BigInteger.ParseFromBinaryOrNull( rParams.Q, BigInteger.BinaryEndianness.BigEndian, 1 );
+         this.D = BigInteger.ParseFromBinaryOrNull( rParams.D, rParams.NumberEndianness, 1 );
+         this.DP = BigInteger.ParseFromBinaryOrNull( rParams.DP, rParams.NumberEndianness, 1 );
+         this.DQ = BigInteger.ParseFromBinaryOrNull( rParams.DQ, rParams.NumberEndianness, 1 );
+         this.InverseQ = BigInteger.ParseFromBinaryOrNull( rParams.InverseQ, rParams.NumberEndianness, 1 );
+         this.P = BigInteger.ParseFromBinaryOrNull( rParams.P, rParams.NumberEndianness, 1 );
+         this.Q = BigInteger.ParseFromBinaryOrNull( rParams.Q, rParams.NumberEndianness, 1 );
+         this.InputEndianness = inputEndianness;
+         this.OutputEndianness = outputEndianness;
       }
 
       /// <summary>
@@ -501,6 +507,18 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// </summary>
       /// <value>The second prime number of the private key.</value>
       public BigInteger? Q { get; }
+
+      /// <summary>
+      /// Gets the endianness of the input number.
+      /// </summary>
+      /// <value>The endianness of the input number.</value>
+      public BinaryEndianness InputEndianness { get; }
+
+      /// <summary>
+      /// Gets the endianness of the output number.
+      /// </summary>
+      /// <value>The endianness of the output number.</value>
+      public BinaryEndianness OutputEndianness { get; }
 
    }
 

@@ -1,7 +1,6 @@
 # This file contains list of all type names that should be marked as internal when creating assembly for CAM.Physical.
 # The '@' symbol at the beginning tells the CILMerge to interpret the line as literal string instead of a regular expression.
 
-@CILAssemblyManipulator.Physical.Crypto.CryptoUtils
 @CILAssemblyManipulator.Physical.CAMCoreInternals
 @CILAssemblyManipulator.Physical.IO.CAMIOInternals
 @CILAssemblyManipulator.Physical.IO.BitUtils

@@ -783,7 +783,7 @@ namespace CILMerge
                }
                catch ( Exception exc )
                {
-                  throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error writign target file " + this._options.OutPath + "(" + exc + ").", exc );
+                  throw this.NewCILMergeException( ExitCode.ErrorAccessingTargetFile, "Error writing target file " + this._options.OutPath + "(" + exc + ").", exc );
                }
             } );
          } );

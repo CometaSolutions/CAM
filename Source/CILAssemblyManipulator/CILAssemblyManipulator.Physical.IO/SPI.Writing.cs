@@ -651,7 +651,7 @@ public static partial class E_CILPhysical
 
       // 1. Create WritingStatus
       // Prepare strong name
-      RSAParameters rParams; String snContainerName;
+      KeyBLOBParsingResult rParams; String snContainerName;
       var status = writer
          .CreateWritingStatus( md.PrepareStrongNameVariables( sn, ref delaySign, cryptoCallbacks, snAlgorithmOverride, out rParams, out snContainerName ) )
          .CheckForSerializationException( "Writing status" );
@@ -790,12 +790,11 @@ public static partial class E_CILPhysical
       ref Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
       AssemblyHashAlgorithm? algoOverride,
-      out RSAParameters rParams,
+      out KeyBLOBParsingResult parsingResult,
       out String containerName
       )
    {
       var useStrongName = strongName != null;
-      var snSize = 0;
       var aDefs = md.AssemblyDefinitions.TableContents;
       var thisAssemblyPublicKey = aDefs.Count > 0 ?
          aDefs[0].AssemblyInformation.PublicKeyOrToken.CreateArrayCopy() :
@@ -827,7 +826,7 @@ public static partial class E_CILPhysical
             algoOverride = AssemblyHashAlgorithm.SHA1;
          }
 
-         Byte[] pkToProcess;
+         Byte[] keyBLOB;
          containerName = strongName?.ContainerName;
          if ( ( useStrongName && containerName != null ) || ( !useStrongName && delaySign ) )
          {
@@ -835,41 +834,39 @@ public static partial class E_CILPhysical
             {
                thisAssemblyPublicKey = cryptoCallbacks.ExtractPublicKeyFromCSPContainerAndCheck( containerName );
             }
-            pkToProcess = thisAssemblyPublicKey;
+            keyBLOB = thisAssemblyPublicKey;
          }
          else
          {
             // Get public key from BLOB
-            pkToProcess = strongName.KeyPair.ToArray();
+            keyBLOB = strongName.KeyPair.ToArray();
          }
 
          // Create RSA parameters and process public key so that it will have proper, full format.
-         Byte[] pk; String errorString;
-         if ( CryptoUtils.TryCreateSigningInformationFromKeyBLOB( pkToProcess, algoOverride, out pk, out signingAlgorithm, out rParams, out errorString ) )
+         parsingResult = cryptoCallbacks.TryParseKeyBLOB( keyBLOB, algoOverride );
+         if ( !parsingResult.ParsingSucceeded() )
          {
-            thisAssemblyPublicKey = pk;
-            snSize = rParams.Modulus.Length;
-         }
-         else if ( thisAssemblyPublicKey != null && thisAssemblyPublicKey.Length == 16 ) // The "Standard Public Key", ECMA-335 p. 116
-         {
-            // TODO throw instead (but some tests will fail then...)
-            snSize = 0x100;
-         }
-         else
-         {
-            throw new CryptographicException( errorString );
+            if ( thisAssemblyPublicKey != null && thisAssemblyPublicKey.Length == 16 ) // The "Standard Public Key", ECMA-335 p. 116
+            {
+               // TODO throw instead (but some tests will fail then...)
+               parsingResult = new KeyBLOBParsingResult( 0x100, thisAssemblyPublicKey, signingAlgorithm, null );
+            }
+            else
+            {
+               throw new CryptographicException( parsingResult?.ErrorMessage );
+            }
          }
 
          retVal = new StrongNameInformation(
-            signingAlgorithm,
-            snSize,
-            thisAssemblyPublicKey
+            parsingResult.HashAlgorithm,
+            parsingResult.StrongNameSize,
+            parsingResult.PublicKey
             );
       }
       else
       {
          retVal = null;
-         rParams = default( RSAParameters );
+         parsingResult = null;
          containerName = null;
       }
 
@@ -881,7 +878,7 @@ public static partial class E_CILPhysical
       StrongNameInformation snVars,
       Boolean delaySign,
       CryptoCallbacks cryptoCallbacks,
-      RSAParameters rParams,
+      KeyBLOBParsingResult rParams,
       String containerName,
       CLIHeader cliHeader,
       RVAConverter rvaConverter,
@@ -953,7 +950,7 @@ public static partial class E_CILPhysical
                }
             }
 
-            strongNameArray = cryptoCallbacks.CreateRSASignatureAndCheck( algo, hasher.CreateDigest(), rParams, containerName );
+            strongNameArray = cryptoCallbacks.CreateSignature( hasher.CreateDigest(), rParams, containerName );
          }
 
 
@@ -961,7 +958,6 @@ public static partial class E_CILPhysical
          {
             throw new CryptographicException( "Calculated and actual strong name size differ (calculated: " + snSize + ", actual: " + strongNameArray.Length + ")." );
          }
-         Array.Reverse( strongNameArray );
 
          // Write strong name
          stream.Seek( sigOffset, SeekOrigin.Begin );

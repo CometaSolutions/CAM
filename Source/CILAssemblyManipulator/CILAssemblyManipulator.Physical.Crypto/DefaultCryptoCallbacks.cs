@@ -56,11 +56,16 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public abstract BlockDigestAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm );
 
       /// <inheritdoc />
-      public Byte[] CreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters rParams, String containerName )
+      public Byte[] CreateSignature( Byte[] contentsHash, KeyBLOBParsingResult parsingResult, String containerName )
       {
-         using ( var rsa = String.IsNullOrEmpty( containerName ) ? this.CreateRSAFromParameters( rParams ) : this.CreateRSAFromCSPContainer( containerName ) )
+         var rsaInfo = parsingResult as RSAKeyBLOBParsingResult;
+         if ( rsaInfo != null )
          {
-            return this.DoCreateRSASignature( hashAlgorithm, contentsHash, rParams, rsa );
+            return this.CreateRSASignature( contentsHash, rsaInfo, containerName );
+         }
+         else
+         {
+            throw new NotSupportedException( "Not supported parsing info: " + parsingResult );
          }
       }
 
@@ -97,29 +102,247 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return retVal;
       }
 
+      /// <inheritdoc />
+      public virtual KeyBLOBParsingResult TryParseKeyBLOB( Byte[] keyBLOB, AssemblyHashAlgorithm? hashAlgorithmOverride )
+      {
+         RSAParameters rParams; Byte[] publicKey; AssemblyHashAlgorithm signingAlgorithm; String errorMessage;
+         var success = TryCreateSigningInformationFromKeyBLOB( keyBLOB, hashAlgorithmOverride, out publicKey, out signingAlgorithm, out rParams, out errorMessage );
+         return success ? new RSAKeyBLOBParsingResult( rParams, publicKey, signingAlgorithm ) : new RSAKeyBLOBParsingResult( errorMessage );
+      }
+
       /// <summary>
-      /// This method is called by <see cref="CreateRSASignature"/> when the RSA is needed to be created from CSP container name.
+      /// Creates a strong-name signature using RSA algorithm.
+      /// </summary>
+      /// <param name="contentsHash">The generated hash.</param>
+      /// <param name="parsingResult">The optional parsed <see cref="RSAKeyBLOBParsingResult"/>.</param>
+      /// <param name="containerName">The optional CSP container name.</param>
+      /// <returns>The strong-name signature created with RSA algorithm.</returns>
+      protected Byte[] CreateRSASignature( Byte[] contentsHash, RSAKeyBLOBParsingResult parsingResult, String containerName )
+      {
+         var rParams = parsingResult.RSAParameters;
+         using ( var rsa = parsingResult == null ? this.CreateRSAFromCSPContainer( containerName ) : this.CreateRSAFromParameters( rParams ) )
+         {
+            return this.DoCreateRSASignature( parsingResult.HashAlgorithm, contentsHash, rParams, rsa );
+         }
+      }
+
+      /// <summary>
+      /// This method is called by <see cref="CreateSignature"/> when the RSA is needed to be created from CSP container name.
       /// </summary>
       /// <param name="containerName">The CSP container name. Will be non-empty, non-<c>null</c> string.</param>
       /// <returns>A new instance of RSA algorithm.</returns>
       protected abstract TRSA CreateRSAFromCSPContainer( String containerName );
 
       /// <summary>
-      /// This method is called by <see cref="CreateRSASignature"/> when the RSA is needed to be created from <see cref="RSAParameters"/>.
+      /// This method is called by <see cref="CreateSignature"/> when the RSA is needed to be created from <see cref="RSAParameters"/>.
       /// </summary>
       /// <param name="parameters">The RSA parameters.</param>
       /// <returns>A new instance of RSA algorithm.</returns>
       protected abstract TRSA CreateRSAFromParameters( RSAParameters parameters );
 
       /// <summary>
-      /// This method is called by <see cref="CreateRSASignature"/> to actually create signature.
+      /// This method is called by <see cref="CreateSignature"/> to actually create signature.
       /// </summary>
       /// <param name="hashAlgorithm">The hash algorithm used to produce the hash.</param>
       /// <param name="contentsHash">The hash that was produced.</param>
-      /// <param name="parameters">The <see cref="RSAParameters"/> passed to <see cref="CreateRSASignature"/> method.</param>
+      /// <param name="parameters">The <see cref="RSAParameters"/> passed to <see cref="CreateSignature"/> method.</param>
       /// <param name="rsa">The instance of RSA algorithm, as created by one of <see cref="CreateRSAFromParameters"/> or <see cref="CreateRSAFromCSPContainer"/> methods.</param>
       /// <returns>A RSA signature of the hash.</returns>
       protected abstract Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, TRSA rsa );
+
+
+      private const UInt32 RSA1 = 0x31415352;
+      private const UInt32 RSA2 = 0x32415352;
+      private const Int32 CAPI_HEADER_SIZE = 12;
+      private const Byte PRIVATE_KEY = 0x07;
+      private const Byte PUBLIC_KEY = 0x06;
+
+      // Most info from http://msdn.microsoft.com/en-us/library/cc250013.aspx 
+      private static Boolean TryCreateRSAParametersFromCapiBLOB( Byte[] blob, Int32 offset, out Int32 pkLen, out Int32 algID, out RSAParameters result, out String errorString )
+      {
+         pkLen = 0;
+         algID = 0;
+         var startOffset = offset;
+         errorString = null;
+         var retVal = false;
+         Byte[] exp, mod, p, q, dp, dq, iq, d;
+         exp = mod = p = q = dp = dq = iq = d = null;
+         if ( startOffset + CAPI_HEADER_SIZE < blob.Length )
+         {
+            try
+            {
+               var firstByte = blob[offset++];
+               if ( ( firstByte == PRIVATE_KEY || firstByte == PUBLIC_KEY ) // Check whether this is private or public key blob
+                   && blob.ReadByteFromBytes( ref offset ) == 0x02 // Version (0x02)
+                  )
+               {
+                  blob.Skip( ref offset, 2 ); // Skip reserved (short, should be zero)
+                  algID = blob.ReadInt32LEFromBytes( ref offset ); // alg-id (should be either 0x0000a400 for RSA_KEYX or 0x00002400 for RSA_SIGN)
+                  var keyType = blob.ReadUInt32LEFromBytes( ref offset );
+                  if ( keyType == RSA2 // RSA2
+                      || keyType == RSA1 ) // RSA1
+                  {
+                     var isPrivateKey = firstByte == PRIVATE_KEY;
+
+
+                     var bitLength = blob.ReadInt32LEFromBytes( ref offset );
+                     var byteLength = bitLength >> 3;
+                     var byteHalfLength = byteLength >> 1;
+
+                     // Public exponent
+                     const Int32 EXP_LEN = 4;
+                     exp = blob.CreateAndBlockCopyTo( ref offset, EXP_LEN );
+                     var tmp = 0;
+                     // Trim exponent
+                     while ( exp[EXP_LEN - 1 - tmp] == 0 )
+                     {
+                        ++tmp;
+                     }
+                     if ( tmp != 0 )
+                     {
+                        exp = exp.Take( EXP_LEN - tmp ).ToArray();
+                     }
+
+                     // Modulus
+                     mod = blob.CreateAndBlockCopyTo( ref offset, byteLength );
+                     pkLen = offset - startOffset;
+
+                     if ( isPrivateKey )
+                     {
+
+                        // prime1
+                        p = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
+
+                        // prime2
+                        q = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
+
+                        // exponent1
+                        dp = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
+
+                        // exponent2
+                        dq = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
+
+                        // coefficient
+                        iq = blob.CreateAndBlockCopyTo( ref offset, byteHalfLength );
+
+                        // private exponent
+                        d = blob.CreateAndBlockCopyTo( ref offset, byteLength );
+                     }
+
+                     retVal = true;
+                  }
+                  else
+                  {
+                     errorString = "Invalid key type: " + keyType;
+                  }
+               }
+               else
+               {
+                  errorString = "Invalid BLOB header.";
+               }
+            }
+            catch
+            {
+               errorString = "Invalid BLOB";
+            }
+         }
+
+         result = exp == null || mod == null ?
+            default( RSAParameters ) :
+            new RSAParameters( BinaryEndianness.LittleEndian, mod, exp, d, p, q, dp, dq, iq );
+
+         return retVal;
+      }
+
+      private static Boolean TryCreateSigningInformationFromKeyBLOB( Byte[] blob, AssemblyHashAlgorithm? signingAlgorithm, out Byte[] publicKey, out AssemblyHashAlgorithm actualSigningAlgorithm, out RSAParameters rsaParameters, out String errorString )
+      {
+         // There might be actual key after a header, if first byte is zero.
+         var hasHeader = blob[0] == 0x00;
+         Int32 pkLen, algID;
+         var retVal = TryCreateRSAParametersFromCapiBLOB( blob, hasHeader ? CAPI_HEADER_SIZE : 0, out pkLen, out algID, out rsaParameters, out errorString );
+
+         if ( retVal )
+         {
+
+            publicKey = new Byte[pkLen + CAPI_HEADER_SIZE];
+            var idx = 0;
+            if ( hasHeader )
+            {
+               // Just copy from blob
+               publicKey.BlockCopyFrom( ref idx, blob, 0, publicKey.Length );
+               idx = 4;
+               if ( signingAlgorithm.HasValue )
+               {
+                  actualSigningAlgorithm = signingAlgorithm.Value;
+                  publicKey.WriteInt32LEToBytes( ref idx, (Int32) actualSigningAlgorithm );
+               }
+               else
+               {
+                  actualSigningAlgorithm = (AssemblyHashAlgorithm) publicKey.ReadInt32LEFromBytes( ref idx );
+               }
+            }
+            else
+            {
+               // Write public key, including header
+               // Write header explicitly. ALG-ID, followed by AssemblyHashAlgorithmID, followed by the size of the PK
+               actualSigningAlgorithm = signingAlgorithm ?? AssemblyHashAlgorithm.SHA1;// Defaults to SHA1
+               publicKey
+                  .WriteInt32LEToBytes( ref idx, algID )
+                  .WriteInt32LEToBytes( ref idx, (Int32) actualSigningAlgorithm )
+                  .WriteInt32LEToBytes( ref idx, pkLen )
+                  .BlockCopyFrom( ref idx, blob, 0, pkLen );
+            }
+            // Mark PK actually being PK
+            publicKey[CAPI_HEADER_SIZE] = PUBLIC_KEY;
+
+            // Set public key algorithm to RSA1
+            idx = 20;
+            publicKey.WriteUInt32LEToBytes( ref idx, RSA1 );
+         }
+         else
+         {
+            publicKey = null;
+            actualSigningAlgorithm = AssemblyHashAlgorithm.SHA1;
+         }
+
+         return retVal;
+      }
+   }
+
+   /// <summary>
+   /// This class represents parsed key BLOB which contained RSA key information.
+   /// </summary>
+   public class RSAKeyBLOBParsingResult : KeyBLOBParsingResult
+   {
+      /// <summary>
+      /// Creates new instance of <see cref="RSAKeyBLOBParsingResult"/> with given error message.
+      /// </summary>
+      /// <param name="errorMessage">The error message. If none is specified, then it will be <c>"Unknown error"</c>.</param>
+      public RSAKeyBLOBParsingResult( String errorMessage ) :
+         base( 0, null, AssemblyHashAlgorithm.None, errorMessage ?? "Unknown error" )
+      {
+
+      }
+
+      /// <summary>
+      /// Creates new instance of <see cref="RSAKeyBLOBParsingResult"/> with given parameters.
+      /// </summary>
+      /// <param name="parameters">The <see cref="Crypto.RSAParameters"/>.</param>
+      /// <param name="publicKey">The public key to use when emitting.</param>
+      /// <param name="hashAlgorithm">The hash algorithm to use.</param>
+      public RSAKeyBLOBParsingResult( RSAParameters parameters, Byte[] publicKey, AssemblyHashAlgorithm hashAlgorithm )
+         : base( parameters.Modulus.Length, publicKey, hashAlgorithm, null )
+      {
+         this.RSAParameters = parameters;
+      }
+
+      /// <summary>
+      /// Gets the parsed <see cref="Crypto.RSAParameters"/>.
+      /// </summary>
+      /// <value>The parsed <see cref="Crypto.RSAParameters"/>.</value>
+      public RSAParameters RSAParameters { get; }
+
+
    }
 
    /// <summary>
@@ -239,7 +462,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
          // 2. Create signature
          var output = new Byte[pkcs.DataSize];
-         rsa.ProcessBlock( data, 0, data.Length, output, 0, new RSAComputedParameters( parameters ) );
+         // The actual signature stored in the StrongNameSignature sector is little-endian
+         rsa.ProcessBlock( data, 0, data.Length, output, 0, new RSAComputingParameters( parameters, BinaryEndianness.BigEndian, BinaryEndianness.LittleEndian ) );
          return output;
       }
    }

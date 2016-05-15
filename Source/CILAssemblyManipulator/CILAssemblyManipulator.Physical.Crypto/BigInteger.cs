@@ -25,15 +25,15 @@ using System.Text;
 namespace CILAssemblyManipulator.Physical.Crypto
 {
 #pragma warning disable 1591
+
+   public enum BinaryEndianness
+   {
+      LittleEndian,
+      BigEndian
+   }
+
    public partial struct BigInteger : IComparable<BigInteger>, IEquatable<BigInteger>
    {
-
-      public enum BinaryEndianness
-      {
-         LittleEndian,
-         BigEndian
-      }
-
       private const Int32 BITS_BYTE = 8;
       private const Int32 BITS_32 = BITS_BYTE * sizeof( Int32 );
       private const Int32 BYTES_32 = BITS_32 / BITS_BYTE;
@@ -1312,14 +1312,14 @@ public static partial class E_CILPhysical
       return integer.Sign > 0;
    }
 
-   public static Byte[] ToByteArray( this BigInteger integer, BigInteger.BinaryEndianness endianness, Boolean includeSign = true )
+   public static Byte[] ToByteArray( this BigInteger integer, BinaryEndianness endianness, Boolean includeSign = true )
    {
       var retVal = new Byte[integer.GetSerializedByteCount( includeSign )];
       integer.WriteToByteArray( retVal, endianness, includeSign );
       return retVal;
    }
 
-   public static void WriteToByteArray( this BigInteger integer, Byte[] array, BigInteger.BinaryEndianness endianness, Boolean includeSign = true )
+   public static void WriteToByteArray( this BigInteger integer, Byte[] array, BinaryEndianness endianness, Boolean includeSign = true )
    {
       integer.WriteToByteArray( array, 0, array.Length, endianness, includeSign );
    }

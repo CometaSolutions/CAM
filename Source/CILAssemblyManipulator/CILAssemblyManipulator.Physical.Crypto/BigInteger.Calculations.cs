@@ -488,7 +488,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
 
-
+      // Square exponentiation with modulus - optimized to situation where whole exponent is single UInt32
       private static void ModPow_Small(
          ModPowCalculationState state,
          UInt32 exponent
@@ -516,7 +516,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      private static void ModPow_Small_32(
+      // Square exponentiation with modulus - the given exponent UInt32 is part of bigger number consisting of several UInt32's, and thus does not check for exponent == 0
+      private static void ModPow_BigPart(
          ModPowCalculationState state,
          UInt32 exponent
          )
@@ -542,7 +543,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          var exponent = state.Exponent;
          for ( var i = 0; i < exponent.Length - 1; ++i )
          {
-            ModPow_Small_32( state, exponent[i] );
+            ModPow_BigPart( state, exponent[i] );
          }
 
          // Last step

@@ -137,7 +137,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
       protected override System.Security.Cryptography.RSA CreateRSAFromParameters( RSAParameters parameters )
       {
          System.Security.Cryptography.RSA result = null;
-         var rParams = parameters.CreateDotNETParameters( reverse: true );
+         var rParams = parameters
+            .ChangeNumberEndianness( BinaryEndianness.BigEndian )
+            .CreateDotNETParameters();
 
          try
          {
@@ -172,7 +174,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( rsa );
          formatter.SetHashAlgorithm( GetAlgorithmName( hashAlgorithm ) );
-         return formatter.CreateSignature( contentsHash );
+         var retVal = formatter.CreateSignature( contentsHash );
+         // The signature produced by .NET is always big-endian, but it is stored as LE integer in the actual DLL/EXE image
+         Array.Reverse( retVal );
+         return retVal;
       }
 
       private System.Security.Cryptography.HashAlgorithm GetTransform(
@@ -381,54 +386,37 @@ public static partial class E_CILPhysical
    /// Helper method to create a new instance of CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/> from .NET <see cref="RSAParameters"/>.
    /// </summary>
    /// <param name="dotNetParams">The .NET <see cref="RSAParameters"/>.</param>
-   /// <param name="reverse">Whether to reverse (change endianness) the arrays of the resulting <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/>.</param>
+   /// <param name="dotNetEndianness">The endianness of the .NET <see cref="RSAParameters"/>.</param>
    /// <returns>The new instance of CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/>.</returns>
    /// <remarks>
    /// Since some of the .NET cryptorgraphic API methods expect <see cref="RSAParameters"/> to be LE format (e.g. <see cref="RSA.ImportParameters"/>) and CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/> expects them to be in BE format (as they are stored in key BLOB), the byte arrays can be reversed.
    /// </remarks>
-   public static CILAssemblyManipulator.Physical.Crypto.RSAParameters CreateCAMParameters( this RSAParameters dotNetParams, Boolean reverse )
+   public static CILAssemblyManipulator.Physical.Crypto.RSAParameters CreateCAMParameters( this RSAParameters dotNetParams, CILAssemblyManipulator.Physical.Crypto.BinaryEndianness dotNetEndianness )
    {
-      var retVal = new CILAssemblyManipulator.Physical.Crypto.RSAParameters()
-      {
-         D = dotNetParams.D.CreateBlockCopy(),
-         DP = dotNetParams.DP.CreateBlockCopy(),
-         DQ = dotNetParams.DQ.CreateBlockCopy(),
-         Exponent = dotNetParams.Exponent.CreateBlockCopy(),
-         InverseQ = dotNetParams.InverseQ.CreateBlockCopy(),
-         Modulus = dotNetParams.Modulus.CreateBlockCopy(),
-         P = dotNetParams.P.CreateBlockCopy(),
-         Q = dotNetParams.Q.CreateBlockCopy()
-      };
-
-      // The .NET RSAParameters are in LE format, but the CAM.Physical RSAParameters just reads them from key BLOB, where they are in BE format.
-      // So reverse them here
-      if ( reverse )
-      {
-         Array.Reverse( retVal.D );
-         Array.Reverse( retVal.DP );
-         Array.Reverse( retVal.DQ );
-         Array.Reverse( retVal.Exponent );
-         Array.Reverse( retVal.InverseQ );
-         Array.Reverse( retVal.Modulus );
-         Array.Reverse( retVal.P );
-         Array.Reverse( retVal.Q );
-      }
-
-      return retVal;
+      return new CILAssemblyManipulator.Physical.Crypto.RSAParameters(
+         dotNetEndianness,
+         dotNetParams.Modulus,
+         dotNetParams.Exponent,
+         dotNetParams.D,
+         dotNetParams.P,
+         dotNetParams.Q,
+         dotNetParams.DP,
+         dotNetParams.DQ,
+         dotNetParams.InverseQ
+         );
    }
 
    /// <summary>
    /// Helper method to create a new instance of .NET <see cref="RSAParameters"/> from CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/>.
    /// </summary>
    /// <param name="camParams">The CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/>.</param>
-   /// <param name="reverse">Whether to reverse (change endianness) the byte arrays of the resulting <see cref="RSAParameters"/>.</param>
    /// <returns>The new instance of CAM <see cref="RSAParameters"/>.</returns>
    /// <remarks>
    /// Since some of the .NET cryptorgraphic API methods expect <see cref="RSAParameters"/> to be LE format (e.g. <see cref="RSA.ImportParameters"/>) and CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/> expects them to be in BE format (as they are stored in key BLOB), the byte arrays can be reversed.
    /// </remarks>
-   public static RSAParameters CreateDotNETParameters( this CILAssemblyManipulator.Physical.Crypto.RSAParameters camParams, Boolean reverse )
+   public static RSAParameters CreateDotNETParameters( this CILAssemblyManipulator.Physical.Crypto.RSAParameters camParams )
    {
-      var retVal = new System.Security.Cryptography.RSAParameters()
+      return new System.Security.Cryptography.RSAParameters()
       {
          D = camParams.D.CreateBlockCopy(),
          DP = camParams.DP.CreateBlockCopy(),
@@ -439,22 +427,6 @@ public static partial class E_CILPhysical
          P = camParams.P.CreateBlockCopy(),
          Q = camParams.Q.CreateBlockCopy()
       };
-
-      // The .NET RSAParameters are in LE format, but the CAM.Physical RSAParameters just reads them from key BLOB, where they are in BE format.
-      // So reverse them here
-      if ( reverse )
-      {
-         Array.Reverse( retVal.D );
-         Array.Reverse( retVal.DP );
-         Array.Reverse( retVal.DQ );
-         Array.Reverse( retVal.Exponent );
-         Array.Reverse( retVal.InverseQ );
-         Array.Reverse( retVal.Modulus );
-         Array.Reverse( retVal.P );
-         Array.Reverse( retVal.Q );
-      }
-
-      return retVal;
    }
 }
 

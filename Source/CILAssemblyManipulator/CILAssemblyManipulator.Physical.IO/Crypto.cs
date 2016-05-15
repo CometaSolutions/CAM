@@ -54,17 +54,7 @@ public static partial class E_CILPhysical
          var container = strongName.ContainerName;
          if ( container == null )
          {
-            String errorString;
-            AssemblyHashAlgorithm signingAlgorithm;
-            RSAParameters rParams;
-            CryptoUtils.TryCreateSigningInformationFromKeyBLOB(
-               strongName.KeyPair.ToArray(),
-               null,
-               out retVal,
-               out signingAlgorithm,
-               out rParams,
-               out errorString
-               );
+            retVal = cryptoCallbacks.TryParseKeyBLOB( strongName.KeyPair.ToArray(), null )?.PublicKey;
          }
          else
          {
