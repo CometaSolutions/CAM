@@ -27,6 +27,42 @@ namespace CILAssemblyManipulator.Physical.Crypto
    public partial struct BigInteger
 #pragma warning restore 1591
    {
+      private sealed class ModPowCalculationState
+      {
+         public ModPowCalculationState(
+            UInt32[] exponent,
+            UInt32[] modulus,
+            UInt32[] value
+            )
+         {
+            // Assign read-only data
+            this.Exponent = exponent;
+            this.Modulus = modulus;
+
+            // Result starts with '1'
+            this.Result = new UInt32[] { 1 };
+            this.ResultLength = 1;
+            // Value starts with given value
+            this.Value = value;
+            this.ValueLength = value.Length;
+            // Temporary starts as zeroes with value length
+            this.Temporary = new UInt32[this.ValueLength];
+            this.TemporaryLength = this.Temporary.Length;
+         }
+
+         // Exponent and modulus are never modified, so they are properties
+         public UInt32[] Exponent { get; }
+         public UInt32[] Modulus { get; }
+
+         // Value, Result, and Temporary buffer are all modified and resized by calculations, so they are fields
+         public UInt32[] Value;
+         public UInt32[] Result;
+         public UInt32[] Temporary;
+         public Int32 ValueLength;
+         public Int32 ResultLength;
+         public Int32 TemporaryLength;
+      }
+
       // This method does x = x - y, assuming that x >= y, storing result in-place for x
       private static UInt32[] Subtract( UInt32[] xBits, UInt32[] yBits )
       {
@@ -107,10 +143,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
          return xBits;
       }
 
-      private static UInt32[] Multiply_SmallOrBig( UInt32[] left, UInt32[] right )
+      private static UInt32[] Multiply_SmallOrBig( UInt32[] left, UInt32[] right, out Int32 resultLength )
       {
          UInt32[] result = null;
-         var resultLength = -1;
+         resultLength = -1;
          Multiply_SmallOrBig( left, left.Length, right, right.Length, ref result, ref resultLength );
          return result;
       }
@@ -221,10 +257,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       // Computes divident = divident / divisor, when divisor is UInt32.
       // Does not check for zeroes or ones on each of those
       // Returns modulus
-      private static UInt32 DivideWithRemainder_Small( UInt32[] divident, UInt32 divisor, Boolean assignToDivident )
+      private static UInt32 DivideWithRemainder_Small( UInt32[] divident, UInt32 divisor, Boolean assignToDivident, out Int32 quotientLength )
       {
-         var dividentLength = divident.Length;
-         return DivideWithRemainder_Small( divident, ref dividentLength, divisor, assignToDivident );
+         quotientLength = divident.Length;
+         return DivideWithRemainder_Small( divident, ref quotientLength, divisor, assignToDivident );
       }
 
       private static UInt32 DivideWithRemainder_Small( UInt32[] divident, ref Int32 dividentLength, UInt32 divisor, Boolean assignToDivident )
@@ -239,8 +275,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
             }
             retVal = (UInt32) ( cur % divisor );
          }
+         if ( assignToDivident )
+         {
+            MinimizeBitsLength( divident, ref dividentLength );
+         }
 
-         MinimizeBitsLength( divident, ref dividentLength );
          return retVal;
       }
 
@@ -448,16 +487,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      // TODO refactor all the parameters into single ModPowCalculationState object.
+
+
       private static void ModPow_Small(
-         ref UInt32[] value,
-         ref Int32 valueLength,
-         UInt32[] modulus,
-         ref UInt32[] result,
-         ref Int32 resultLength,
-         UInt32 exponent,
-         ref UInt32[] tmp,
-         ref Int32 tmpLength
+         ModPowCalculationState state,
+         UInt32 exponent
          )
       {
          while ( exponent != 0 )
@@ -465,17 +499,17 @@ namespace CILAssemblyManipulator.Physical.Crypto
             if ( !exponent.IsEven() )
             {
                // Perform extra step for odd exponent
-               ModPow_Step( result, resultLength, value, valueLength, modulus, ref result, ref resultLength, ref tmp, ref tmpLength );
+               ModPow_Step_Result( state );
             }
 
             if ( exponent == 1 )
             {
-               // Exit early - no point calculating the x^1
+               // Exit early - the Value-step will not affect result, and we will exit on next condition-check anyway.
                break;
             }
 
             // Perform step
-            ModPow_Step( value, valueLength, value, valueLength, modulus, ref value, ref valueLength, ref tmp, ref tmpLength );
+            ModPow_Step_Value( state );
 
             // Shift right once
             exponent >>= 1;
@@ -483,14 +517,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
       }
 
       private static void ModPow_Small_32(
-         ref UInt32[] value,
-         ref Int32 valueLength,
-         UInt32[] modulus,
-         ref UInt32[] result,
-         ref Int32 resultLength,
-         UInt32 exponent,
-         ref UInt32[] tmp,
-         ref Int32 tmpLength
+         ModPowCalculationState state,
+         UInt32 exponent
          )
       {
          // Same as ModPow_Small except that we are always iterating 32 times
@@ -498,48 +526,56 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             if ( !exponent.IsEven() )
             {
-               ModPow_Step( result, resultLength, value, valueLength, modulus, ref result, ref resultLength, ref tmp, ref tmpLength );
+               ModPow_Step_Result( state );
             }
-            ModPow_Step( value, valueLength, value, valueLength, modulus, ref value, ref valueLength, ref tmp, ref tmpLength );
+            ModPow_Step_Value( state );
 
             exponent >>= 1;
          }
       }
 
       private static void ModPow(
-         UInt32[] value,
-         UInt32[] modulus,
-         ref UInt32[] result,
-         ref Int32 resultLength,
-         UInt32[] exponent,
-         UInt32[] tmp,
-         Int32 tmpLength
+         ModPowCalculationState state
          )
       {
          // Iterate all except for last integer
-         var valueLength = value.Length;
+         var exponent = state.Exponent;
          for ( var i = 0; i < exponent.Length - 1; ++i )
          {
-            ModPow_Small_32( ref value, ref valueLength, modulus, ref result, ref resultLength, exponent[i], ref tmp, ref tmpLength );
+            ModPow_Small_32( state, exponent[i] );
          }
 
          // Last step
-         ModPow_Small( ref value, ref valueLength, modulus, ref result, ref resultLength, exponent[exponent.Length - 1], ref tmp, ref tmpLength );
+         ModPow_Small( state, exponent[exponent.Length - 1] );
+      }
+
+      private static void ModPow_Step_Result( ModPowCalculationState state )
+      {
+         // result = (result * value) % modulus
+         ModPow_Step( state, state.Result, state.ResultLength, state.Value, state.ValueLength, ref state.Result, ref state.ResultLength );
+      }
+
+      private static void ModPow_Step_Value( ModPowCalculationState state )
+      {
+         // value = (value * value) % modulus
+         ModPow_Step( state, state.Value, state.ValueLength, state.Value, state.ValueLength, ref state.Value, ref state.ValueLength );
       }
 
       private static void ModPow_Step(
+         ModPowCalculationState state,
          UInt32[] x,
          Int32 xLength,
          UInt32[] y,
          Int32 yLength,
-         UInt32[] modulus,
          ref UInt32[] result,
-         ref Int32 resultLength,
-         ref UInt32[] tmp,
-         ref Int32 tmpLength
+         ref Int32 resultLength
          )
       {
          // result = ( x * y ) % modulus
+         var modulus = state.Modulus;
+         var tmp = state.Temporary;
+         var tmpLength = state.TemporaryLength;
+
          Multiply_SmallOrBig( x, xLength, y, yLength, ref tmp, ref tmpLength );
          if ( modulus.Length > 1 )
          {
@@ -549,16 +585,14 @@ namespace CILAssemblyManipulator.Physical.Crypto
          else
          {
             // Small modulus
-            result[0] = DivideWithRemainder_Small( tmp, ref tmpLength, modulus[0], false );
+            tmp[0] = DivideWithRemainder_Small( tmp, ref tmpLength, modulus[0], false );
+            tmpLength = 1;
          }
 
-         var swap = tmp;
-         tmp = result;
-         result = swap;
-
-         var swap2 = tmpLength;
-         tmpLength = resultLength;
-         resultLength = swap2;
+         state.Temporary = result;
+         state.TemporaryLength = resultLength;
+         result = tmp;
+         resultLength = tmpLength;
       }
 
       private static Int32 ResizeBits( ref UInt32[] bits, Int32 curLength, Int32 newLength )
