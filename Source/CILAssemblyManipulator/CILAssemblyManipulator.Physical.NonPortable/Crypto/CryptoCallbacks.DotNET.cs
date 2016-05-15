@@ -172,9 +172,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <inheritdoc />
       protected override Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, RSA rsa )
       {
-         var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( rsa );
-         formatter.SetHashAlgorithm( GetAlgorithmName( hashAlgorithm ) );
-         var retVal = formatter.CreateSignature( contentsHash );
+         Byte[] retVal;
+         using ( rsa )
+         {
+            var formatter = new System.Security.Cryptography.RSAPKCS1SignatureFormatter( rsa );
+            formatter.SetHashAlgorithm( GetAlgorithmName( hashAlgorithm ) );
+            retVal = formatter.CreateSignature( contentsHash );
+         }
          // The signature produced by .NET is always big-endian, but it is stored as LE integer in the actual DLL/EXE image
          Array.Reverse( retVal );
          return retVal;

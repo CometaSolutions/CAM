@@ -159,9 +159,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
    }
 
    /// <summary>
-   /// This class represents the blinded RSA algorithm, suitable to use when creating signatures.
+   /// This class represents the blinded RSA algorithm, suitable to use when the actual RSA algorithm should not know the input nor the output.
    /// </summary>
-   public sealed class RSABlindedAlgorithm : AbstractDisposable, CipherAlgorithm<RSAComputingParameters>
+   public sealed class RSABlindedAlgorithm : CipherAlgorithm<RSAComputingParameters>
    {
       private readonly RSAAlgorithm _actualEncryptor;
       private readonly Random _random;
@@ -204,15 +204,6 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
 
          this._actualEncryptor.ConvertOutput( output, outOffset, outputInt, parameters.OutputEndianness );
-      }
-
-      /// <summary>
-      /// Currently, this method does nothing.
-      /// </summary>
-      /// <param name="disposing">Whether we are disposing from a <see cref="AbstractDisposable.Dispose()"/> call.</param>
-      protected override void Dispose( Boolean disposing )
-      {
-         // Nothing to do
       }
 
    }

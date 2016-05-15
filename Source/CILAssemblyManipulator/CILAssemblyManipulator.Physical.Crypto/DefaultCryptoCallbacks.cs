@@ -27,7 +27,6 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// This class provides skeleton implementation for <see cref="CryptoCallbacks"/>.
    /// </summary>
    public abstract class AbstractCryptoCallbacks<TRSA> : AbstractDisposable, CryptoCallbacks
-      where TRSA : IDisposable
    {
       private readonly LocklessInstancePoolForClasses<BlockDigestAlgorithm> _sha1Pool;
 
@@ -58,15 +57,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <inheritdoc />
       public Byte[] CreateSignature( Byte[] contentsHash, KeyBLOBParsingResult parsingResult, String containerName )
       {
-         var rsaInfo = parsingResult as RSAKeyBLOBParsingResult;
-         if ( rsaInfo != null )
-         {
-            return this.CreateRSASignature( contentsHash, rsaInfo, containerName );
-         }
-         else
-         {
-            throw new NotSupportedException( "Not supported parsing info: " + parsingResult );
-         }
+         var rsaInfo = ArgumentValidator.ValidateNotNull( "Parsing result", parsingResult ) as RSAKeyBLOBParsingResult;
+         return rsaInfo == null ?
+            this.CreateNonRSASignature( contentsHash, parsingResult, containerName ) :
+            this.CreateRSASignature( contentsHash, rsaInfo, containerName );
       }
 
       /// <inheritdoc />
@@ -120,10 +114,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       protected Byte[] CreateRSASignature( Byte[] contentsHash, RSAKeyBLOBParsingResult parsingResult, String containerName )
       {
          var rParams = parsingResult.RSAParameters;
-         using ( var rsa = parsingResult == null ? this.CreateRSAFromCSPContainer( containerName ) : this.CreateRSAFromParameters( rParams ) )
-         {
-            return this.DoCreateRSASignature( parsingResult.HashAlgorithm, contentsHash, rParams, rsa );
-         }
+         return this.DoCreateRSASignature( parsingResult.HashAlgorithm, contentsHash, rParams, parsingResult == null ? this.CreateRSAFromCSPContainer( containerName ) : this.CreateRSAFromParameters( rParams ) );
       }
 
       /// <summary>
@@ -149,6 +140,18 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="rsa">The instance of RSA algorithm, as created by one of <see cref="CreateRSAFromParameters"/> or <see cref="CreateRSAFromCSPContainer"/> methods.</param>
       /// <returns>A RSA signature of the hash.</returns>
       protected abstract Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, TRSA rsa );
+
+      /// <summary>
+      /// Subclasses may override this method to handle creation of signature which is done in some other algorithm than RSA.
+      /// </summary>
+      /// <param name="contentsHash">The generated hash.</param>
+      /// <param name="parsingResult">The optional parsed <see cref="RSAKeyBLOBParsingResult"/>.</param>
+      /// <param name="containerName">The optional CSP container name.</param>
+      /// <returns>The strong-name signature.</returns>
+      protected virtual Byte[] CreateNonRSASignature( Byte[] contentsHash, KeyBLOBParsingResult parsingResult, String containerName )
+      {
+         throw new NotSupportedException( "Not supported parsing info: " + parsingResult );
+      }
 
 
       private const UInt32 RSA1 = 0x31415352;
@@ -349,12 +352,30 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// This class provides default implementation for cryptographic functionality required by CAM.Physical framework.
    /// The support for hash algorithms and for RSA is provided, but support for CSP is not.
    /// </summary>
-   public class DefaultCryptoCallbacks : AbstractCryptoCallbacks<RSABlindedAlgorithm>
+   public class DefaultCryptoCallbacks : AbstractCryptoCallbacks<CipherAlgorithm<RSAComputingParameters>>
    {
       private static IDictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier> ObjIDCache { get; }
+
+      /// <summary>
+      /// Gets the 
+      /// </summary>
+      public static DefaultCryptoCallbacks DefaultInstance { get; }
+
       static DefaultCryptoCallbacks()
       {
          ObjIDCache = new Dictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier>();
+         DefaultInstance = new DefaultCryptoCallbacks();
+      }
+
+      private readonly CipherAlgorithm<RSAComputingParameters> _rsa;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="DefaultCryptoCallbacks"/> with optional given <see cref="CipherAlgorithm{TParameters}"/>, usually <see cref="RSAAlgorithm"/>.
+      /// </summary>
+      /// <param name="algorithm">The RSA algorithm. If none is given, then instance of <see cref="RSAAlgorithm"/> is used.</param>
+      public DefaultCryptoCallbacks( CipherAlgorithm<RSAComputingParameters> algorithm = null )
+      {
+         this._rsa = algorithm ?? RSAAlgorithm.DefaultInstance;
       }
 
       /// <summary>
@@ -424,7 +445,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// </summary>
       /// <param name="containerName">The CSP container name, ignored.</param>
       /// <returns>Never returns value.</returns>
-      protected override RSABlindedAlgorithm CreateRSAFromCSPContainer( string containerName )
+      protected override CipherAlgorithm<RSAComputingParameters> CreateRSAFromCSPContainer( string containerName )
       {
          throw new NotSupportedException( "CSP is not supported in portable environment." );
       }
@@ -434,9 +455,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// </summary>
       /// <param name="parameters">Ignored.</param>
       /// <returns>A new instance of <see cref="RSABlindedAlgorithm"/>.</returns>
-      protected override RSABlindedAlgorithm CreateRSAFromParameters( RSAParameters parameters )
+      protected override CipherAlgorithm<RSAComputingParameters> CreateRSAFromParameters( RSAParameters parameters )
       {
-         return new RSABlindedAlgorithm();
+         return this._rsa;
       }
 
       /// <summary>
@@ -447,7 +468,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="parameters"></param>
       /// <param name="rsa"></param>
       /// <returns></returns>
-      protected override Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, RSABlindedAlgorithm rsa )
+      protected override Byte[] DoCreateRSASignature( AssemblyHashAlgorithm hashAlgorithm, Byte[] contentsHash, RSAParameters parameters, CipherAlgorithm<RSAComputingParameters> rsa )
       {
          // 1. Format data
          var pkcs = PKCS1Encoder.Create(
@@ -462,7 +483,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
          // 2. Create signature
          var output = new Byte[pkcs.DataSize];
-         // The actual signature stored in the StrongNameSignature sector is little-endian
+         // The input data is treated as big-endian number, but the actual signature stored in the StrongNameSignature sector is little-endian
          rsa.ProcessBlock( data, 0, data.Length, output, 0, new RSAComputingParameters( parameters, BinaryEndianness.BigEndian, BinaryEndianness.LittleEndian ) );
          return output;
       }
