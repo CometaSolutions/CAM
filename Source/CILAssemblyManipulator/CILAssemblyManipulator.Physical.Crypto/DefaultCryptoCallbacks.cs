@@ -58,7 +58,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <inheritdoc />
       public Byte[] CreateSignature( Byte[] contentsHash, KeyBLOBParsingResult parsingResult, String containerName )
       {
-         var rsaInfo = ArgumentValidator.ValidateNotNull( "Parsing result", parsingResult ) as RSAKeyBLOBParsingResult;
+         var rsaInfo = parsingResult as RSAKeyBLOBParsingResult;
          return rsaInfo == null ?
             this.CreateNonRSASignature( contentsHash, parsingResult, containerName ) :
             this.CreateRSASignature( contentsHash, rsaInfo, containerName );
@@ -355,6 +355,115 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public RSAParameters RSAParameters { get; }
 
 
+   }
+
+   /// <summary>
+   /// This is identical to System.Security.Cryptography.RSAParameters struct, which is missing from PCL.
+   /// </summary>
+   public struct RSAParameters
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="RSAParameters"/> with public data.
+      /// </summary>
+      /// <param name="numberEndianness">The endianness of the binary numbers.</param>
+      /// <param name="modulus">The modulus as binary number.</param>
+      /// <param name="publicExponent">The exponent as binary number.</param>
+      /// <remarks>
+      /// This data should be sufficient to encrypt, but not to decrypt operations.
+      /// </remarks>
+      /// <exception cref="ArgumentNullException">If either of <paramref name="modulus"/> or <paramref name="publicExponent"/> is <c>null</c>.</exception>
+      public RSAParameters(
+         BinaryEndianness numberEndianness,
+         Byte[] modulus,
+         Byte[] publicExponent
+         ) : this( numberEndianness, modulus, publicExponent, null, null, null, null, null, null )
+      {
+
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="RSAParameters"/> with public and private data.
+      /// </summary>
+      /// <param name="numberEndianness">The endianness of the binary numbers.</param>
+      /// <param name="modulus">The modulus as binary number.</param>
+      /// <param name="publicExponent">The exponent as binary number.</param>
+      /// <param name="privateExponent">The private exponent as binary number.</param>
+      /// <param name="p">The first prime as binary number (used t.</param>
+      /// <param name="q">The second prime as binary number.</param>
+      /// <param name="dp">The helper value for <paramref name="p"/> to be used in Chinese Remainder Theorem calculation.</param>
+      /// <param name="dq">The helper value for <paramref name="q"/> to be used in Chinese Remainder Theorem calculation.</param>
+      /// <param name="inverseQ">Another helper value for <paramref name="q"/> to be used in Chinese Remainder Theorem calculation.</param>
+      /// <remarks>
+      /// Assuming none of the parameters is <c>null</c>, this data should be sufficient to both encrypt and decrypt operations.
+      /// </remarks>
+      /// <exception cref="ArgumentNullException">If either of <paramref name="modulus"/> or <paramref name="publicExponent"/> is <c>null</c>.</exception>
+      public RSAParameters(
+         BinaryEndianness numberEndianness,
+         Byte[] modulus,
+         Byte[] publicExponent,
+         Byte[] privateExponent,
+         Byte[] p,
+         Byte[] q,
+         Byte[] dp,
+         Byte[] dq,
+         Byte[] inverseQ
+         )
+      {
+         this.NumberEndianness = numberEndianness;
+         this.Modulus = ArgumentValidator.ValidateNotNull( "Modulus", modulus );
+         this.Exponent = ArgumentValidator.ValidateNotNull( "Public exponent", publicExponent );
+         this.D = privateExponent;
+         this.P = p;
+         this.Q = q;
+         this.DP = dp;
+         this.DQ = dq;
+         this.InverseQ = inverseQ;
+      }
+      /// <summary>
+      /// Represents the <c>D</c> parameter (private exponent) for the RSA algorithm.
+      /// </summary>
+      public Byte[] D { get; }
+
+      /// <summary>
+      /// Represents the <c>DP</c> parameter for the RSA algorithm.
+      /// </summary>
+      public Byte[] DP { get; }
+
+      /// <summary>
+      /// Represents the <c>DQ</c> parameter for the RSA algorithm.
+      /// </summary>
+      public Byte[] DQ { get; }
+
+      /// <summary>
+      /// Represents the <c>Exponent</c> parameter for the RSA algorithm.
+      /// </summary>
+      public Byte[] Exponent { get; }
+
+      /// <summary>
+      /// Represents the <c>InverseQ</c> parameter for the RSA algorithm.
+      /// </summary>
+      public Byte[] InverseQ { get; }
+
+      /// <summary>
+      /// Represents the <c>Modulus</c> parameter for the RSA algorithm.
+      /// </summary>
+      public Byte[] Modulus { get; }
+
+      /// <summary>
+      /// Represents the <c>P</c> parameter for the RSA algorithm.
+      /// </summary>
+      public Byte[] P { get; }
+
+      /// <summary>
+      /// Represents the <c>Q</c> parameter for the RSA algorithm.
+      /// </summary>
+      public Byte[] Q { get; }
+
+      /// <summary>
+      /// Represents the endianness of the numbers for the RSA algorithm.
+      /// </summary>
+      /// <value>The endianness of the numbers for the RSA algorithm.</value>
+      public BinaryEndianness NumberEndianness { get; }
    }
 
    /// <summary>

@@ -1055,9 +1055,10 @@ namespace CommonUtils.Numerics
          {
             UInt32[] resultBits = null;
             var resultLength = -1;
-            Calculations.BigIntegerCalculations.Multiply( left, right, ref resultBits, ref resultLength ); // Actual bits
+            Int32 resultSign;
+            Calculations.BigIntegerCalculations.Multiply( left, right, ref resultBits, ref resultLength, out resultSign );
             retVal = new BigInteger(
-               left.Sign * right.Sign,// Since at this point, both left and right are non-zero, sign multiplication will always produce the right result
+               resultSign,
                resultBits,
                resultLength
                );

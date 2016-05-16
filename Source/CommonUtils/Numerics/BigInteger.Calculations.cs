@@ -45,6 +45,38 @@ namespace CommonUtils.Numerics.Calculations
          return retVal;
       }
 
+      public static Boolean TryGetSmallValue( UInt32[] bits, ref Int32 bitsLength, out UInt32 smallValue )
+      {
+         MinimizeBitsLength( bits, ref bitsLength );
+         var retVal = bitsLength <= 1;
+         smallValue = retVal ? GetSmall( bits, bitsLength ) : 0u;
+         return retVal;
+      }
+
+      public static Boolean IsZero( UInt32[] bits, ref Int32 bitsLength )
+      {
+         UInt32 smallValue;
+         return TryGetSmallValue( bits, ref bitsLength, out smallValue ) && smallValue == 0;
+      }
+
+      public static void SetSmallValue( ref UInt32[] bits, ref Int32 bitsLength, UInt32 smallValue )
+      {
+         if ( smallValue == 0 )
+         {
+            bitsLength = 0;
+         }
+         else
+         {
+            bitsLength = ResizeBits( ref bits, bitsLength, 1 );
+            bits[0] = smallValue;
+         }
+      }
+
+      public static Boolean IsEven( UInt32[] bits )
+      {
+         return bits.IsNullOrEmpty() || bits[0].IsEven();
+      }
+
       [CLSCompliant( false )]
       public static IEnumerable<UInt32> IterateInLittleEndianOrder( this BigInteger value )
       {
@@ -123,13 +155,13 @@ namespace CommonUtils.Numerics.Calculations
          out Int32 resultSign
          )
       {
-         if ( rightLength <= 1 && GetSmall( right, rightLength ) == 0 )
+         if ( IsZero( right, ref rightLength ) )
          {
             // result is left
             CopyBits( left, leftLength, ref result, ref resultLength );
             resultSign = leftSign;
          }
-         else if ( leftLength <= 1 && GetSmall( left, leftLength ) == 0 )
+         else if ( IsZero( left, ref leftLength ) )
          {
             // result is right, but we underflowed
             CopyBits( right, rightLength, ref result, ref resultLength );
@@ -270,13 +302,13 @@ namespace CommonUtils.Numerics.Calculations
          out Int32 resultSign
          )
       {
-         if ( rightLength <= 1 && GetSmall( right, rightLength ) == 0 )
+         if ( IsZero( right, ref rightLength ) )
          {
             // result is left
             CopyBits( left, leftLength, ref result, ref resultLength );
             resultSign = leftSign;
          }
-         else if ( leftLength <= 1 && GetSmall( left, leftLength ) == 0 )
+         else if ( IsZero( left, ref leftLength ) )
          {
             // result is right
             CopyBits( right, rightLength, ref result, ref resultLength );
@@ -358,45 +390,53 @@ namespace CommonUtils.Numerics.Calculations
          BigInteger left,
          UInt32[] right,
          Int32 rightLength,
+         Int32 rightSign,
          ref UInt32[] result,
-         ref Int32 resultLength
+         ref Int32 resultLength,
+         out Int32 resultSign
          )
       {
          var leftArray = left.GetArrayDirect();
-         Multiply( leftArray, leftArray.Length, right, rightLength, ref result, ref resultLength );
+         Multiply( leftArray, leftArray.Length, left.Sign, right, rightLength, rightSign, ref result, ref resultLength, out resultSign );
       }
 
       public static void Multiply(
          UInt32[] left,
          Int32 leftLength,
+         Int32 leftSign,
          BigInteger right,
          ref UInt32[] result,
-         ref Int32 resultLength
+         ref Int32 resultLength,
+         out Int32 resultSign
          )
       {
          var rigthArray = right.GetArrayDirect();
-         Multiply( left, leftLength, rigthArray, rigthArray.Length, ref result, ref resultLength );
+         Multiply( left, leftLength, leftSign, rigthArray, rigthArray.Length, right.Sign, ref result, ref resultLength, out resultSign );
       }
 
       public static void Multiply(
          BigInteger left,
          BigInteger right,
          ref UInt32[] result,
-         ref Int32 resultLength
+         ref Int32 resultLength,
+         out Int32 resultSign
       )
       {
          var leftArray = left.GetArrayDirect();
          var rightArray = right.GetArrayDirect();
-         Multiply( leftArray, leftArray.Length, rightArray, rightArray.Length, ref result, ref resultLength );
+         Multiply( leftArray, leftArray.Length, left.Sign, rightArray, rightArray.Length, right.Sign, ref result, ref resultLength, out resultSign );
       }
 
       public static void Multiply(
          UInt32[] left,
          Int32 leftLength,
+         Int32 leftSign,
          UInt32[] right,
          Int32 rightLength,
+         Int32 rightSign,
          ref UInt32[] result,
-         ref Int32 resultLength
+         ref Int32 resultLength,
+         out Int32 resultSign
          )
       {
          if ( leftLength <= 1 )
@@ -407,14 +447,16 @@ namespace CommonUtils.Numerics.Calculations
                case 0:
                   // Result is always zero
                   SetSmall( ref result, ref resultLength, 0 );
+                  resultSign = 0;
                   break;
                case 1:
                   // Result is always same as value
                   SetAsCopy( ref result, ref resultLength, right, rightLength );
+                  resultSign = rightSign;
                   break;
                default:
                   // Perform small multiply
-                  Multiply_Small( right, rightLength, small, ref result, ref resultLength );
+                  Multiply_Small( right, rightLength, rightSign, small, leftSign, ref result, ref resultLength, out resultSign );
                   break;
             }
          }
@@ -426,40 +468,64 @@ namespace CommonUtils.Numerics.Calculations
                case 0:
                   // Result is always zero
                   SetSmall( ref result, ref resultLength, 0 );
+                  resultSign = 0;
                   break;
                case 1:
                   // Result is always same as value
                   SetAsCopy( ref result, ref resultLength, left, leftLength );
+                  resultSign = leftSign;
                   break;
                default:
-                  Multiply_Small( left, leftLength, small, ref result, ref resultLength );
+                  Multiply_Small( left, leftLength, leftSign, small, rightSign, ref result, ref resultLength, out resultSign );
                   break;
             }
          }
          else
          {
             Multiply_Big( left, leftLength, right, rightLength, ref result, ref resultLength );
+            resultSign = leftSign * rightSign;
          }
       }
 
       // This method computes result = big * small. The 'big' array is unmodified.
-      private static void Multiply_Small( UInt32[] big, Int32 bigLength, UInt32 small, ref UInt32[] result, ref Int32 resultLength )
+      // Don't call this when small is zero.
+      private static void Multiply_Small( UInt32[] big, Int32 bigLength, Int32 bigSign, UInt32 small, Int32 smallSign, ref UInt32[] result, ref Int32 resultLength, out Int32 resultSign )
       {
-         // First check that result is big enough
-         resultLength = ResizeBits( ref result, resultLength, bigLength );
-
-         // Do multiplication
-         var carry = 0u;
-         for ( var i = 0; i < bigLength; ++i )
+         UInt32 bigSmall;
+         if ( TryGetSmallValue( big, ref bigLength, out bigSmall ) && bigSmall <= 1 )
          {
-            carry = MultiplyWithCarry( ref result[i], big[i], small, carry );
+            if ( bigSmall == 0 )
+            {
+               SetSmallValue( ref result, ref resultLength, 0 );
+               resultSign = 0;
+            }
+            else
+            {
+               // big is '1'
+               SetSmallValue( ref result, ref resultLength, small );
+               resultSign = bigSign * smallSign;
+            }
          }
-
-         // Apply carry, and resize if necessary
-         if ( carry != 0 )
+         else
          {
-            resultLength = ResizeBits( ref result, resultLength, resultLength + 1 );
-            result[resultLength - 1] = carry;
+            // First check that result is big enough
+            resultLength = ResizeBits( ref result, resultLength, bigLength );
+
+            // Do multiplication
+            var carry = 0u;
+            for ( var i = 0; i < bigLength; ++i )
+            {
+               carry = MultiplyWithCarry( ref result[i], big[i], small, carry );
+            }
+
+            // Apply carry, and resize if necessary
+            if ( carry != 0 )
+            {
+               resultLength = ResizeBits( ref result, resultLength, resultLength + 1 );
+               result[resultLength - 1] = carry;
+            }
+
+            resultSign = bigSign * smallSign;
          }
       }
 
@@ -877,7 +943,7 @@ namespace CommonUtils.Numerics.Calculations
          return ( ( (UInt64) high ) << BigInteger.BITS_32 ) | low;
       }
 
-      internal static void SwapBits( ref UInt32[] x, ref Int32 xLength, ref UInt32[] y, ref Int32 yLength )
+      public static void SwapBits( ref UInt32[] x, ref Int32 xLength, ref UInt32[] y, ref Int32 yLength )
       {
          var tmp = x;
          x = y;
@@ -888,7 +954,7 @@ namespace CommonUtils.Numerics.Calculations
          yLength = tmpLength;
       }
 
-      internal static void CopyBits( UInt32[] from, Int32 fromLength, ref UInt32[] to, ref Int32 toLength )
+      public static void CopyBits( UInt32[] from, Int32 fromLength, ref UInt32[] to, ref Int32 toLength )
       {
          toLength = ResizeBits( ref to, toLength, fromLength );
          Array.Copy( from, 0, to, 0, fromLength );
@@ -920,17 +986,30 @@ namespace CommonUtils.Numerics.Calculations
          return retVal;
       }
    }
-}
 
-public static partial class E_CILPhysical
-{
-   #region ModPow
-   private sealed class ModPowCalculationState
+
+   public sealed class ModPowCalculationState
    {
+      [CLSCompliant( false )]
       public ModPowCalculationState(
          UInt32[] value,
          BigInteger modulus
+         ) : this( value, value.Length, modulus )
+      {
+      }
+
+      [CLSCompliant( false )]
+      public ModPowCalculationState(
+         UInt32[] value,
+         Int32 valueLength,
+         BigInteger modulus
          )
+      {
+         this.Reset( value, valueLength, modulus );
+      }
+
+      [CLSCompliant( false )]
+      public void Reset( UInt32[] value, Int32 valueLength, BigInteger modulus )
       {
          this.Modulus = modulus;
 
@@ -939,22 +1018,30 @@ public static partial class E_CILPhysical
          this.ResultLength = 1;
          // Value starts with given value
          this.Value = value;
-         this.ValueLength = value.Length;
+         this.ValueLength = valueLength;
          // Temporary starts as zeroes with value length
          this.Temporary = new UInt32[this.ValueLength];
          this.TemporaryLength = this.Temporary.Length;
       }
 
-      public BigInteger Modulus { get; }
+      public BigInteger Modulus;
 
       // Value, Result, and Temporary buffer are all modified and resized by calculations, so they are fields
+      [CLSCompliant( false )]
       public UInt32[] Value;
+      [CLSCompliant( false )]
       public UInt32[] Result;
+      [CLSCompliant( false )]
       public UInt32[] Temporary;
       public Int32 ValueLength;
       public Int32 ResultLength;
       public Int32 TemporaryLength;
    }
+}
+
+public static partial class E_CILPhysical
+{
+   #region ModPow
 
    public static BigInteger ModPow( this BigInteger value, BigInteger exponent, BigInteger modulus )
    {
@@ -991,6 +1078,47 @@ public static partial class E_CILPhysical
             );
       }
       return retVal;
+   }
+
+   public static void ModPow( this ModPowCalculationState state, Int32 valueSign, BigInteger exponent, out Int32 resultSign )
+   {
+      var exponentBits = exponent.GetValuesArrayCopy();
+      state.ModPow( valueSign, exponentBits, exponentBits.Length, out resultSign );
+   }
+
+   [CLSCompliant( false )]
+   public static void ModPow( this ModPowCalculationState state, Int32 valueSign, UInt32[] exponent, Int32 exponentLength, out Int32 resultSign )
+   {
+      var modulus = state.Modulus;
+      if ( modulus.IsNegative() )
+      {
+         throw new ArithmeticException( "Modulus must be positive." );
+      }
+      else if ( modulus.IsOne || BigIntegerCalculations.IsZero( state.Value, ref state.ValueLength ) )
+      {
+         // Result is zero
+         state.ResultLength = 0;
+         resultSign = 0;
+      }
+      else if ( BigIntegerCalculations.IsZero( exponent, ref exponentLength ) )
+      {
+         // Result is one
+         BigIntegerCalculations.SetSmallValue( ref state.Result, ref state.ResultLength, 1 );
+         resultSign = 1;
+      }
+      else
+      {
+         UInt32 smallExponent;
+         if ( BigIntegerCalculations.TryGetSmallValue( exponent, ref exponentLength, out smallExponent ) )
+         {
+            state.ModPow_Small( smallExponent );
+         }
+         else
+         {
+            state.ModPow_Big( exponent, exponentLength );
+         }
+         resultSign = valueSign < 0 && !BigIntegerCalculations.IsEven( exponent ) ? -1 : 1; // Result is negative for negative values with odd exponents
+      }
    }
 
    // Square exponentiation with modulus - optimized to situation where whole exponent is single UInt32
@@ -1061,6 +1189,17 @@ public static partial class E_CILPhysical
       }
    }
 
+   private static void ModPow_Big( this ModPowCalculationState state, UInt32[] exponent, Int32 exponentLength )
+   {
+      // Iterate all except for last integer
+      for ( var i = 0; i < exponentLength - 1; ++i )
+      {
+         state.ModPow_BigPart( exponent[i] );
+      }
+
+      state.ModPow_Small( exponent[exponentLength - 1] );
+   }
+
    private static void ModPow_Step_Result( this ModPowCalculationState state )
    {
       // result = (result * value) % modulus
@@ -1086,8 +1225,8 @@ public static partial class E_CILPhysical
       // result = ( x * y ) % modulus
       var tmp = state.Temporary;
       var tmpLength = state.TemporaryLength;
-
-      BigIntegerCalculations.Multiply( x, xLength, y, yLength, ref tmp, ref tmpLength );
+      Int32 dummy;
+      BigIntegerCalculations.Multiply( x, xLength, 1, y, yLength, 1, ref tmp, ref tmpLength, out dummy );
       BigIntegerCalculations.Modulus( tmp, ref tmpLength, state.Modulus );
       state.Temporary = result;
       state.TemporaryLength = resultLength;
@@ -1104,19 +1243,15 @@ public static partial class E_CILPhysical
       public ExtendedEuclideanCalculationState( UInt32[] a, UInt32[] b )
       {
          this.U1 = new UInt32[] { 1 };
-         //this.U2 = new UInt32[] { 0 };
          this.U3 = a;
 
          this.V1 = new UInt32[] { 0 };
-         //this.V2 = new UInt32[] { 1 };
          this.V3 = b;
 
          this.U1Length = this.U1.Length;
-         //this.U2Length = this.U2.Length;
          this.U3Length = this.U3.Length;
 
          this.V1Length = this.V1.Length;
-         //this.V2Length = this.V2.Length;
          this.V3Length = this.V3.Length;
 
          this.Q = this.U3.CreateArrayCopy();
@@ -1127,23 +1262,19 @@ public static partial class E_CILPhysical
          this.Temporary2 = new UInt32[this.U3Length];
          this.Temporary2Length = this.Temporary2.Length;
 
-         this.U1Sign = this.V1Sign = 1; // this.U2Sign = this.V1Sign = this.V2Sign = 1;
+         this.U1Sign = this.V1Sign = 1;
       }
 
       public UInt32[] U1;
-      //public UInt32[] U2;
       public UInt32[] U3;
 
       public UInt32[] V1;
-      //public UInt32[] V2;
       public UInt32[] V3;
 
       public Int32 U1Length;
-      //public Int32 U2Length;
       public Int32 U3Length;
 
       public Int32 V1Length;
-      //public Int32 V2Length;
       public Int32 V3Length;
 
       public UInt32[] Q;
@@ -1156,18 +1287,7 @@ public static partial class E_CILPhysical
 
       // U3 and V3 are always positive
       public Int32 U1Sign;
-      //public Int32 U2Sign;
       public Int32 V1Sign;
-      //public Int32 V2Sign;
-
-      public override String ToString()
-      {
-         return "U3: " + BigIntegerCalculations.CreateBigInteger( 1, this.U3, this.U3Length ) + "\n"
-            + "U1 " + BigIntegerCalculations.CreateBigInteger( this.U1Sign, this.U1, this.U1Length ) + "\n"
-            + "V3: " + BigIntegerCalculations.CreateBigInteger( 1, this.V3, this.V3Length ) + "\n"
-            + "V1: " + BigIntegerCalculations.CreateBigInteger( this.V1Sign, this.V1, this.V1Length );
-
-      }
    }
 
    // When 'a' and 'b' given, computes ax + by = GCD(a,b)
@@ -1215,11 +1335,13 @@ public static partial class E_CILPhysical
             if ( state.V3Length >= 1 && state.V3[0] != 0 )
             {
                // Only calculate v1 if we are going to iterate one more time
+               // TODO move this into beginning of loop under if (state.Q != null) condition, since no point repeating loop condition here...
 
                // tmp2 = q * v1
                // Since q is always positive (because u3 and v3 are always positive), the sign of tmp2 is sign of v1
                // Remember that v1 is now in u1
-               BigIntegerCalculations.Multiply( state.Q, state.QLength, state.U1, state.U1Length, ref state.Temporary2, ref state.Temporary2Length );
+               Int32 dummy;
+               BigIntegerCalculations.Multiply( state.Q, state.QLength, 1, state.U1, state.U1Length, 1, ref state.Temporary2, ref state.Temporary2Length, out dummy );
                // v1 = u1 - tmp2 ( = tmp - tmp2 )
                BigIntegerCalculations.Subtract( state.Temporary, state.TemporaryLength, u1Sign, state.Temporary2, state.Temporary2Length, state.V1Sign, ref state.V1, ref state.V1Length, out state.V1Sign );
             }
@@ -1235,7 +1357,8 @@ public static partial class E_CILPhysical
             // ax + by = retVal
             // => y = (retVal - ax) / b
             // => y = (u3 - a * u1) / b
-            BigIntegerCalculations.Multiply( a, state.U1, state.U1Length, ref state.Temporary, ref state.TemporaryLength );
+            Int32 dummy;
+            BigIntegerCalculations.Multiply( a, state.U1, state.U1Length, 1, ref state.Temporary, ref state.TemporaryLength, out dummy );
             BigIntegerCalculations.Subtract( state.U3, state.U3Length, 1, state.Temporary, state.TemporaryLength, state.U1Sign, ref state.Temporary2, ref state.Temporary2Length, out state.V1Sign );
             BigIntegerCalculations.DivideWithRemainder( state.Temporary2, ref state.Temporary2Length, b, ref state.Temporary, ref state.TemporaryLength, true );
             y = BigIntegerCalculations.CreateBigInteger( state.V1Sign, state.Temporary, state.TemporaryLength );
