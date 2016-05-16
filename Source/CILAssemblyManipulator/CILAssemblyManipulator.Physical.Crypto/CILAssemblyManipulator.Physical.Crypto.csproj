@@ -82,8 +82,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BigInteger.Calculations.cs" />
-    <Compile Include="BigInteger.cs" />
     <Compile Include="CryptoCallbacks.cs" />
     <Compile Include="DataFormatting.cs" />
     <Compile Include="DefaultCryptoCallbacks.cs" />

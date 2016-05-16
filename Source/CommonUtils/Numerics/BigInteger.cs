@@ -15,14 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-using CILAssemblyManipulator.Physical.Crypto;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using CommonUtils.Numerics;
 
-namespace CILAssemblyManipulator.Physical.Crypto
+namespace CommonUtils.Numerics
 {
 #pragma warning disable 1591
 
@@ -35,7 +35,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
    public partial struct BigInteger : IComparable<BigInteger>, IEquatable<BigInteger>
    {
       internal const Int32 BITS_BYTE = 8;
-      private const Int32 BYTES_32 = BigIntegerCalculations.BITS_32 / BITS_BYTE;
+      internal const Int32 BITS_32 = BigInteger.BITS_BYTE * sizeof( Int32 );
+      private const Int32 BYTES_32 = BITS_32 / BITS_BYTE;
 
       #region Static properties
 
@@ -116,7 +117,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             }
 
             this._sign = sign;
-            var hi = (UInt32) ( u64 >> BigIntegerCalculations.BITS_32 );
+            var hi = (UInt32) ( u64 >> BITS_32 );
             var lo = unchecked((UInt32) u64);
             this._bits = hi == 0 ?
                new UInt32[] { lo } :
@@ -153,7 +154,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          else
          {
-            var hi = (UInt32) ( intValue >> BigIntegerCalculations.BITS_32 );
+            var hi = (UInt32) ( intValue >> BITS_32 );
             var lo = unchecked((UInt32) intValue);
             this._sign = 1;
             this._bits = hi == 0 ?
@@ -283,12 +284,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
       }
 
-      // Will throw if default or zero!
       internal UInt32 SmallValue
       {
          get
          {
-            return this._bits[0];
+            return this._bits?[0] ?? 0;
          }
       }
 
@@ -337,7 +337,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       internal UInt32[] GetArrayDirect()
       {
-         return this._bits;
+         return this._bits ?? Empty<UInt32>.Array;
       }
 
       public BigInteger Absolute()
@@ -431,7 +431,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
                   var carry = thisBits[i];
                   for ( var j = 0; j < newBitsIdx; ++j )
                   {
-                     var cur = BigIntegerCalculations.ToUInt64( newBits[j], carry );
+                     var cur = Calculations.BigIntegerCalculations.ToUInt64( newBits[j], carry );
                      unchecked
                      {
                         newBits[j] = (UInt32) ( cur % convBase );
@@ -834,7 +834,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          else
          {
             // This class never has trailing zeroes
-            retVal = BigIntegerCalculations.BITS_32 * ( bits.Length - 1 ) // Amount of bits in other integers
+            retVal = BITS_32 * ( bits.Length - 1 ) // Amount of bits in other integers
                + BinaryUtils.Log2( bits[bits.Length - 1] ); // Amount of bits in last integer
          }
          return retVal;
@@ -843,7 +843,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       // We must return always either -1, 0, or 1, since the result of this method is used in multiplication operations for sign
       private static Int32 Compare( UInt32[] xBits, UInt32[] yBits )
       {
-         return BigIntegerCalculations.CompareBits( xBits, xBits.Length, yBits, yBits.Length );
+         return Calculations.BigIntegerCalculations.CompareBits( xBits, xBits.Length, yBits, yBits.Length );
       }
 
 
@@ -931,19 +931,17 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             var dividentBits = divident._bits.CreateArrayCopy();
             Int32 dividentLength = dividentBits.Length;
-            var divisorBits = divisor._bits;
-            var divisorLength = divisorBits.Length;
             var sign = divident.Sign;
             if ( computeModulus && !computeQuotient )
             {
-               BigIntegerCalculations.Modulus( dividentBits, ref dividentLength, divisorBits, divisorLength );
+               Calculations.BigIntegerCalculations.Modulus( dividentBits, ref dividentLength, divisor );
                modulusResult = new BigInteger( sign, dividentBits, dividentLength );
             }
             else
             {
                UInt32[] quotient = null;
                Int32 quotientLength = -1;
-               BigIntegerCalculations.DivideWithRemainder( dividentBits, ref dividentLength, divisorBits, divisorLength, ref quotient, ref quotientLength, computeQuotient );
+               Calculations.BigIntegerCalculations.DivideWithRemainder( dividentBits, ref dividentLength, divisor, ref quotient, ref quotientLength, computeQuotient );
                if ( computeModulus )
                {
                   modulusResult = new BigInteger( sign, dividentBits, dividentLength );
@@ -959,7 +957,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private static Boolean AreSmallBits( UInt32[] bits )
       {
-         return bits != null && bits.Length <= 1;
+         return bits == null || bits.Length <= 1;
       }
 
       #endregion
@@ -982,7 +980,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             UInt32[] resultBits = null;
             var resultLength = -1;
             Int32 resultSign;
-            BigIntegerCalculations.Add( left._bits, left._bits.Length, left.Sign, right._bits, right._bits.Length, right.Sign, ref resultBits, ref resultLength, out resultSign );
+            Calculations.BigIntegerCalculations.Add( left, right, ref resultBits, ref resultLength, out resultSign );
             retVal = new BigInteger( resultSign, resultBits, resultLength );
          }
 
@@ -1005,7 +1003,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             UInt32[] resultBits = null;
             var resultLength = -1;
             Int32 resultSign;
-            BigIntegerCalculations.Subtract( left._bits, left._bits.Length, left.Sign, right._bits, right._bits.Length, right.Sign, ref resultBits, ref resultLength, out resultSign );
+            Calculations.BigIntegerCalculations.Subtract( left, right, ref resultBits, ref resultLength, out resultSign );
             retVal = new BigInteger( resultSign, resultBits, resultLength );
          }
          return retVal;
@@ -1057,7 +1055,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             UInt32[] resultBits = null;
             var resultLength = -1;
-            BigIntegerCalculations.Multiply( left._bits, left._bits.Length, right._bits, right._bits.Length, ref resultBits, ref resultLength ); // Actual bits
+            Calculations.BigIntegerCalculations.Multiply( left, right, ref resultBits, ref resultLength ); // Actual bits
             retVal = new BigInteger(
                left.Sign * right.Sign,// Since at this point, both left and right are non-zero, sign multiplication will always produce the right result
                resultBits,

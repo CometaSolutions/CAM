@@ -27,6 +27,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Security.Cryptography;
+using CommonUtils.Numerics;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
@@ -396,7 +397,7 @@ public static partial class E_CILPhysical
    /// <remarks>
    /// Since some of the .NET cryptorgraphic API methods expect <see cref="RSAParameters"/> to be LE format (e.g. <see cref="RSA.ImportParameters"/>) and CAM <see cref="CILAssemblyManipulator.Physical.Crypto.RSAParameters"/> expects them to be in BE format (as they are stored in key BLOB), the byte arrays can be reversed.
    /// </remarks>
-   public static CILAssemblyManipulator.Physical.Crypto.RSAParameters CreateCAMParameters( this RSAParameters dotNetParams, CILAssemblyManipulator.Physical.Crypto.BinaryEndianness dotNetEndianness )
+   public static CILAssemblyManipulator.Physical.Crypto.RSAParameters CreateCAMParameters( this RSAParameters dotNetParams, BinaryEndianness dotNetEndianness )
    {
       return new CILAssemblyManipulator.Physical.Crypto.RSAParameters(
          dotNetEndianness,

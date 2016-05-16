@@ -65,6 +65,8 @@
   <ItemGroup>
     <Compile Include="AbstractDisposable.cs" />
     <Compile Include="ArgumentValidator.cs" />
+    <Compile Include="Numerics\BigInteger.Calculations.cs" />
+    <Compile Include="Numerics\BigInteger.cs" />
     <Compile Include="BinaryUtils.cs" />
     <Compile Include="ComparerWrappers.cs" />
     <None Include="DelegateMultiplexer.xml" />

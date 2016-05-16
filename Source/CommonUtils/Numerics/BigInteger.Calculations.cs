@@ -20,17 +20,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CILAssemblyManipulator.Physical.Crypto;
+using CommonUtils.Numerics;
+using CommonUtils.Numerics.Calculations;
 
-namespace CILAssemblyManipulator.Physical.Crypto
+namespace CommonUtils.Numerics.Calculations
 {
 #pragma warning disable 1591
    [CLSCompliant( false )]
    public static class BigIntegerCalculations
    {
-      // For convenience, zero should be represented as one-element array of 0.
+      // For convenience, zero can be represented as one-element array of 0.
 
-      internal const Int32 BITS_32 = BigInteger.BITS_BYTE * sizeof( Int32 );
+
 
       public static BigInteger CreateBigInteger( Int32 sign, UInt32[] bits, Int32 bitsLength )
       {
@@ -42,6 +43,72 @@ namespace CILAssemblyManipulator.Physical.Crypto
          var retVal = value.IsSmall;
          smallValue = retVal ? value.SmallValue : 0u;
          return retVal;
+      }
+
+      [CLSCompliant( false )]
+      public static IEnumerable<UInt32> IterateInLittleEndianOrder( this BigInteger value )
+      {
+         var array = value.GetArrayDirect();
+         for ( var i = 0; i < array.Length; ++i )
+         {
+            yield return array[i];
+         }
+      }
+
+      [CLSCompliant( false )]
+      public static IEnumerable<UInt32> IterateInBigEndianOrder( this BigInteger value )
+      {
+         var array = value.GetArrayDirect();
+         for ( var i = array.Length - 1; i >= 0; --i )
+         {
+            yield return array[i];
+         }
+      }
+
+      public static Int32 GetUInt32ArrayLength( this BigInteger value )
+      {
+         return value.GetArrayDirect().Length;
+      }
+
+      public static void Subtract(
+         BigInteger left,
+         UInt32[] right,
+         Int32 rightLength,
+         Int32 rightSign,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         out Int32 resultSign
+         )
+      {
+         var leftArray = left.GetArrayDirect();
+         Subtract( leftArray, leftArray.Length, left.Sign, right, rightLength, rightSign, ref result, ref resultLength, out resultSign );
+      }
+
+      public static void Subtract(
+         UInt32[] left,
+         Int32 leftLength,
+         Int32 leftSign,
+         BigInteger right,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         out Int32 resultSign
+         )
+      {
+         var rightArray = right.GetArrayDirect();
+         Subtract( left, leftLength, leftSign, rightArray, rightArray.Length, right.Sign, ref result, ref resultLength, out resultSign );
+      }
+
+      public static void Subtract(
+         BigInteger left,
+         BigInteger right,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         out Int32 resultSign
+         )
+      {
+         var leftArray = left.GetArrayDirect();
+         var rightArray = right.GetArrayDirect();
+         Subtract( leftArray, leftArray.Length, left.Sign, rightArray, rightArray.Length, right.Sign, ref result, ref resultLength, out resultSign );
       }
 
       public static void Subtract(
@@ -115,13 +182,13 @@ namespace CILAssemblyManipulator.Physical.Crypto
                smaller = right;
                smallerLength = rightLength;
             }
-            Substract( greater, greaterLength, smaller, smallerLength, ref result, ref resultLength );
+            DoSubtract( greater, greaterLength, smaller, smallerLength, ref result, ref resultLength );
             resultSign = leftSign * compareResult;
          }
       }
 
       // This method does result = x - y, assuming that x >= y
-      private static void Substract(
+      private static void DoSubtract(
          UInt32[] left,
          Int32 leftLength,
          UInt32[] right,
@@ -148,6 +215,47 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
          // Trim trailing zeroes
          MinimizeBitsLength( result, ref resultLength );
+      }
+
+      public static void Add(
+         BigInteger left,
+         UInt32[] right,
+         Int32 rightLength,
+         Int32 rightSign,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         out Int32 resultSign
+         )
+      {
+         var leftArray = left.GetArrayDirect();
+         Add( leftArray, leftArray.Length, left.Sign, right, rightLength, rightSign, ref result, ref resultLength, out resultSign );
+      }
+
+      public static void Add(
+         UInt32[] left,
+         Int32 leftLength,
+         Int32 leftSign,
+         BigInteger right,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         out Int32 resultSign
+         )
+      {
+         var rightArray = right.GetArrayDirect();
+         Add( left, leftLength, leftSign, rightArray, rightArray.Length, right.Sign, ref result, ref resultLength, out resultSign );
+      }
+
+      public static void Add(
+         BigInteger left,
+         BigInteger right,
+         ref UInt32[] result,
+         ref Int32 resultLength,
+         out Int32 resultSign
+         )
+      {
+         var leftArray = left.GetArrayDirect();
+         var rightArray = right.GetArrayDirect();
+         Add( leftArray, leftArray.Length, left.Sign, rightArray, rightArray.Length, right.Sign, ref result, ref resultLength, out resultSign );
       }
 
       public static void Add(
@@ -218,10 +326,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
          // Perform addition
          var carry = 0u;
-         var maxIdx = 0;
-         for ( var minIdx = 0; minIdx < minLength; ++maxIdx, ++minIdx )
+         var resultIdx = 0;
+         for ( var minIdx = 0; minIdx < minLength; ++resultIdx, ++minIdx )
          {
-            carry = AddWithCarry( ref result[maxIdx], max[maxIdx], min[minIdx], carry );
+            carry = AddWithCarry( ref result[resultIdx], max[resultIdx], min[minIdx], carry );
             System.Diagnostics.Debug.Assert( carry <= 1, "Carry must be within legal range." );
          }
 
@@ -236,14 +344,50 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             do
             {
-               if ( maxIdx >= resultLength )
+               if ( resultIdx >= resultLength )
                {
                   resultLength = ResizeBits( ref result, resultLength, resultLength + 1 );
-                  result[maxIdx] = 1;
+                  result[resultIdx] = 1;
                   break;
                }
-            } while ( unchecked(++result[maxIdx++]) == 0 );
+            } while ( unchecked(++result[resultIdx++]) == 0 );
          }
+      }
+
+      public static void Multiply(
+         BigInteger left,
+         UInt32[] right,
+         Int32 rightLength,
+         ref UInt32[] result,
+         ref Int32 resultLength
+         )
+      {
+         var leftArray = left.GetArrayDirect();
+         Multiply( leftArray, leftArray.Length, right, rightLength, ref result, ref resultLength );
+      }
+
+      public static void Multiply(
+         UInt32[] left,
+         Int32 leftLength,
+         BigInteger right,
+         ref UInt32[] result,
+         ref Int32 resultLength
+         )
+      {
+         var rigthArray = right.GetArrayDirect();
+         Multiply( left, leftLength, rigthArray, rigthArray.Length, ref result, ref resultLength );
+      }
+
+      public static void Multiply(
+         BigInteger left,
+         BigInteger right,
+         ref UInt32[] result,
+         ref Int32 resultLength
+      )
+      {
+         var leftArray = left.GetArrayDirect();
+         var rightArray = right.GetArrayDirect();
+         Multiply( leftArray, leftArray.Length, rightArray, rightArray.Length, ref result, ref resultLength );
       }
 
       public static void Multiply(
@@ -348,6 +492,16 @@ namespace CILAssemblyManipulator.Physical.Crypto
          MinimizeBitsLength( result, ref resultLength );
       }
 
+      public static void Modulus(
+         UInt32[] divident,
+         ref Int32 dividentLength,
+         BigInteger divisor
+         )
+      {
+         var divisorArray = divisor.GetArrayDirect();
+         Modulus( divident, ref dividentLength, divisorArray, divisorArray.Length );
+      }
+
       // Computes divident = divident % divisor
       public static void Modulus(
          UInt32[] divident,
@@ -359,6 +513,19 @@ namespace CILAssemblyManipulator.Physical.Crypto
          UInt32[] dummy = null;
          Int32 dummy2 = -1;
          DivideWithRemainder( divident, ref dividentLength, divisor, divisorLength, ref dummy, ref dummy2, false );
+      }
+
+      public static void DivideWithRemainder(
+         UInt32[] divident,
+         ref Int32 dividentLength,
+         BigInteger divisor,
+         ref UInt32[] quotient,
+         ref Int32 quotientLength,
+         Boolean computeQuotient
+         )
+      {
+         var divisorArray = divisor.GetArrayDirect();
+         DivideWithRemainder( divident, ref dividentLength, divisorArray, divisorArray.Length, ref quotient, ref quotientLength, computeQuotient );
       }
 
       // Computes quotient = divident / divisor, if so specified.
@@ -508,7 +675,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
                var divisorHigh = divisor[divisorLength - 1];
                var divisorLow = divisor[divisorLength - 2];
                var shiftLeft = CountHighZeroes( divisorHigh );
-               var shiftRight = BITS_32 - shiftLeft;
+               var shiftRight = BigInteger.BITS_32 - shiftLeft;
                if ( shiftLeft > 0 )
                {
                   divisorHigh = ( divisorHigh << shiftLeft ) | ( divisorLow >> shiftRight );
@@ -561,7 +728,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
                         {
                            borrow += divisor[j] * q;
                            var borrowLow = (UInt32) borrow;
-                           borrow >>= BITS_32;
+                           borrow >>= BigInteger.BITS_32;
                            var dividentIndex = i + j;
                            if ( divident[dividentIndex] < borrowLow )
                            {
@@ -605,7 +772,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private static Int32 CountHighZeroes( UInt32 x )
       {
-         return x == 0 ? BITS_32 : ( BITS_32 - BinaryUtils.Log2( x ) - 1 );
+         return x == 0 ? BigInteger.BITS_32 : ( BigInteger.BITS_32 - BinaryUtils.Log2( x ) - 1 );
       }
 
       private static UInt32 SubtractWithBorrow( ref UInt32 store, UInt32 first, UInt32 second, UInt32 borrow )
@@ -617,7 +784,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             store = (UInt32) cur;
             // If we got underflow, the high 32 bits of 'cur' will be FFFFFFFF. Extract them via shift, cast to Int32 (it will become -1), then negate and cast back to UInt32 to obtain 1.
             // If no underflow, this should be 0.
-            return (UInt32) ( -( (Int32) ( cur >> BITS_32 ) ) );
+            return (UInt32) ( -( (Int32) ( cur >> BigInteger.BITS_32 ) ) );
          }
       }
 
@@ -629,7 +796,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
             var result = (UInt64) first + second + carry;
             store = (UInt32) result;
             // If we got overflow, the carry will have only its 33th bit set.
-            return (UInt32) ( result >> BITS_32 );
+            return (UInt32) ( result >> BigInteger.BITS_32 );
          }
       }
 
@@ -645,7 +812,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          {
             store = (UInt32) result;
             // If we got overflow, carry will have its 33th -> bits set
-            return (UInt32) ( result >> BITS_32 );
+            return (UInt32) ( result >> BigInteger.BITS_32 );
          }
       }
 
@@ -655,7 +822,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
          unchecked
          {
             value = (UInt32) result;
-            return (UInt32) ( result >> BITS_32 );
+            return (UInt32) ( result >> BigInteger.BITS_32 );
          }
       }
 
@@ -695,6 +862,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private static void SetAsCopy( ref UInt32[] result, ref Int32 resultLength, UInt32[] value, Int32 valueLength )
       {
+         MinimizeBitsLength( value, ref valueLength );
          resultLength = ResizeBits( ref result, resultLength, valueLength );
          Array.Copy( value, result, valueLength );
       }
@@ -706,7 +874,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       internal static UInt64 ToUInt64( UInt32 high, UInt32 low )
       {
-         return ( ( (UInt64) high ) << BITS_32 ) | low;
+         return ( ( (UInt64) high ) << BigInteger.BITS_32 ) | low;
       }
 
       internal static void SwapBits( ref UInt32[] x, ref Int32 xLength, ref UInt32[] y, ref Int32 yLength )
@@ -760,13 +928,10 @@ public static partial class E_CILPhysical
    private sealed class ModPowCalculationState
    {
       public ModPowCalculationState(
-         UInt32[] exponent,
-         UInt32[] modulus,
-         UInt32[] value
+         UInt32[] value,
+         BigInteger modulus
          )
       {
-         // Assign read-only data
-         this.Exponent = exponent;
          this.Modulus = modulus;
 
          // Result starts with '1'
@@ -780,9 +945,7 @@ public static partial class E_CILPhysical
          this.TemporaryLength = this.Temporary.Length;
       }
 
-      // Exponent and modulus are never modified, so they are properties
-      public UInt32[] Exponent { get; }
-      public UInt32[] Modulus { get; }
+      public BigInteger Modulus { get; }
 
       // Value, Result, and Temporary buffer are all modified and resized by calculations, so they are fields
       public UInt32[] Value;
@@ -810,16 +973,16 @@ public static partial class E_CILPhysical
       }
       else
       {
-         var state = new ModPowCalculationState( exponent.GetArrayDirect(), modulus.GetArrayDirect(), value.GetValuesArrayCopy() );
+         var state = new ModPowCalculationState( value.GetValuesArrayCopy(), modulus );
 
          UInt32 smallExponent;
          if ( exponent.TryGetSmallValue( out smallExponent ) )
          {
-            ModPow_Small( state, smallExponent );
+            state.ModPow_Small( smallExponent );
          }
          else
          {
-            ModPow( state );
+            state.ModPow_Big( exponent );
          }
          retVal = BigIntegerCalculations.CreateBigInteger(
             value.IsPositive() ? 1 : ( exponent.IsEven ? 1 : -1 ), // Result is negative for negative values with odd exponents
@@ -832,7 +995,7 @@ public static partial class E_CILPhysical
 
    // Square exponentiation with modulus - optimized to situation where whole exponent is single UInt32
    private static void ModPow_Small(
-      ModPowCalculationState state,
+      this ModPowCalculationState state,
       UInt32 exponent
       )
    {
@@ -841,7 +1004,7 @@ public static partial class E_CILPhysical
          if ( !exponent.IsEven() )
          {
             // Perform extra step for odd exponent
-            ModPow_Step_Result( state );
+            state.ModPow_Step_Result();
          }
 
          if ( exponent == 1 )
@@ -851,7 +1014,7 @@ public static partial class E_CILPhysical
          }
 
          // Perform step
-         ModPow_Step_Value( state );
+         state.ModPow_Step_Value();
 
          // Shift right once
          exponent >>= 1;
@@ -860,52 +1023,58 @@ public static partial class E_CILPhysical
 
    // Square exponentiation with modulus - the given exponent UInt32 is part of bigger number consisting of several UInt32's, and thus does not check for exponent == 0
    private static void ModPow_BigPart(
-      ModPowCalculationState state,
+      this ModPowCalculationState state,
       UInt32 exponent
       )
    {
       // Same as ModPow_Small except that we are always iterating 32 times
-      for ( var i = 0; i < BigIntegerCalculations.BITS_32; ++i )
+      for ( var i = 0; i < BigInteger.BITS_32; ++i )
       {
          if ( !exponent.IsEven() )
          {
-            ModPow_Step_Result( state );
+            state.ModPow_Step_Result();
          }
-         ModPow_Step_Value( state );
+         state.ModPow_Step_Value();
 
          exponent >>= 1;
       }
    }
 
-   private static void ModPow(
-      ModPowCalculationState state
-      )
+   private static void ModPow_Big( this ModPowCalculationState state, BigInteger exponent )
    {
       // Iterate all except for last integer
-      var exponent = state.Exponent;
-      for ( var i = 0; i < exponent.Length - 1; ++i )
+      var len = exponent.GetUInt32ArrayLength();
+      var i = 0;
+      foreach ( var cur in exponent.IterateInLittleEndianOrder() )
       {
-         ModPow_BigPart( state, exponent[i] );
+         if ( i < len - 1 )
+         {
+            // All steps before last
+            state.ModPow_BigPart( cur );
+         }
+         else
+         {
+            // Last step
+            state.ModPow_Small( cur );
+         }
+         ++i;
       }
-
-      // Last step
-      ModPow_Small( state, exponent[exponent.Length - 1] );
    }
 
-   private static void ModPow_Step_Result( ModPowCalculationState state )
+   private static void ModPow_Step_Result( this ModPowCalculationState state )
    {
       // result = (result * value) % modulus
-      ModPow_Step( state, state.Result, state.ResultLength, state.Value, state.ValueLength, ref state.Result, ref state.ResultLength );
+      state.ModPow_Step( state.Result, state.ResultLength, state.Value, state.ValueLength, ref state.Result, ref state.ResultLength );
    }
 
-   private static void ModPow_Step_Value( ModPowCalculationState state )
+   private static void ModPow_Step_Value( this ModPowCalculationState state )
    {
       // value = (value * value) % modulus
-      ModPow_Step( state, state.Value, state.ValueLength, state.Value, state.ValueLength, ref state.Value, ref state.ValueLength );
+      state.ModPow_Step( state.Value, state.ValueLength, state.Value, state.ValueLength, ref state.Value, ref state.ValueLength );
    }
 
    private static void ModPow_Step(
-      ModPowCalculationState state,
+      this ModPowCalculationState state,
       UInt32[] x,
       Int32 xLength,
       UInt32[] y,
@@ -915,12 +1084,11 @@ public static partial class E_CILPhysical
       )
    {
       // result = ( x * y ) % modulus
-      var modulus = state.Modulus;
       var tmp = state.Temporary;
       var tmpLength = state.TemporaryLength;
 
       BigIntegerCalculations.Multiply( x, xLength, y, yLength, ref tmp, ref tmpLength );
-      BigIntegerCalculations.Modulus( tmp, ref tmpLength, modulus, modulus.Length );
+      BigIntegerCalculations.Modulus( tmp, ref tmpLength, state.Modulus );
       state.Temporary = result;
       state.TemporaryLength = resultLength;
       result = tmp;
@@ -1067,10 +1235,9 @@ public static partial class E_CILPhysical
             // ax + by = retVal
             // => y = (retVal - ax) / b
             // => y = (u3 - a * u1) / b
-            var aBits = a.GetValuesArrayCopy();
-            BigIntegerCalculations.Multiply( aBits, aBits.Length, state.U1, state.U1Length, ref state.Temporary, ref state.TemporaryLength );
+            BigIntegerCalculations.Multiply( a, state.U1, state.U1Length, ref state.Temporary, ref state.TemporaryLength );
             BigIntegerCalculations.Subtract( state.U3, state.U3Length, 1, state.Temporary, state.TemporaryLength, state.U1Sign, ref state.Temporary2, ref state.Temporary2Length, out state.V1Sign );
-            BigIntegerCalculations.DivideWithRemainder( state.Temporary2, ref state.Temporary2Length, b.GetArrayDirect(), b.GetArrayDirect().Length, ref state.Temporary, ref state.TemporaryLength, true );
+            BigIntegerCalculations.DivideWithRemainder( state.Temporary2, ref state.Temporary2Length, b, ref state.Temporary, ref state.TemporaryLength, true );
             y = BigIntegerCalculations.CreateBigInteger( state.V1Sign, state.Temporary, state.TemporaryLength );
 
             // Verify
