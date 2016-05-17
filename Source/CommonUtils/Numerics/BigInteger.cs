@@ -329,10 +329,20 @@ namespace CommonUtils.Numerics
          return quotient;
       }
 
+      // TODO move these two methods to Calculations.BigIntegerCalculations, and make this._bits internal!
+
       [CLSCompliant( false )]
       public UInt32[] GetValuesArrayCopy()
       {
          return this._bits.CreateArrayCopy();
+      }
+
+      [CLSCompliant( false )]
+      public void WriteToValuesArray( ref UInt32[] array, ref Int32 arrayLength )
+      {
+         var bits = this._bits;
+         arrayLength = Calculations.BigIntegerCalculations.ResizeBits( ref array, arrayLength, bits.Length );
+         Array.Copy( bits, 0, array, 0, bits.Length );
       }
 
       internal UInt32[] GetArrayDirect()

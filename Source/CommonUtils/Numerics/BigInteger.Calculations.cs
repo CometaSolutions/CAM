@@ -581,6 +581,38 @@ namespace CommonUtils.Numerics.Calculations
          DivideWithRemainder( divident, ref dividentLength, divisor, divisorLength, ref dummy, ref dummy2, false );
       }
 
+      public static void Modulus_Positive(
+         ref UInt32[] divident,
+         ref Int32 dividentLength,
+         Int32 dividentSign,
+         BigInteger divisor,
+         ref UInt32[] tmp,
+         ref Int32 tmpLength
+         )
+      {
+         var divisorBits = divisor.GetArrayDirect();
+         Modulus_Positive( ref divident, ref dividentLength, dividentSign, divisorBits, divisorBits.Length, ref tmp, ref tmpLength );
+      }
+
+      public static void Modulus_Positive(
+         ref UInt32[] divident,
+         ref Int32 dividentLength,
+         Int32 dividentSign,
+         UInt32[] divisor,
+         Int32 divisorLength,
+         ref UInt32[] tmp,
+         ref Int32 tmpLength
+         )
+      {
+         Modulus( divident, ref dividentLength, divisor, divisorLength );
+         // Modulus will be negative if divident was negative
+         if ( dividentSign < 0 )
+         {
+            Add( divident, dividentLength, dividentSign, divisor, divisorLength, 1, ref tmp, ref tmpLength, out dividentSign );
+            SwapBits( ref divident, ref dividentLength, ref tmp, ref tmpLength );
+         }
+      }
+
       public static void DivideWithRemainder(
          UInt32[] divident,
          ref Int32 dividentLength,
@@ -1037,6 +1069,72 @@ namespace CommonUtils.Numerics.Calculations
       public Int32 ResultLength;
       public Int32 TemporaryLength;
    }
+
+   public class ExtendedEuclideanCalculationState
+   {
+      [CLSCompliant( false )]
+      public ExtendedEuclideanCalculationState( UInt32[] a, UInt32[] b )
+         : this( a, a.Length, b, b.Length )
+      {
+
+      }
+      [CLSCompliant( false )]
+      public ExtendedEuclideanCalculationState( UInt32[] a, Int32 aLength, UInt32[] b, Int32 bLength )
+      {
+         this.U1 = new UInt32[] { 1 };
+         this.U3 = a;
+
+         this.V1 = new UInt32[] { 0 };
+         this.V3 = b;
+
+         this.U1Length = this.U1.Length;
+         this.U3Length = aLength;
+
+         this.V1Length = this.V1.Length;
+         this.V3Length = bLength;
+
+         this.Q = null;
+         this.QLength = 0;
+
+         this.Temporary = new UInt32[this.V3Length];
+         this.TemporaryLength = this.Temporary.Length;
+         this.Temporary2 = new UInt32[this.U3Length];
+         this.Temporary2Length = this.Temporary2.Length;
+
+         this.U1Sign = this.V1Sign = 1;
+      }
+
+      [CLSCompliant( false )]
+      public UInt32[] U1;
+      [CLSCompliant( false )]
+      public UInt32[] U3;
+
+      [CLSCompliant( false )]
+      public UInt32[] V1;
+      [CLSCompliant( false )]
+      public UInt32[] V3;
+
+      public Int32 U1Length;
+      public Int32 U3Length;
+
+      public Int32 V1Length;
+      public Int32 V3Length;
+
+      [CLSCompliant( false )]
+      public UInt32[] Q;
+      public Int32 QLength;
+
+      [CLSCompliant( false )]
+      public UInt32[] Temporary;
+      public Int32 TemporaryLength;
+      [CLSCompliant( false )]
+      public UInt32[] Temporary2;
+      public Int32 Temporary2Length;
+
+      // U3 and V3 are always positive
+      public Int32 U1Sign;
+      public Int32 V1Sign;
+   }
 }
 
 public static partial class E_CILPhysical
@@ -1238,57 +1336,7 @@ public static partial class E_CILPhysical
 
    #region ExtendedEuclidean
 
-   private sealed class ExtendedEuclideanCalculationState
-   {
-      public ExtendedEuclideanCalculationState( UInt32[] a, UInt32[] b )
-      {
-         this.U1 = new UInt32[] { 1 };
-         this.U3 = a;
 
-         this.V1 = new UInt32[] { 0 };
-         this.V3 = b;
-
-         this.U1Length = this.U1.Length;
-         this.U3Length = this.U3.Length;
-
-         this.V1Length = this.V1.Length;
-         this.V3Length = this.V3.Length;
-
-         this.Q = this.U3.CreateArrayCopy();
-         this.QLength = this.Q.Length;
-
-         this.Temporary = new UInt32[this.V3Length];
-         this.TemporaryLength = this.Temporary.Length;
-         this.Temporary2 = new UInt32[this.U3Length];
-         this.Temporary2Length = this.Temporary2.Length;
-
-         this.U1Sign = this.V1Sign = 1;
-      }
-
-      public UInt32[] U1;
-      public UInt32[] U3;
-
-      public UInt32[] V1;
-      public UInt32[] V3;
-
-      public Int32 U1Length;
-      public Int32 U3Length;
-
-      public Int32 V1Length;
-      public Int32 V3Length;
-
-      public UInt32[] Q;
-      public Int32 QLength;
-
-      public UInt32[] Temporary;
-      public Int32 TemporaryLength;
-      public UInt32[] Temporary2;
-      public Int32 Temporary2Length;
-
-      // U3 and V3 are always positive
-      public Int32 U1Sign;
-      public Int32 V1Sign;
-   }
 
    // When 'a' and 'b' given, computes ax + by = GCD(a,b)
    // The GCD is returned
@@ -1307,60 +1355,14 @@ public static partial class E_CILPhysical
          // U3 and V3 will get assigned so create a copy
          var state = new ExtendedEuclideanCalculationState( a.GetValuesArrayCopy(), b.GetValuesArrayCopy() );
 
-         // We don't keep computing U2 and V2 - the 'y' can be calculated from original equasion 'ax + by = GCD(a,b)' once we have found out the x and GCD
-         while ( state.V3Length >= 1 && state.V3[0] != 0 )
-         {
-            // tmp = u3
-            BigIntegerCalculations.CopyBits( state.U3, state.U3Length, ref state.Temporary, ref state.TemporaryLength );
-            // tmp = u3 % v3, q = u3 / v3
-            BigIntegerCalculations.DivideWithRemainder( state.Temporary, ref state.TemporaryLength, state.V3, state.V3Length, ref state.Q, ref state.QLength, true );
-            // u3 = v3
-            BigIntegerCalculations.SwapBits( ref state.U3, ref state.U3Length, ref state.V3, ref state.V3Length );
-            // v3 = u3 - q * v3 ( = u3 % v3)
-            BigIntegerCalculations.SwapBits( ref state.V3, ref state.V3Length, ref state.Temporary, ref state.TemporaryLength );
-
-
-            //var t1 = state.U1 - q * state.V1;
-            //state.U1 = state.V1;
-            //state.V1 = t1;
-
-            // Let's do u1 = v1 first
-            // We have to save u1
-            BigIntegerCalculations.CopyBits( state.U1, state.U1Length, ref state.Temporary, ref state.TemporaryLength );
-            var u1Sign = state.U1Sign;
-            // Now u1 = v1
-            BigIntegerCalculations.SwapBits( ref state.U1, ref state.U1Length, ref state.V1, ref state.V1Length );
-            state.U1Sign = state.V1Sign;
-
-            if ( state.V3Length >= 1 && state.V3[0] != 0 )
-            {
-               // Only calculate v1 if we are going to iterate one more time
-               // TODO move this into beginning of loop under if (state.Q != null) condition, since no point repeating loop condition here...
-
-               // tmp2 = q * v1
-               // Since q is always positive (because u3 and v3 are always positive), the sign of tmp2 is sign of v1
-               // Remember that v1 is now in u1
-               Int32 dummy;
-               BigIntegerCalculations.Multiply( state.Q, state.QLength, 1, state.U1, state.U1Length, 1, ref state.Temporary2, ref state.Temporary2Length, out dummy );
-               // v1 = u1 - tmp2 ( = tmp - tmp2 )
-               BigIntegerCalculations.Subtract( state.Temporary, state.TemporaryLength, u1Sign, state.Temporary2, state.Temporary2Length, state.V1Sign, ref state.V1, ref state.V1Length, out state.V1Sign );
-            }
-
-         }
+         state.RunExtendedEuclideanAlgorithm();
 
          x = BigIntegerCalculations.CreateBigInteger( state.U1Sign, state.U1, state.U1Length );
          var retVal = BigIntegerCalculations.CreateBigInteger( 1, state.U3, state.U3Length );
 
          if ( computeY )
          {
-
-            // ax + by = retVal
-            // => y = (retVal - ax) / b
-            // => y = (u3 - a * u1) / b
-            Int32 dummy;
-            BigIntegerCalculations.Multiply( a, state.U1, state.U1Length, 1, ref state.Temporary, ref state.TemporaryLength, out dummy );
-            BigIntegerCalculations.Subtract( state.U3, state.U3Length, 1, state.Temporary, state.TemporaryLength, state.U1Sign, ref state.Temporary2, ref state.Temporary2Length, out state.V1Sign );
-            BigIntegerCalculations.DivideWithRemainder( state.Temporary2, ref state.Temporary2Length, b, ref state.Temporary, ref state.TemporaryLength, true );
+            state.ComputeYAfterRunningAlgorithm( a, b );
             y = BigIntegerCalculations.CreateBigInteger( state.V1Sign, state.Temporary, state.TemporaryLength );
 
             // Verify
@@ -1373,6 +1375,65 @@ public static partial class E_CILPhysical
 
          return retVal;
       }
+   }
+
+   // After this, x will be in U1 and gcd will be in U3
+   // The y is computable from a, b, x, and gcd.
+   public static void RunExtendedEuclideanAlgorithm( this ExtendedEuclideanCalculationState state )
+   {
+      // We don't keep computing U2 and V2 - the 'y' can be calculated from original equasion 'ax + by = GCD(a,b)' once we have found out the x and GCD
+      while ( state.V3Length >= 1 && state.V3[0] != 0 )
+      {
+         // tmp = u3
+         BigIntegerCalculations.CopyBits( state.U3, state.U3Length, ref state.Temporary, ref state.TemporaryLength );
+         // tmp = u3 % v3, q = u3 / v3
+         BigIntegerCalculations.DivideWithRemainder( state.Temporary, ref state.TemporaryLength, state.V3, state.V3Length, ref state.Q, ref state.QLength, true );
+         // u3 = v3
+         BigIntegerCalculations.SwapBits( ref state.U3, ref state.U3Length, ref state.V3, ref state.V3Length );
+         // v3 = u3 - q * v3 ( = u3 % v3)
+         BigIntegerCalculations.SwapBits( ref state.V3, ref state.V3Length, ref state.Temporary, ref state.TemporaryLength );
+
+
+         //var t1 = state.U1 - q * state.V1;
+         //state.U1 = state.V1;
+         //state.V1 = t1;
+
+         // Let's do u1 = v1 first
+         // We have to save u1
+         BigIntegerCalculations.CopyBits( state.U1, state.U1Length, ref state.Temporary, ref state.TemporaryLength );
+         var u1Sign = state.U1Sign;
+         // Now u1 = v1
+         BigIntegerCalculations.SwapBits( ref state.U1, ref state.U1Length, ref state.V1, ref state.V1Length );
+         state.U1Sign = state.V1Sign;
+
+         if ( state.V3Length >= 1 && state.V3[0] != 0 )
+         {
+            // Only calculate v1 if we are going to iterate one more time
+            // TODO move this into beginning of loop under if (state.Q != null) condition, since no point repeating loop condition here...
+
+            // tmp2 = q * v1
+            // Since q is always positive (because u3 and v3 are always positive), the sign of tmp2 is sign of v1
+            // Remember that v1 is now in u1
+            Int32 dummy;
+            BigIntegerCalculations.Multiply( state.Q, state.QLength, 1, state.U1, state.U1Length, 1, ref state.Temporary2, ref state.Temporary2Length, out dummy );
+            // v1 = u1 - tmp2 ( = tmp - tmp2 )
+            BigIntegerCalculations.Subtract( state.Temporary, state.TemporaryLength, u1Sign, state.Temporary2, state.Temporary2Length, state.V1Sign, ref state.V1, ref state.V1Length, out state.V1Sign );
+         }
+
+      }
+   }
+
+   // After this, y will be in state.Temporary, and its sign will be in state.V1Sign
+   // Assumes that the state is not modified after RunExtendedEuclideanAlgorithm method!
+   public static void ComputeYAfterRunningAlgorithm( this ExtendedEuclideanCalculationState state, BigInteger a, BigInteger b )
+   {
+      // ax + by = retVal
+      // => y = (retVal - ax) / b
+      // => y = (u3 - a * u1) / b
+      Int32 dummy;
+      BigIntegerCalculations.Multiply( a, state.U1, state.U1Length, 1, ref state.Temporary, ref state.TemporaryLength, out dummy );
+      BigIntegerCalculations.Subtract( state.U3, state.U3Length, 1, state.Temporary, state.TemporaryLength, state.U1Sign, ref state.Temporary2, ref state.Temporary2Length, out state.V1Sign );
+      BigIntegerCalculations.DivideWithRemainder( state.Temporary2, ref state.Temporary2Length, b, ref state.Temporary, ref state.TemporaryLength, true );
    }
 
    #endregion
