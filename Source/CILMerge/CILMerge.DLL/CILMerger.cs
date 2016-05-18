@@ -1186,10 +1186,10 @@ namespace CILMerge
          var aInfo = targetMD.AssemblyDefinitions.TableContents[0].AssemblyInformation;
 
          aInfo.Culture = primaryAInfo.Culture;
-         if ( eArgs.StrongName != null )
-         {
-            aInfo.PublicKeyOrToken = eArgs.CryptoCallbacks.CreatePublicKeyFromStrongName( eArgs.StrongName );
-         }
+         //if ( eArgs.StrongName != null )
+         //{
+         //   aInfo.PublicKeyOrToken = eArgs.CryptoCallbacks.CreatePublicKeyFromStrongName( eArgs.StrongName );
+         //}
 
          if ( this._options.VerMajor > -1 )
          {

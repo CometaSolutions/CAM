@@ -15,53 +15,53 @@
 * See the License for the specific language governing permissions and
 * limitations under the License. 
 */
-extern alias CAMPhysical;
-using CAMPhysical;
-using CAMPhysical::CILAssemblyManipulator.Physical;
+//extern alias CAMPhysical;
+//using CAMPhysical;
+//using CAMPhysical::CILAssemblyManipulator.Physical;
 
-using CILAssemblyManipulator.Physical;
-using CILAssemblyManipulator.Physical.Crypto;
-using CILAssemblyManipulator.Physical.IO;
-using CommonUtils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+//using CILAssemblyManipulator.Physical;
+//using CILAssemblyManipulator.Physical.Crypto;
+//using CILAssemblyManipulator.Physical.IO;
+//using CommonUtils;
+//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Text;
 
-#pragma warning disable 1591
-public static partial class E_CILPhysical
-#pragma warning restore 1591
-{
-   /// <summary>
-   /// Helper method to create a public key from <see cref="StrongNameKeyPair"/>, be it the one storing whole public-private key pair in its <see cref="StrongNameKeyPair.KeyPair"/> property, or container name in its <see cref="StrongNameKeyPair.ContainerName"/>.
-   /// </summary>
-   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/>.</param>
-   /// <param name="strongName">The <see cref="StrongNameKeyPair"/>. May be <c>null</c>.</param>
-   /// <returns>The extracted public key, if successful, <c>null</c> otherwise.</returns>
-   /// <exception cref="NullReferenceException">If <paramref name="strongName"/> is not <c>null</c> and has <see cref="StrongNameKeyPair.ContainerName"/> set, and this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
-   public static Byte[] CreatePublicKeyFromStrongName(
-      this CryptoCallbacks cryptoCallbacks,
-      StrongNameKeyPair strongName
-      )
-   {
-      Byte[] retVal;
-      if ( strongName == null )
-      {
-         retVal = null;
-      }
-      else
-      {
-         var container = strongName.ContainerName;
-         if ( container == null )
-         {
-            retVal = cryptoCallbacks.TryParseKeyBLOB( strongName.KeyPair.ToArray(), null )?.PublicKey;
-         }
-         else
-         {
-            retVal = cryptoCallbacks.ExtractPublicKeyFromCSPContainer( container );
-         }
-      }
+//#pragma warning disable 1591
+//public static partial class E_CILPhysical
+//#pragma warning restore 1591
+//{
+//   /// <summary>
+//   /// Helper method to create a public key from <see cref="StrongNameKeyPair"/>, be it the one storing whole public-private key pair in its <see cref="StrongNameKeyPair.KeyPair"/> property, or container name in its <see cref="StrongNameKeyPair.ContainerName"/>.
+//   /// </summary>
+//   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/>.</param>
+//   /// <param name="strongName">The <see cref="StrongNameKeyPair"/>. May be <c>null</c>.</param>
+//   /// <returns>The extracted public key, if successful, <c>null</c> otherwise.</returns>
+//   /// <exception cref="NullReferenceException">If <paramref name="strongName"/> is not <c>null</c> and has <see cref="StrongNameKeyPair.ContainerName"/> set, and this <see cref="CryptoCallbacks"/> is <c>null</c>.</exception>
+//   public static Byte[] CreatePublicKeyFromStrongName(
+//      this CryptoCallbacks cryptoCallbacks,
+//      StrongNameKeyPair strongName
+//      )
+//   {
+//      Byte[] retVal;
+//      if ( strongName == null )
+//      {
+//         retVal = null;
+//      }
+//      else
+//      {
+//         var container = strongName.ContainerName;
+//         if ( container == null )
+//         {
+//            retVal = cryptoCallbacks.TryParseKeyBLOB( strongName.KeyPair.ToArray(), null )?.PublicKey;
+//         }
+//         else
+//         {
+//            retVal = cryptoCallbacks.ExtractPublicKeyFromCSPContainer( container );
+//         }
+//      }
 
-      return retVal;
-   }
-}
+//      return retVal;
+//   }
+//}
