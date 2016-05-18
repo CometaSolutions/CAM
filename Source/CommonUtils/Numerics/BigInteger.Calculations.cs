@@ -79,14 +79,14 @@ namespace CommonUtils.Numerics.Calculations
          return TryGetSmallValue( bits, ref bitsLength, out smallValue ) && smallValue == 0;
       }
 
-      public static void SetSmallValue( this ModifiableBigInteger bigInt, UInt32 smallValue, Int32 sign )
-      {
-         SetSmallValue( ref bigInt._bits, ref bigInt._length, smallValue );
-         if ( smallValue == 0 )
-         {
-            bigInt._sign = 0;
-         }
-      }
+      //public static void SetSmallValue( this ModifiableBigInteger bigInt, UInt32 smallValue, Int32 sign )
+      //{
+      //   SetSmallValue( ref bigInt._bits, ref bigInt._length, smallValue );
+      //   if ( smallValue == 0 )
+      //   {
+      //      bigInt._sign = 0;
+      //   }
+      //}
 
       private static void SetSmallValue( ref UInt32[] bits, ref Int32 bitsLength, UInt32 smallValue )
       {
