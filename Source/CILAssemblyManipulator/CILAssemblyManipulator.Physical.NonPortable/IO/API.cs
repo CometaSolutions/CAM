@@ -98,21 +98,27 @@ public static partial class E_CILPhysical
          eArgs = new WritingArguments();
       }
 
-      eArgs.ImageInformation = ( eArgs.WriterFunctionalityProvider ?? new CILAssemblyManipulator.Physical.IO.Defaults.DefaultWriterFunctionalityProvider() )
-         .WriteMetaDataToStream(
-            stream,
-            md,
-            eArgs.WritingOptions,
-            eArgs.StrongName,
-            eArgs.DelaySign,
-            eArgs.CryptoCallbacks
-#if !CAM_PHYSICAL_IS_PORTABLE
-            ?? new CryptoCallbacksDotNET()
+      ImageInformation imageInfo;
+      var provider = ( eArgs.WriterFunctionalityProvider ?? new CILAssemblyManipulator.Physical.IO.Defaults.DefaultWriterFunctionalityProvider() );
+      var cc = eArgs.CryptoCallbacks;
+      if ( cc == null )
+      {
+         using ( cc = new
+#if CAM_PHYSICAL_IS_PORTABLE
+            DefaultCryptoCallbacks.CreateDefaultInstance()
+#else
+            CryptoCallbacksDotNET()
 #endif
-            ,
-            eArgs.SigningAlgorithm,
-            eArgs.ErrorHandler
-            );
+            )
+         {
+            imageInfo = provider.WriteMetaDataToStream( stream, md, eArgs.WritingOptions, eArgs.StrongName, eArgs.DelaySign, cc, eArgs.SigningAlgorithm, eArgs.ErrorHandler );
+         }
+      }
+      else
+      {
+         imageInfo = provider.WriteMetaDataToStream( stream, md, eArgs.WritingOptions, eArgs.StrongName, eArgs.DelaySign, cc, eArgs.SigningAlgorithm, eArgs.ErrorHandler );
+      }
 
+      eArgs.ImageInformation = imageInfo;
    }
 }

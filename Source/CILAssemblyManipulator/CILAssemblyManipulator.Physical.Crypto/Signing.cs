@@ -769,6 +769,7 @@ public static partial class E_CILPhysical
       if ( actualRSA == null )
       {
          // We can use RSA algorithm directly
+         // TODO this still initializes Input of RSAState twice, this could and should be optimized.
          state.Temporary.CopyBits( state.RSAState.Input, true );
          state.RSAState.RunRSAAlgorithm_Decrypt();
          BigIntegerCalculations.Swap( ref state.RSAState.Result, ref state.Temporary );

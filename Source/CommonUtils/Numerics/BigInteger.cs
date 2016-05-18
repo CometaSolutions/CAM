@@ -721,7 +721,8 @@ namespace CommonUtils.Numerics
             switch ( byteCount % sizeof( UInt32 ) )
             {
                case 0:
-                  // The amount of bytes is even - start from first integer
+                  // The amount of bytes is even - read last integer.
+                  bits[idx++] = bytes.ReadUInt32LEFromBytes( ref offset );
                   break;
                case 1:
                   // One extra byte
