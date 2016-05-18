@@ -329,21 +329,21 @@ namespace CommonUtils.Numerics
          return quotient;
       }
 
-      // TODO move these two methods to Calculations.BigIntegerCalculations, and make this._bits internal!
+      //// TODO move these two methods to Calculations.BigIntegerCalculations, and make this._bits internal!
 
-      [CLSCompliant( false )]
-      public UInt32[] GetValuesArrayCopy()
-      {
-         return this._bits.CreateArrayCopy();
-      }
+      //[CLSCompliant( false )]
+      //public UInt32[] GetValuesArrayCopy()
+      //{
+      //   return this._bits.CreateArrayCopy();
+      //}
 
-      [CLSCompliant( false )]
-      public void WriteToValuesArray( ref UInt32[] array, ref Int32 arrayLength )
-      {
-         var bits = this._bits;
-         arrayLength = Calculations.BigIntegerCalculations.ResizeBits( ref array, arrayLength, bits.Length );
-         Array.Copy( bits, 0, array, 0, bits.Length );
-      }
+      //[CLSCompliant( false )]
+      //public void WriteToValuesArray( ref UInt32[] array, ref Int32 arrayLength )
+      //{
+      //   var bits = this._bits;
+      //   arrayLength = Calculations.BigIntegerCalculations.ResizeBits( ref array, arrayLength, bits.Length );
+      //   Array.Copy( bits, 0, array, 0, bits.Length );
+      //}
 
       internal UInt32[] GetArrayDirect()
       {
@@ -418,10 +418,21 @@ namespace CommonUtils.Numerics
 
       public override String ToString()
       {
+         return ToString( this._sign, this._bits, this._bits.Length );
+      }
+
+      internal static String ToString( Int32 sign, UInt32[] bits, Int32 bitsLength )
+      {
+         UInt32 smallValue;
          String retVal;
-         if ( this.IsZero )
+         var isNegative = sign < 0;
+         if ( Calculations.BigIntegerCalculations.TryGetSmallValue( bits, ref bitsLength, out smallValue ) )
          {
-            retVal = "0";
+            retVal = smallValue.ToString();
+            if ( isNegative )
+            {
+               retVal = "-" + retVal;
+            }
          }
          else
          {
@@ -431,14 +442,12 @@ namespace CommonUtils.Numerics
             const Int32 convBasePower = 9;
             try
             {
-               var thisByteLen = this.BitsArrayLength;
-               var thisBits = this._bits;
-               var newBits = new UInt32[thisByteLen * 10 / 9 + 2];
+               var newBits = new UInt32[bitsLength * 10 / 9 + 2];
                var newBitsIdx = 0;
 
-               for ( var i = thisByteLen - 1; i >= 0; --i )
+               for ( var i = bitsLength - 1; i >= 0; --i )
                {
-                  var carry = thisBits[i];
+                  var carry = bits[i];
                   for ( var j = 0; j < newBitsIdx; ++j )
                   {
                      var cur = Calculations.BigIntegerCalculations.ToUInt64( newBits[j], carry );
@@ -462,7 +471,6 @@ namespace CommonUtils.Numerics
 
                // Each integer in newBits takes at most 9 characters in base10
                var charCount = newBitsIdx * convBasePower;
-               var isNegative = this.IsNegative();
                if ( isNegative )
                {
                   // Space for '-'
@@ -942,26 +950,27 @@ namespace CommonUtils.Numerics
             var dividentBits = divident._bits.CreateArrayCopy();
             Int32 dividentLength = dividentBits.Length;
             var sign = divident.Sign;
-            if ( computeModulus && !computeQuotient )
+            //if ( computeModulus && !computeQuotient )
+            //{
+            //   Calculations.BigIntegerCalculations.Modulus( dividentBits, ref dividentLength, divisor );
+            //   modulusResult = new BigInteger( sign, dividentBits, dividentLength );
+            //}
+            //else
+            //{
+            UInt32[] quotient = null;
+            Int32 quotientLength = -1;
+            Int32 quotientSign = -1;
+            Calculations.BigIntegerCalculations.DivideWithRemainder( dividentBits, ref dividentLength, sign, divisor._bits, divisor._bits.Length, divisor.Sign, ref quotient, ref quotientLength, ref quotientSign, computeQuotient );
+            if ( computeModulus )
             {
-               Calculations.BigIntegerCalculations.Modulus( dividentBits, ref dividentLength, divisor );
                modulusResult = new BigInteger( sign, dividentBits, dividentLength );
             }
-            else
+            if ( computeQuotient )
             {
-               UInt32[] quotient = null;
-               Int32 quotientLength = -1;
-               Calculations.BigIntegerCalculations.DivideWithRemainder( dividentBits, ref dividentLength, divisor, ref quotient, ref quotientLength, computeQuotient );
-               if ( computeModulus )
-               {
-                  modulusResult = new BigInteger( sign, dividentBits, dividentLength );
-               }
-               if ( computeQuotient )
-               {
-                  quotientResult = new BigInteger( sign, quotient, quotientLength );
-               }
-
+               quotientResult = new BigInteger( quotientSign, quotient, quotientLength );
             }
+
+            //}
          }
       }
 
@@ -990,7 +999,7 @@ namespace CommonUtils.Numerics
             UInt32[] resultBits = null;
             var resultLength = -1;
             Int32 resultSign;
-            Calculations.BigIntegerCalculations.Add( left, right, ref resultBits, ref resultLength, out resultSign );
+            Calculations.BigIntegerCalculations.Add( left._bits, left._bits.Length, left.Sign, right._bits, right._bits.Length, right.Sign, ref resultBits, ref resultLength, out resultSign );
             retVal = new BigInteger( resultSign, resultBits, resultLength );
          }
 
@@ -1013,7 +1022,7 @@ namespace CommonUtils.Numerics
             UInt32[] resultBits = null;
             var resultLength = -1;
             Int32 resultSign;
-            Calculations.BigIntegerCalculations.Subtract( left, right, ref resultBits, ref resultLength, out resultSign );
+            Calculations.BigIntegerCalculations.Subtract( left._bits, left._bits.Length, left.Sign, right._bits, right._bits.Length, right.Sign, ref resultBits, ref resultLength, out resultSign );
             retVal = new BigInteger( resultSign, resultBits, resultLength );
          }
          return retVal;
@@ -1066,7 +1075,7 @@ namespace CommonUtils.Numerics
             UInt32[] resultBits = null;
             var resultLength = -1;
             Int32 resultSign;
-            Calculations.BigIntegerCalculations.Multiply( left, right, ref resultBits, ref resultLength, out resultSign );
+            Calculations.BigIntegerCalculations.Multiply( left._bits, left._bits.Length, left.Sign, right._bits, right._bits.Length, right.Sign, ref resultBits, ref resultLength, out resultSign );
             retVal = new BigInteger(
                resultSign,
                resultBits,

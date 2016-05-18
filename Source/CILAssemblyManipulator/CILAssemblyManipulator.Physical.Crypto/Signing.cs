@@ -181,7 +181,10 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// </remarks>
       public RSABlindedAlgorithm( RSAAlgorithm actualEncryptor = null, Random random = null )
       {
-         this._actualEncryptor = actualEncryptor ?? RSAAlgorithm.DefaultInstance;
+         if ( actualEncryptor != null && !Equals( actualEncryptor.GetType(), typeof( RSAAlgorithm ) ) )
+         {
+            this._actualEncryptor = actualEncryptor;
+         }
          this._random = random ?? new SecureRandom( DigestRandomGenerator.CreateAndSeedWithDefaultLogic( new SHA2_512() ) );
          this._randomCreatedByConstructor = random == null;
       }
@@ -197,7 +200,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <param name="parameters"></param>
       public void ProcessBlock( Byte[] input, Int32 inOffset, Int32 inCount, Byte[] output, Int32 outOffset, RSAComputingParameters parameters )
       {
-         var inputInt = this._actualEncryptor.ConvertInput( input, inOffset, inCount, parameters );
+         var encryptor = this._actualEncryptor ?? RSAAlgorithm.DefaultInstance;
+         var inputInt = encryptor.ConvertInput( input, inOffset, inCount, parameters );
          var m = parameters.Modulus;
          var random = this._random.NextBigInt( 1, m - 1 );
          var outputInt = parameters.RunRSAAlgorithm_Blinded( inputInt, random, this._actualEncryptor );
@@ -218,7 +222,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
          //var testing = parameters.RunRSAAlgorithm_Blinded( inputInt, random, this._actualEncryptor );
 
-         this._actualEncryptor.ConvertOutput( output, outOffset, outputInt, parameters.OutputEndianness );
+         encryptor.ConvertOutput( output, outOffset, outputInt, parameters.OutputEndianness );
       }
 
       /// <inheritdoc />
@@ -660,21 +664,20 @@ public static partial class E_CILPhysical
          this.DQ = rsaParams.DQ ?? default( BigInteger );
          this.InverseQ = rsaParams.InverseQ ?? default( BigInteger );
 
-         this.Temporary = new UInt32[0];
-         this.TemporaryLength = this.Temporary.Length;
+         this.Temporary = new ModifiableBigInteger();
 
-         this.Input = input.GetValuesArrayCopy();
-         this.InputLength = this.Input.Length;
+         this.Input = new ModifiableBigInteger( input );
+         this.MP = new ModifiableBigInteger();
+         this.MQ = new ModifiableBigInteger();
+         this.Result = new ModifiableBigInteger();
       }
 
       public BigInteger Modulus;
       public BigInteger Exponent;
 
-      public UInt32[] Input;
-      public Int32 InputLength;
+      public ModifiableBigInteger Input;
 
-      public UInt32[] Result;
-      public Int32 ResultLength;
+      public ModifiableBigInteger Result;
 
       public BigInteger P;
       public BigInteger DP;
@@ -682,13 +685,10 @@ public static partial class E_CILPhysical
       public BigInteger DQ;
       public BigInteger InverseQ;
 
-      public UInt32[] Temporary;
-      public Int32 TemporaryLength;
+      public ModifiableBigInteger Temporary;
 
-      public UInt32[] MP;
-      public Int32 MPLength;
-      public UInt32[] MQ;
-      public Int32 MQLength;
+      public ModifiableBigInteger MP;
+      public ModifiableBigInteger MQ;
 
       public Boolean HasPrivateKey
       {
@@ -708,17 +708,15 @@ public static partial class E_CILPhysical
       public RSABlindedComputationState( RSAComputingParameters rsaParams, BigInteger input, BigInteger random )
       {
          this.RSAState = new RSAComputationState( rsaParams, input );
-         this.ModPowState = new ModPowCalculationState( random.GetValuesArrayCopy(), rsaParams.Modulus );
-         this.Temporary = null;
-         this.TemporaryLength = 0;
+         this.ModPowState = new ModPowCalculationState( random.AsModifiable(), rsaParams.Modulus );
+         this.Temporary = new ModifiableBigInteger();
       }
 
       public RSAComputationState RSAState { get; }
 
       public ModPowCalculationState ModPowState { get; }
 
-      public UInt32[] Temporary;
-      public Int32 TemporaryLength;
+      public ModifiableBigInteger Temporary;
    }
 
    /// <summary>
@@ -738,7 +736,7 @@ public static partial class E_CILPhysical
       {
          state.RunRSAAlgorithm_Encrypt();
       }
-      var retVal = BigIntegerCalculations.CreateBigInteger( 1, state.Result, state.ResultLength );
+      var retVal = state.Result.CreateBigInteger();
       return retVal;
    }
 
@@ -759,50 +757,50 @@ public static partial class E_CILPhysical
       }
 
       // Compute another input i' = (i * r ^ e) Mod m
-      Int32 sign;
       var mpState = state.ModPowState;
       var modulus = state.RSAState.Modulus;
       // random.ModPow(exponent, modulus)
-      mpState.ModPow( 1, state.RSAState.Exponent, out sign );
+      mpState.ModPow( state.RSAState.Exponent );
       // input * random.ModPow(exponent, modulus)
-      BigIntegerCalculations.Multiply( input, mpState.Result, mpState.ResultLength, sign, ref state.Temporary, ref state.TemporaryLength, out sign );
+      BigIntegerCalculations.Multiply( input, mpState.Result, state.Temporary );
       // (input * random.ModPow(exponent, modulus).Remainder_Positive( modulus )
-      BigIntegerCalculations.Modulus_Positive( ref state.Temporary, ref state.TemporaryLength, sign, modulus, ref mpState.Result, ref mpState.ResultLength );
+      BigIntegerCalculations.Modulus_Positive( state.Temporary, modulus, mpState.Result );
       // Pass i' to actual RSA algorithm
       if ( actualRSA == null )
       {
          // We can use RSA algorithm directly
+         state.Temporary.CopyBits( state.RSAState.Input, true );
          state.RSAState.RunRSAAlgorithm_Decrypt();
-         BigIntegerCalculations.SwapBits( ref state.RSAState.Result, ref state.RSAState.ResultLength, ref state.Temporary, ref state.TemporaryLength );
+         BigIntegerCalculations.Swap( ref state.RSAState.Result, ref state.Temporary );
       }
       else
       {
          // We use the actualRSA object, which operates on BigIntegers.
-         var actualRSAOutput = actualRSA.ProcessInteger( BigIntegerCalculations.CreateBigInteger( 1, state.Temporary, state.TemporaryLength ), rsaParams );
-         actualRSAOutput.WriteToValuesArray( ref state.Temporary, ref state.TemporaryLength );
+         var actualRSAOutput = actualRSA.ProcessInteger( state.Temporary.CreateBigInteger(), rsaParams );
+         state.Temporary.InitializeBig( actualRSAOutput );
       }
 
       // state.Temporary now has output from actual RSA
       // But first, calculate random.ModInverse( modulus )
-      random.WriteToValuesArray( ref mpState.Result, ref mpState.ResultLength );
-      modulus.WriteToValuesArray( ref mpState.Temporary, ref mpState.TemporaryLength );
-      var eeState = new ExtendedEuclideanCalculationState( mpState.Result, mpState.ResultLength, mpState.Temporary, mpState.TemporaryLength );
+      mpState.Result.InitializeBig( random );
+      mpState.Temporary.InitializeBig( modulus );
+      var eeState = new ExtendedEuclideanCalculationState( mpState.Result, mpState.Temporary );
       eeState.RunExtendedEuclideanAlgorithm();
       // gcd is in u3
       UInt32 gcd;
-      if ( !BigIntegerCalculations.TryGetSmallValue( eeState.U3, ref eeState.U3Length, out gcd ) || gcd != 1 )
+      if ( !eeState.U3.TryGetSmallValue( out gcd ) || gcd != 1 )
       {
          // Shouldn't be possible?
          throw new ArithmeticException( "ModInverse failed in RSA blinded algorithm" );
       }
       // mod inverse is in u1.
       // blindedOutput * random.ModInverse( modulus )
-      BigIntegerCalculations.Multiply( state.Temporary, state.TemporaryLength, 1, eeState.U1, eeState.U1Length, eeState.U1Sign, ref eeState.Temporary, ref eeState.TemporaryLength, out sign );
+      BigIntegerCalculations.Multiply( state.Temporary, eeState.U1, eeState.Temporary );
       // (blindedOutput * random.ModInverse( modulus ) ).Remainder_Positive( modulus )
-      BigIntegerCalculations.Modulus_Positive( ref eeState.Temporary, ref eeState.TemporaryLength, sign, modulus, ref state.Temporary, ref state.TemporaryLength );
+      BigIntegerCalculations.Modulus_Positive( eeState.Temporary, modulus, state.Temporary );
 
       // This is our result
-      return BigIntegerCalculations.CreateBigInteger( 1, eeState.Temporary, eeState.TemporaryLength );
+      return eeState.Temporary.CreateBigInteger();
       //BigIntegerCalculations.SwapBits( ref eeState.Temporary, ref eeState.TemporaryLength, ref state.RSAState.Result, ref state.RSAState.ResultLength );
    }
 
@@ -810,35 +808,30 @@ public static partial class E_CILPhysical
    {
       // mP = ((input Mod p) ^ dP)) Mod p
       // var mp = ( input % p ).ModPow( dp, p );
-      BigIntegerCalculations.CopyBits( state.Input, state.InputLength, ref state.Temporary, ref state.TemporaryLength );
-      BigIntegerCalculations.Modulus( state.Temporary, ref state.TemporaryLength, state.P ); // temp = input % p
-      var modTmp = BigIntegerCalculations.CreateBigInteger( 1, state.Temporary, state.TemporaryLength );
-      var modPowState = new ModPowCalculationState( state.Temporary, state.TemporaryLength, state.P );
-      Int32 mpSign;
-      modPowState.ModPow( 1, state.DP, out mpSign );
-      BigIntegerCalculations.CopyBits( modPowState.Result, modPowState.ResultLength, ref state.MP, ref state.MPLength );
-      var mp = BigIntegerCalculations.CreateBigInteger( mpSign, state.MP, state.MPLength );
+      state.Input.CopyBits( state.Temporary, true );
+      BigIntegerCalculations.Modulus( state.Temporary, state.P ); // temp = input % p
+      var modPowState = new ModPowCalculationState( state.Temporary, state.P );
+      modPowState.ModPow( state.DP );
+      BigIntegerCalculations.CopyBits( modPowState.Result, state.MP, true );
 
       // mQ = ((input Mod q) ^ dQ)) Mod q
       // var mq = ( input % q ).ModPow( dq, q );
       // Input is no longer needed after this, so do modulus right into it
-      BigIntegerCalculations.Modulus( state.Input, ref state.InputLength, state.Q );
-      modPowState.Reset( state.Input, state.InputLength, state.Q );
-      Int32 mqSign;
-      modPowState.ModPow( 1, state.DQ, out mqSign );
-      BigIntegerCalculations.CopyBits( modPowState.Result, modPowState.ResultLength, ref state.MQ, ref state.MQLength );
+      BigIntegerCalculations.Modulus( state.Input, state.Q );
+      modPowState.Reset( state.Input, state.Q );
+      modPowState.ModPow( state.DQ );
+      BigIntegerCalculations.CopyBits( modPowState.Result, state.MQ, true );
 
       // h = qInv * (mP - mQ) Mod p
       // var h = ( parameters.InverseQ * ( mp - mq ) ).Remainder_Positive( p );
-      Int32 tmpSign;
-      BigIntegerCalculations.Subtract( state.MP, state.MPLength, mpSign, state.MQ, state.MQLength, mqSign, ref state.Input, ref state.InputLength, out tmpSign );
-      BigIntegerCalculations.Multiply( state.InverseQ, state.Input, state.InputLength, tmpSign, ref state.Temporary, ref state.TemporaryLength, out tmpSign );
-      BigIntegerCalculations.Modulus_Positive( ref state.Temporary, ref state.TemporaryLength, tmpSign, state.P, ref state.Input, ref state.InputLength );
+      BigIntegerCalculations.Subtract( state.MP, state.MQ, state.Input );
+      BigIntegerCalculations.Multiply( state.InverseQ, state.Input, state.Temporary );
+      BigIntegerCalculations.Modulus_Positive( state.Temporary, state.P, state.Input );
 
       // m = h * q + mQ
       // retVal = ( h * q ) + mq;
-      BigIntegerCalculations.Multiply( state.Temporary, state.TemporaryLength, 1, state.Q, ref state.Input, ref state.InputLength, out tmpSign );
-      BigIntegerCalculations.Add( state.Input, state.InputLength, tmpSign, state.MQ, state.MQLength, 1, ref state.Result, ref state.ResultLength, out tmpSign );
+      BigIntegerCalculations.Multiply( state.Temporary, state.Q, state.Input );
+      BigIntegerCalculations.Add( state.Input, state.MQ, state.Result );
    }
 
    private static void RunRSAAlgorithm_Encrypt( this RSAComputationState state )
@@ -848,11 +841,8 @@ public static partial class E_CILPhysical
 
       // c = (i ^ e) Mod m
       //retVal = input.ModPow( parameters.Exponent, parameters.Modulus );
-      var exponent = state.Exponent.GetValuesArrayCopy();
-      Int32 resultSign;
-      modState.ModPow( 1, exponent, exponent.Length, out resultSign );
+      modState.ModPow( state.Exponent );
       state.Result = modState.Result;
-      state.ResultLength = modState.ResultLength;
    }
 
 
