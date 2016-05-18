@@ -477,12 +477,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// Gets the default instance of <see cref="DefaultCryptoCallbacks"/>, which uses 
       /// </summary>
-      public static DefaultCryptoCallbacks DefaultInstance { get; }
+      public static DefaultCryptoCallbacks NonBlindedInstance { get; }
 
       static DefaultCryptoCallbacks()
       {
          ObjIDCache = new Dictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier>();
-         DefaultInstance = new DefaultCryptoCallbacks();
+         NonBlindedInstance = new DefaultCryptoCallbacks();
       }
 
       /// <summary>
@@ -493,7 +493,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <remarks>
       /// Please note that if <paramref name="randomToUse"/> is not <c>null</c>, it will *not* be disposed when the returned <see cref="DefaultCryptoCallbacks"/> is disposed.
       /// </remarks>
-      public static DefaultCryptoCallbacks CreateWithBlindedRSA( Random randomToUse = null )
+      public static DefaultCryptoCallbacks CreateDefaultInstance( Random randomToUse = null )
       {
          return new DefaultCryptoCallbacks( () => new RSABlindedAlgorithm( RSAAlgorithm.DefaultInstance, randomToUse ) );
       }

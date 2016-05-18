@@ -212,8 +212,8 @@ namespace CILAssemblyManipulator.Tests.Physical
          //var hashString = "var sourceHash = new Byte[] { " + String.Join( ", ", hash.Select( b => "0x" + b.ToString( "x2" ) ) ) + "};";
          //var sigString = "var expectedSignature = new Byte[] { " + String.Join( ", ", nativeSignature.Select( b => "0x" + b.ToString( "x2" ) ) ) + "};";
 
-         TestCAMSignature( hash, nativeSignature, () => DefaultCryptoCallbacks.DefaultInstance );
-         TestCAMSignature( hash, nativeSignature, () => DefaultCryptoCallbacks.CreateWithBlindedRSA() );
+         TestCAMSignature( hash, nativeSignature, () => DefaultCryptoCallbacks.NonBlindedInstance );
+         TestCAMSignature( hash, nativeSignature, () => DefaultCryptoCallbacks.CreateDefaultInstance() );
       }
 
       private static void TestCAMSignature( Byte[] hash, Byte[] nativeSignature, Func<CryptoCallbacks> cryptoFactory )
