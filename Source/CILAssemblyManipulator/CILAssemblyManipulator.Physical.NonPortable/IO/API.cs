@@ -103,11 +103,11 @@ public static partial class E_CILPhysical
       var cc = eArgs.CryptoCallbacks;
       if ( cc == null )
       {
-         using ( cc = new
+         using ( cc =
 #if CAM_PHYSICAL_IS_PORTABLE
             DefaultCryptoCallbacks.CreateDefaultInstance()
 #else
-            CryptoCallbacksDotNET()
+            new CryptoCallbacksDotNET()
 #endif
             )
          {

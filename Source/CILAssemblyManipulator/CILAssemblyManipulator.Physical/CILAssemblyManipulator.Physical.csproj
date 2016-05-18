@@ -107,7 +107,7 @@
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.Loading.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.IO.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.IO.Defaults.dll" />
-      <ProjectToMerge Condition=" '$(CAMPhysicalIsPortable)' == '' " Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.NonPortable.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.NonPortable.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CILAssemblyManipulator.Physical.TypeRemapping.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.MResources.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)..\SL\CILAssemblyManipulator.Physical.MResources.IO.dll" />

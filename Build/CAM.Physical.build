@@ -27,7 +27,7 @@
       Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
     <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO.Defaults/CILAssemblyManipulator.Physical.IO.Defaults.csproj"
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.NonPortable/CILAssemblyManipulator.Physical.NonPortable.csproj"
       Targets="Build"
       Properties="Configuration=$(CAMPhysicalConfiguration)_Portable;Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />
@@ -45,7 +45,7 @@
 
     <!-- Non-portable build -->
     <MSBuild
-      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO.Defaults/CILAssemblyManipulator.Physical.IO.Defaults.csproj"
+      Projects="$(CAMPhysicalBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.NonPortable/CILAssemblyManipulator.Physical.NonPortable.csproj"
       Targets="Build"
       Properties="Configuration=$(CAMPhysicalConfiguration);Platform=$(CAMPhysicalPlatform);IsCommandLineBuild=true;UseUtilpackReference=true"
       />

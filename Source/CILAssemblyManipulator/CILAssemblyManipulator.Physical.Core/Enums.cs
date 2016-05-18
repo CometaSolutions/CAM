@@ -2291,4 +2291,64 @@ public static partial class E_CILPhysical
    {
       return ( info & MethodSignatureInformation.ExplicitThis ) != 0;
    }
+
+   /// <summary>
+   /// Checks whether the <see cref="PInvokeAttributes"/> has the <see cref="PInvokeAttributes.NoMangle"/> flag.
+   /// </summary>
+   /// <param name="attrs">The <see cref="PInvokeAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has <see cref="PInvokeAttributes.NoMangle"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsNoMangle( this PInvokeAttributes attrs )
+   {
+      return ( attrs & PInvokeAttributes.NoMangle ) != 0;
+   }
+
+   /// <summary>
+   /// Gets the masked value the <see cref="PInvokeAttributes"/> so that the charset can be detected directly with e.g. switch clause.
+   /// </summary>
+   /// <param name="attrs">The <see cref="PInvokeAttributes"/>-</param>
+   /// <returns>The masked (with <see cref="PInvokeAttributes.CharsetMask"/>) value of <paramref name="attrs"/>.</returns>
+   public static PInvokeAttributes GetCharSet( this PInvokeAttributes attrs )
+   {
+      return ( attrs & PInvokeAttributes.CharsetMask );
+   }
+
+   /// <summary>
+   /// Gets the masked value the <see cref="PInvokeAttributes"/> so that the call conventions can be detected directly with e.g. switch clause.
+   /// </summary>
+   /// <param name="attrs">The <see cref="PInvokeAttributes"/>-</param>
+   /// <returns>The masked (with <see cref="PInvokeAttributes.CallConvMask"/>) value of <paramref name="attrs"/>.</returns>
+   public static PInvokeAttributes GetCallConvention( this PInvokeAttributes attrs )
+   {
+      return ( attrs & PInvokeAttributes.CallConvMask );
+   }
+
+   /// <summary>
+   /// Checks whether the <see cref="PInvokeAttributes"/> has the <see cref="PInvokeAttributes.BestFitMapping"/> flag.
+   /// </summary>
+   /// <param name="attrs">The <see cref="PInvokeAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has <see cref="PInvokeAttributes.BestFitMapping"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsBestFitMapping( this PInvokeAttributes attrs )
+   {
+      return ( attrs & PInvokeAttributes.BestFitMapping ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether the <see cref="PInvokeAttributes"/> has the <see cref="PInvokeAttributes.SupportsLastError"/> flag.
+   /// </summary>
+   /// <param name="attrs">The <see cref="PInvokeAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has <see cref="PInvokeAttributes.SupportsLastError"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsSupportsLastError( this PInvokeAttributes attrs )
+   {
+      return ( attrs & PInvokeAttributes.SupportsLastError ) != 0;
+   }
+
+   /// <summary>
+   /// Checks whether the <see cref="PInvokeAttributes"/> has the <see cref="PInvokeAttributes.ThrowOnUnmappableChar"/> flag.
+   /// </summary>
+   /// <param name="attrs">The <see cref="PInvokeAttributes"/>.</param>
+   /// <returns><c>true</c> if <paramref name="attrs"/> has <see cref="PInvokeAttributes.ThrowOnUnmappableChar"/> flag; <c>false</c> otherwise.</returns>
+   public static Boolean IsThrowOnUnmappableChar( this PInvokeAttributes attrs )
+   {
+      return ( attrs & PInvokeAttributes.ThrowOnUnmappableChar ) != 0;
+   }
 }

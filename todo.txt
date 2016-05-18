@@ -1,3 +1,6 @@
+- All
+ - Compile with /checked
+
 - UtilPack
  - AsyncStream interface - to support stream-like API with cancellation tokens and timeouts
 

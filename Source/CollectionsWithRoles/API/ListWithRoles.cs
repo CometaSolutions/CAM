@@ -217,4 +217,17 @@ public static partial class E_CWR
    {
       return CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy( list );
    }
+
+   /// <summary>
+   /// Gets the element at given index, or returns default if index is out of range.
+   /// </summary>
+   /// <typeparam name="T">The list element type.</typeparam>
+   /// <param name="list">The list.</param>
+   /// <param name="index">The index in the <paramref name="list"/>.</param>
+   /// <param name="defaultValue">The default value to return, if index is out of range.</param>
+   /// <returns>The element at given index in given array, if index is valid; <paramref name="defaultValue"/> otherwise.</returns>
+   public static T GetElementOrDefault<T>( this ListQuery<T> list, Int32 index, T defaultValue = default( T ) )
+   {
+      return index < 0 || index >= list.Count ? defaultValue : list[index];
+   }
 }
