@@ -73,7 +73,7 @@ namespace CommonUtils.Numerics.Calculations
          return retVal;
       }
 
-      public static Boolean IsZero( UInt32[] bits, ref Int32 bitsLength )
+      private static Boolean IsZero( UInt32[] bits, ref Int32 bitsLength )
       {
          UInt32 smallValue;
          return TryGetSmallValue( bits, ref bitsLength, out smallValue ) && smallValue == 0;
