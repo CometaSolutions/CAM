@@ -499,7 +499,7 @@ public static partial class E_CILPhysical
             retVal = new Int32[list.Count];
             for ( var i = 0; i < retVal.Length; ++i )
             {
-               retVal[i] = i;
+               retVal[i] = list[i] == null ? -1 : i;
             }
             this.FinalIndices[tIdx] = retVal;
          }
@@ -1202,19 +1202,23 @@ public static partial class E_CILPhysical
          for ( var i = 0; i < tDefCount; ++i )
          {
             var curTD = typeDefL[i];
-            Int32 mMax, fMax;
-            if ( i + 1 < tDefCount )
+            if ( curTD != null )
             {
-               var nextTD = typeDefL[i + 1];
-               mMax = nextTD.MethodList.Index;
-               fMax = nextTD.FieldList.Index;
+               var nextTD = typeDefL.GetElementOrDefault( i + 1 );
+
+               Int32 mMax, fMax;
+               if ( nextTD != null )
+               {
+                  mMax = nextTD.MethodList.Index;
+                  fMax = nextTD.FieldList.Index;
+               }
+               else
+               {
+                  mMax = mDefCount;
+                  fMax = fDefCount;
+               }
+               methodAndFieldCounts.Add( curTD, new KeyValuePair<Int32, Int32>( mMax - curTD.MethodList.Index, fMax - curTD.FieldList.Index ) );
             }
-            else
-            {
-               mMax = mDefCount;
-               fMax = fDefCount;
-            }
-            methodAndFieldCounts.Add( curTD, new KeyValuePair<Int32, Int32>( mMax - curTD.MethodList.Index, fMax - curTD.FieldList.Index ) );
          }
 
          // We have to pre-calculate param count for methods
@@ -1224,16 +1228,20 @@ public static partial class E_CILPhysical
          for ( var i = 0; i < mDefCount; ++i )
          {
             var curMD = mDefL[i];
-            Int32 max;
-            if ( i + 1 < mDefCount )
+            if ( curMD != null )
             {
-               max = mDefL[i + 1].ParameterList.Index;
+               var nextMD = mDefL.GetElementOrDefault( i + 1 );
+               Int32 max;
+               if ( nextMD != null )
+               {
+                  max = nextMD.ParameterList.Index;
+               }
+               else
+               {
+                  max = pDefCount;
+               }
+               paramCounts.Add( curMD, max - curMD.ParameterList.Index );
             }
-            else
-            {
-               max = pDefCount;
-            }
-            paramCounts.Add( curMD, max - curMD.ParameterList.Index );
          }
 
          // Create data structure
@@ -1261,28 +1269,34 @@ public static partial class E_CILPhysical
                ++tDefCopyIdx;
             }
 
-            // Type at index 'tDefCopyIdx' is guaranteed now to be top-level type
-            if ( i != tDefCopyIdx )
+            if ( tDefCopy[tDefCopyIdx] != null )
             {
-               typeDefL[i] = tDefCopy[tDefCopyIdx];
-               typeDefIndices[tDefCopyIdx] = i;
-            }
+               // Type at index 'tDefCopyIdx' is guaranteed now to be top-level type
+               if ( i != tDefCopyIdx )
+               {
+                  typeDefL[i] = tDefCopy[tDefCopyIdx];
+                  typeDefIndices[tDefCopyIdx] = i;
+               }
 
-            // Does this type has nested types
-            if ( nestedClassInfo.ContainsKey( tDefCopyIdx ) )
-            {
-               // Iterate all nested types with BFS
-               foreach ( var nested in tDefCopyIdx.AsBreadthFirstEnumerable( cur =>
+               // Does this type has nested types
+               if ( nestedClassInfo.ContainsKey( tDefCopyIdx ) )
                {
-                  List<Int32> nestedTypes;
-                  return nestedClassInfo.TryGetValue( cur, out nestedTypes ) ?
-                     nestedTypes :
-                     Empty<Int32>.Enumerable;
-               }, false ) // Skip this type
-               .EndOnFirstLoop() ) // Detect loops to avoid infite enumerable
-               {
-                  typeDefL[++i] = tDefCopy[nested];
-                  typeDefIndices[nested] = i;
+                  // Iterate all nested types with BFS
+                  foreach ( var nested in tDefCopyIdx.AsBreadthFirstEnumerable( cur =>
+                  {
+                     List<Int32> nestedTypes;
+                     return nestedClassInfo.TryGetValue( cur, out nestedTypes ) ?
+                        nestedTypes :
+                        Empty<Int32>.Enumerable;
+                  }, false ) // Skip this type
+                  .EndOnFirstLoop() ) // Detect loops to avoid infite enumerable
+                  {
+                     if ( tDefCopy[nested] != null )
+                     {
+                        typeDefL[++i] = tDefCopy[nested];
+                        typeDefIndices[nested] = i;
+                     }
+                  }
                }
             }
          }
@@ -1489,7 +1503,7 @@ public static partial class E_CILPhysical
          for ( var i = 0; i < table.Count; )
          {
             var item = table[i];
-            if ( set.Add( item ) )
+            if ( item != null && set.Add( item ) )
             {
                ++i;
             }
@@ -1753,29 +1767,41 @@ public static partial class E_CILPhysical
          {
             var curTD = referencingTable[tIdx];
 
-            // Inclusive min (the method where current typedef points to)
-            var originalMin = referenceIndexGetter( curTD );
-
-            // The count must be pre-calculated - we can't use typedef table to calculate that, as this for loop modifies the reference (e.g. MethodList property of TypeDefinition)
-            var blockCount = referenceCountGetter( curTD );
-
-            if ( blockCount > 0 )
+            if ( curTD != null )
             {
-               var min = thisTableIndices[originalMin];
 
-               for ( var i = 0; i < blockCount; ++i )
+               // Inclusive min (the method where current typedef points to)
+               var originalMin = referenceIndexGetter( curTD );
+
+               // The count must be pre-calculated - we can't use typedef table to calculate that, as this for loop modifies the reference (e.g. MethodList property of TypeDefinition)
+               var blockCount = referenceCountGetter( curTD );
+               var actualCount = blockCount;
+
+               if ( blockCount > 0 )
                {
-                  var thisMethodIndex = mIdx + i;
-                  var originalIndex = min + i;
-                  table[thisMethodIndex] = originalTable[originalIndex];
-                  thisTableIndices[originalIndex] = thisMethodIndex;
+                  var min = thisTableIndices[originalMin];
+
+                  for ( var i = 0; i < blockCount; ++i )
+                  {
+                     var thisMethodIndex = mIdx + i;
+                     var originalIndex = min + i;
+                     if ( originalTable[originalIndex] == null )
+                     {
+                        --actualCount;
+                     }
+                     else
+                     {
+                        table[thisMethodIndex] = originalTable[originalIndex];
+                        thisTableIndices[originalIndex] = thisMethodIndex;
+                     }
+                  }
+
+                  mIdx += actualCount;
                }
 
-               mIdx += blockCount;
+               // Set methoddef index for this typedef
+               referenceIndexSetter( curTD, mIdx - actualCount );
             }
-
-            // Set methoddef index for this typedef
-            referenceIndexSetter( curTD, mIdx - blockCount );
          }
       }
    }
