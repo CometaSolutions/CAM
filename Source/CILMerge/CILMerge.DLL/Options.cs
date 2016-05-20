@@ -74,6 +74,8 @@ namespace CILMerge
       String TargetAssemblyName { get; set; }
       String TargetModuleName { get; set; }
       String RenameFile { get; set; }
+
+      String Minify { get; set; }
    }
 
    public interface CILMergeLogCallback
@@ -204,6 +206,8 @@ namespace CILMerge
       public String TargetAssemblyName { get; set; }
       public String TargetModuleName { get; set; }
       public String RenameFile { get; set; }
+
+      public String Minify { get; set; }
    }
 }
 

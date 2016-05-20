@@ -217,6 +217,8 @@ namespace CILMerge.MSBuild
 
       public String RenameFile { get; set; }
 
+      public String Minify { get; set; }
+
       #endregion
 
       #region CILMergeLogCallback Members

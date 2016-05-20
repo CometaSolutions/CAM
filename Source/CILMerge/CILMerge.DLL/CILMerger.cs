@@ -517,6 +517,13 @@ namespace CILMerge
 
    internal class CILAssemblyMerger : AbstractDisposable, IDisposable
    {
+      private class BooleanOrStringOption
+      {
+         public Boolean? BooleanValue { get; }
+
+
+      }
+
       private sealed class BooleanOrFileOptionWithExcludes
       {
          private readonly Lazy<Regex[]> _includeRegexes;
@@ -527,14 +534,25 @@ namespace CILMerge
             String excludeFile,
             Func<Exception, String, Exception> onIncludeError,
             Func<Exception, String, Exception> onExcludeError
+            ) : this( booleanOrString, booleanOrString, excludeFile, onIncludeError, onExcludeError )
+         {
+
+         }
+
+         public BooleanOrFileOptionWithExcludes(
+            String booleanOrString,
+            String includeFile,
+            String excludeFile,
+            Func<Exception, String, Exception> onIncludeError,
+            Func<Exception, String, Exception> onExcludeError
             )
          {
             booleanOrString = booleanOrString?.Trim();
             var optionIsGiven = !String.IsNullOrEmpty( booleanOrString );
             Boolean booleanValue;
-            var optionIsIncludeFile = !Boolean.TryParse( booleanOrString, out booleanValue );
+            var optionWasBoolean = Boolean.TryParse( booleanOrString, out booleanValue );
             this.BooleanValue = optionIsGiven ? booleanValue : (Boolean?) null;
-            this._includeRegexes = CreateRegexesFromFile( optionIsGiven && optionIsIncludeFile, booleanOrString, onIncludeError );
+            this._includeRegexes = CreateRegexesFromFile( optionIsGiven && ( !String.Equals( booleanOrString, includeFile ) || !optionWasBoolean ), includeFile, onIncludeError );
             this._excludeRegexes = CreateRegexesFromFile( optionIsGiven, excludeFile?.Trim(), onExcludeError );
          }
 
@@ -560,7 +578,7 @@ namespace CILMerge
          {
             return new Lazy<Regex[]>( () =>
             {
-               if ( isRelevant && !String.IsNullOrEmpty( file ) )
+               if ( isRelevant && !String.IsNullOrEmpty( file ) && onError != null )
                {
                   try
                   {
@@ -621,6 +639,7 @@ namespace CILMerge
       private readonly IList<String> _targetTypeNames;
       private readonly BooleanOrFileOptionWithExcludes _internalizeOption;
       private readonly BooleanOrFileOptionWithExcludes _unionOption;
+      private readonly BooleanOrFileOptionWithExcludes _minifyOption;
       private readonly String _inputBasePath;
       private readonly Lazy<IDictionary<String, String>> _renames;
 
@@ -697,6 +716,13 @@ namespace CILMerge
             options.UnionExcludeFile,
             ( exc, file ) => this.NewCILMergeException( ExitCode.ErrorAccessingUnionIncludeFile, "Error accessing union include file " + file + ".", exc ),
             ( exc, file ) => this.NewCILMergeException( ExitCode.ErrorAccessingUnionExcludeFile, "Error accessing union exclude file " + file + ".", exc )
+            );
+         this._minifyOption = new BooleanOrFileOptionWithExcludes(
+            options.Minify,
+            null,
+            null,
+            null,
+            null
             );
 
          this._inputBasePath = inputBasePath ?? Environment.CurrentDirectory;
@@ -3487,6 +3513,21 @@ namespace CILMerge
          return assName;
       }
 
+      private void Minify()
+      {
+         // Starting from entry point:
+         // 1. Start with entry-point method
+
+         // 2. Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
+         var totalTableIndices = new Dictionary<Tables, HashSet<Int32>>();
+         var tableIndicesAddedThisRound = new Dictionary<Tables, HashSet<Int32>>();
+         // 3. If anything new added, go to #2
+         // 4. Now, iterate all methods and for those methods with declaring type being interface, walk through all methods of the collected types that implement the interface, and add them as well.
+         // 5. For all type defs, add tables with type info (ClassLayout, etc)
+         // 6. For all method defs, add tables with method info (PInvokeInfo,etc) (add also types from method signature)
+         // 7. For all field defs, add tables with field info (add also types from field signature)
+      }
+
       private void Log( MessageLevel mLevel, String formatString, params Object[] args )
       {
          this._merger.Log( mLevel, formatString, args );
@@ -3545,6 +3586,20 @@ namespace CILMerge
          return retVal;
       }
 
+      internal static void Minify( CILMetaData md, Int32 entryPointIndex )
+      {
+         // Starting from entry point:
+         // 1. Start with entry-point method
+
+         // 2. Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
+         var totalTableIndices = new Dictionary<Tables, HashSet<Int32>>();
+         var tableIndicesAddedThisRound = new Dictionary<Tables, HashSet<Int32>>();
+         // 3. If anything new added, go to #2
+         // 4. Now, iterate all methods and for those methods with declaring type being interface, walk through all methods of the collected types that implement the interface, and add them as well.
+         // 5. For all type defs, add tables with type info (ClassLayout, etc)
+         // 6. For all method defs, add tables with method info (PInvokeInfo,etc) (add also types from method signature)
+         // 7. For all field defs, add tables with field info (add also types from field signature)
+      }
 
    }
 }
