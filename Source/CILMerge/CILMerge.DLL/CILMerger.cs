@@ -3586,14 +3586,158 @@ namespace CILMerge
          return retVal;
       }
 
-      internal static void Minify( CILMetaData md, Int32 entryPointIndex )
+      internal static void Minify( CILMetaData md, IEnumerable<Int32> entryPointIndices )
       {
-         // Starting from entry point:
-         // 1. Start with entry-point method
+         // Prepare variables
+         var tDefs = md.TypeDefinitions.TableContents;
+         var methodDeclaringTypes = Enumerable
+            .Range( 0, tDefs.Count )
+            .SelectMany( tDefIdx => md.GetTypeMethodIndices( tDefIdx ).Select( mDefIdx => Tuple.Create( tDefIdx, mDefIdx ) ) )
+            .ToDictionary( tuple => tuple.Item2, tuple => tuple.Item1 );
 
-         // 2. Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
-         var totalTableIndices = new Dictionary<Tables, HashSet<Int32>>();
-         var tableIndicesAddedThisRound = new Dictionary<Tables, HashSet<Int32>>();
+         var fieldDeclaringTypes = Enumerable
+            .Range( 0, tDefs.Count )
+            .SelectMany( tDefIdx => md.GetTypeFieldIndices( tDefIdx ).Select( fDefIdx => Tuple.Create( tDefIdx, fDefIdx ) ) )
+            .ToDictionary( tuple => tuple.Item2, tuple => tuple.Item1 );
+
+         // Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
+         var allTableIndices = new Dictionary<Tables, HashSet<Int32>>();
+         var tableIndicesThisRound = new HashSet<TableIndex>();
+         var sigProvider = md.SignatureProvider;
+         var fDefs = md.FieldDefinitions.TableContents;
+         var mDefs = md.MethodDefinitions.TableContents;
+         var tSpecs = md.TypeSpecifications.TableContents;
+         var mRefs = md.MemberReferences.TableContents;
+         var mSpecs = md.MethodSpecifications.TableContents;
+         var sSigs = md.StandaloneSignatures.TableContents;
+
+         var tableIndicesLastRound = new Dictionary<Tables, HashSet<Int32>>();
+         // Start with entry-point method(s)
+         tableIndicesLastRound.Add( Tables.MethodDef, new HashSet<Int32>( entryPointIndices ) );
+         while ( tableIndicesLastRound.Values.Any( set => set.Count > 0 ) )
+         {
+            // Merge stuff that was added, with all indices
+            foreach ( var indices in tableIndicesLastRound )
+            {
+               allTableIndices
+                  .GetOrAdd_NotThreadSafe( indices.Key, t => new HashSet<Int32>() )
+                  .UnionWith( indices.Value );
+            }
+
+            // Process added type defs
+            var addedTypes = tableIndicesLastRound.GetOrDefault( Tables.TypeDef );
+            foreach ( var tDefIdx in addedTypes ?? Empty<Int32>.Enumerable )
+            {
+               // Add base type
+               var baseType = tDefs[tDefIdx].BaseType;
+               if ( baseType.HasValue )
+               {
+                  tableIndicesThisRound.Add( baseType.Value );
+               }
+
+
+            }
+
+            // Process added method defs
+            var addedMethods = tableIndicesLastRound.GetOrDefault( Tables.MethodDef );
+            foreach ( var mDefIdx in addedMethods ?? Empty<Int32>.Enumerable )
+            {
+               // Add declaring type
+               tableIndicesThisRound.Add( new TableIndex( Tables.TypeDef, methodDeclaringTypes[mDefIdx] ) );
+
+               // Add types from signature
+               var mDef = mDefs[mDefIdx];
+               tableIndicesThisRound.UnionWith( sigProvider.GetSignatureTableIndexInfos( mDef.Signature ).Select( t => t.TableIndex ) );
+
+               // Walk IL code and collect tokens
+               var il = mDef.IL;
+               if ( il != null )
+               {
+                  tableIndicesThisRound.UnionWith( il.OpCodes.OfType<IOpCodeInfoWithOperand<TableIndex>>().Select( opc => opc.Operand ) );
+               }
+
+               if ( mDef.Attributes.IsAbstract() || mDef.Attributes.IsVirtual() )
+               {
+                  // TODO Add to abstract method list
+                  // TODO add all methods that 'implement' the abstract/virtual methods discovered
+               }
+
+               // TODO check explicit method list!
+            }
+
+            // Process added field defs
+            var addedFields = tableIndicesLastRound.GetOrDefault( Tables.Field );
+            foreach ( var fDefIdx in addedFields ?? Empty<Int32>.Enumerable )
+            {
+               // Add declaring type
+               tableIndicesThisRound.Add( new TableIndex( Tables.TypeDef, fieldDeclaringTypes[fDefIdx] ) );
+
+               // Add types from signature
+               tableIndicesThisRound.UnionWith( sigProvider.GetSignatureTableIndexInfos( fDefs[fDefIdx].Signature ).Select( t => t.TableIndex ) );
+            }
+
+            // Walk the TypeSpecs, MemberRefs, MethodSpecs, and StandaloneSignatures, and collect the TypeDef/TypeRef/MethodDef/FieldDef references from them
+            var addedTypeSpecs = tableIndicesLastRound.GetOrDefault( Tables.TypeSpec );
+            foreach ( var tSpecIdx in addedTypeSpecs ?? Empty<Int32>.Enumerable )
+            {
+               tableIndicesThisRound.UnionWith( sigProvider.GetSignatureTableIndexInfos( tSpecs[tSpecIdx].Signature ).Select( t => t.TableIndex ) );
+            }
+
+            var addedMemberRefs = tableIndicesLastRound.GetOrDefault( Tables.MemberRef );
+            foreach ( var mRefIdx in addedMemberRefs ?? Empty<Int32>.Enumerable )
+            {
+               var mRef = mRefs[mRefIdx];
+               tableIndicesThisRound.Add( mRef.DeclaringType );
+               tableIndicesThisRound.UnionWith( sigProvider.GetSignatureTableIndexInfos( mRef.Signature ).Select( t => t.TableIndex ) );
+            }
+
+            var addedMethodSpecs = tableIndicesLastRound.GetOrDefault( Tables.MethodSpec );
+            foreach ( var mSpecIdx in addedMethodSpecs ?? Empty<Int32>.Enumerable )
+            {
+               var mSpec = mSpecs[mSpecIdx];
+               tableIndicesThisRound.Add( mSpec.Method );
+               tableIndicesThisRound.UnionWith( sigProvider.GetSignatureTableIndexInfos( mSpec.Signature ).Select( t => t.TableIndex ) );
+            }
+
+            var addedStandaloneSigs = tableIndicesLastRound.GetOrDefault( Tables.StandaloneSignature );
+            foreach ( var standaloneIdx in addedStandaloneSigs ?? Empty<Int32>.Enumerable )
+            {
+               var sSig = sSigs[standaloneIdx];
+               tableIndicesThisRound.UnionWith( sigProvider.GetSignatureTableIndexInfos( sSig.Signature ).Select( t => t.TableIndex ) );
+            }
+
+            // Merge working set with indices added this round
+            foreach ( var set in tableIndicesLastRound.Values )
+            {
+               set.Clear();
+            }
+            foreach ( var tIdx in tableIndicesThisRound )
+            {
+               tableIndicesLastRound
+                  .GetOrAdd_NotThreadSafe( tIdx.Table, t => new HashSet<Int32>() )
+                  .Add( tIdx.Index );
+            }
+            tableIndicesThisRound.Clear();
+         }
+
+         // At this point, we have a bunch of TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec, StandaloneSignature, and ModuleRef tokens in allTableIndices
+
+         // Start 'deleting' rows (replacing them with nulls)
+         // Start with typedef table
+         var deletedTableIndices = new Dictionary<Tables, HashSet<Int32>>();
+         var registeredTDefs = allTableIndices[Tables.TypeDef];
+         for ( var i = 0; i < tDefs.Count; ++i )
+         {
+            if ( !registeredTDefs.Contains( i ) )
+            {
+               tDefs[i] = null;
+            }
+         }
+
+
+         // We still need to walk MethodDefs and MemberRefs which represent the methods of the interfaces, and add those MethodDefs, which are of types that implement those interfaces
+
+
          // 3. If anything new added, go to #2
          // 4. Now, iterate all methods and for those methods with declaring type being interface, walk through all methods of the collected types that implement the interface, and add them as well.
          // 5. For all type defs, add tables with type info (ClassLayout, etc)

@@ -17,6 +17,7 @@
  */
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
+using CommonUtils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,6 +49,56 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <returns>An instance of <see cref="CustomAttributeArgumentTypeSimple"/> for a given <paramref name="kind"/>, or <c>null</c> if the <paramref name="kind"/> was unrecognized.</returns>
       /// <seealso cref="CustomAttributeArgumentTypeSimple"/>
       CustomAttributeArgumentTypeSimple GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind kind );
+
+      /// <summary>
+      /// Extracts all <see cref="SignatureTableIndexInfo"/> related to a single signature.
+      /// </summary>
+      /// <param name="signature">The <see cref="AbstractSignature"/>.</param>
+      /// <returns>A list of all <see cref="SignatureTableIndexInfo"/> related to a single signature. Will be empty if <paramref name="signature"/> is <c>null</c>.</returns>
+      IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos( AbstractSignature signature );
+   }
+
+   /// <summary>
+   /// This type represents information about a single <see cref="Physical.TableIndex"/> reference located in signature.
+   /// </summary>
+   public struct SignatureTableIndexInfo
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="SignatureTableIndexInfo"/> with given parameters.
+      /// </summary>
+      /// <param name="tableIndex">The <see cref="Physical.TableIndex"/>.</param>
+      /// <param name="owner">The owner of the <paramref name="tableIndex"/>.</param>
+      /// <param name="setter">The callback to set a new table index for the <paramref name="owner"/>.</param>
+      public SignatureTableIndexInfo( TableIndex tableIndex, Object owner, Action<TableIndex> setter )
+      {
+         ArgumentValidator.ValidateNotNull( "Owner", owner );
+         ArgumentValidator.ValidateNotNull( "Setter", setter );
+
+         this.TableIndex = tableIndex;
+         this.Owner = owner;
+         this.TableIndexSetter = setter;
+      }
+
+      /// <summary>
+      /// Gets the <see cref="Physical.TableIndex"/> that is referenced by the signature element.
+      /// </summary>
+      /// <value>The <see cref="Physical.TableIndex"/> that is referenced by the signature element.</value>
+      public TableIndex TableIndex { get; }
+
+      /// <summary>
+      /// Gets the signature element that has the <see cref="TableIndex"/>.
+      /// </summary>
+      /// <value>The signature element that has the <see cref="TableIndex"/>.</value>
+      /// <remarks>
+      /// By default, this is either <see cref="ClassOrValueTypeSignature"/>, or <see cref="CustomModifierSignature"/>.
+      /// </remarks>
+      public Object Owner { get; }
+
+      /// <summary>
+      /// Gets the callback to set a new <see cref="Physical.TableIndex"/> value to the <see cref="Owner"/>.
+      /// </summary>
+      /// <value>The callback to set a new <see cref="Physical.TableIndex"/> value to the <see cref="Owner"/>.</value>
+      public Action<TableIndex> TableIndexSetter { get; }
    }
 
    /// <summary>
@@ -100,6 +151,145 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          CustomAttributeArgumentTypeSimple retVal;
          return this._simpleCATypes.TryGetValue( kind, out retVal ) ? retVal : null;
+      }
+
+      /// <inheritdoc />
+      public virtual IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos( AbstractSignature signature )
+      {
+         if ( signature == null )
+         {
+            return Empty<SignatureTableIndexInfo>.Enumerable;
+         }
+         else
+         {
+            switch ( signature.SignatureKind )
+            {
+               case SignatureKind.Field:
+                  return this.GetSignatureTableIndexInfos_Field( (FieldSignature) signature );
+               case SignatureKind.GenericMethodInstantiation:
+                  return this.GetSignatureTableIndexInfos_GenericMethod( (GenericMethodSignature) signature );
+               case SignatureKind.LocalVariables:
+                  return this.GetSignatureTableIndexInfos_Locals( (LocalVariablesSignature) signature );
+               case SignatureKind.MethodDefinition:
+                  return this.GetSignatureTableIndexInfos_MethodDef( (MethodDefinitionSignature) signature );
+               case SignatureKind.MethodReference:
+                  return this.GetSignatureTableIndexInfos_MethodRef( (MethodReferenceSignature) signature );
+               case SignatureKind.Property:
+                  return this.GetSignatureTableIndexInfos_Property( (PropertySignature) signature );
+               case SignatureKind.Type:
+                  return this.GetSignatureTableIndexInfos_Type( (TypeSignature) signature );
+               case SignatureKind.Raw:
+                  return Empty<SignatureTableIndexInfo>.Enumerable;
+               default:
+                  return this.GetSignatureTableIndexInfos_Custom( signature );
+            }
+         }
+      }
+
+      /// <summary>
+      /// This is called by <see cref="GetSignatureTableIndexInfos"/> when the type of given <see cref="AbstractSignature"/> is not one of the defaults.
+      /// </summary>
+      /// <param name="signature">The given <see cref="AbstractSignature"/>.</param>
+      /// <returns>This implementation always throws and never returns.</returns>
+      /// <exception cref="ArgumentException">Always.</exception>
+      protected virtual IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_Custom( AbstractSignature signature )
+      {
+         throw new ArgumentException( "Unrecognized signature kind: " + signature.SignatureKind + "." );
+      }
+
+      /// <summary>
+      /// This is called by <see cref="GetSignatureTableIndexInfos_Type"/> when the type of given <see cref="TypeSignature"/> is not one of the defaults.
+      /// </summary>
+      /// <param name="signature">The given <see cref="TypeSignature"/>.</param>
+      /// <returns>This implementation always throws and never returns.</returns>
+      /// <exception cref="ArgumentException">Always.</exception>
+      protected virtual IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_Type_Custom( TypeSignature signature )
+      {
+         throw new ArgumentException( "Unrecognized type signature kind: " + signature.TypeSignatureKind + "." );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_Field( FieldSignature sig )
+      {
+         return sig.CustomModifiers.Select( NewSignatureTableIndexInfo_CM )
+            .Concat( this.GetSignatureTableIndexInfos_Type( sig.Type ) );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_GenericMethod( GenericMethodSignature sig )
+      {
+         return sig.GenericArguments.SelectMany( arg => this.GetSignatureTableIndexInfos( arg ) );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_Locals( LocalVariablesSignature sig )
+      {
+         return sig.Locals.SelectMany( l => this.GetSignatureTableIndexInfos_LocalOrSig( l ) );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_AbstractMethod( AbstractMethodSignature sig )
+      {
+         return this.GetSignatureTableIndexInfos_LocalOrSig( sig.ReturnType )
+            .Concat( sig.Parameters.SelectMany( p => this.GetSignatureTableIndexInfos_LocalOrSig( p ) ) );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_LocalOrSig( ParameterOrLocalSignature sig )
+      {
+         return sig.CustomModifiers.Select( NewSignatureTableIndexInfo_CM )
+            .Concat( this.GetSignatureTableIndexInfos_Type( sig.Type ) );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_MethodDef( MethodDefinitionSignature sig )
+      {
+         return this.GetSignatureTableIndexInfos_AbstractMethod( sig );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_MethodRef( MethodReferenceSignature sig )
+      {
+         return this.GetSignatureTableIndexInfos_AbstractMethod( sig )
+            .Concat( sig.VarArgsParameters.SelectMany( p => this.GetSignatureTableIndexInfos_LocalOrSig( p ) ) );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_Property( PropertySignature sig )
+      {
+         return sig.CustomModifiers.Select( NewSignatureTableIndexInfo_CM )
+            .Concat( sig.Parameters.SelectMany( p => this.GetSignatureTableIndexInfos_LocalOrSig( p ) ) )
+            .Concat( this.GetSignatureTableIndexInfos_Type( sig.PropertyType ) );
+      }
+
+      private IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos_Type( TypeSignature sig )
+      {
+         switch ( sig.TypeSignatureKind )
+         {
+            case TypeSignatureKind.ClassOrValue:
+               var clazz = (ClassOrValueTypeSignature) sig;
+               return clazz.GenericArguments.SelectMany( g => this.GetSignatureTableIndexInfos_Type( g ) )
+                  .PrependSingle( NewSignatureTableIndexInfo_Type( clazz ) );
+            case TypeSignatureKind.ComplexArray:
+               return this.GetSignatureTableIndexInfos_Type( ( (ComplexArrayTypeSignature) sig ).ArrayType );
+            case TypeSignatureKind.FunctionPointer:
+               return this.GetSignatureTableIndexInfos_MethodRef( ( (FunctionPointerTypeSignature) sig ).MethodSignature );
+            case TypeSignatureKind.Pointer:
+               var ptr = (PointerTypeSignature) sig;
+               return ptr.CustomModifiers.Select( NewSignatureTableIndexInfo_CM )
+                  .Concat( this.GetSignatureTableIndexInfos_Type( ptr.PointerType ) );
+            case TypeSignatureKind.SimpleArray:
+               var arr = (SimpleArrayTypeSignature) sig;
+               return arr.CustomModifiers.Select( NewSignatureTableIndexInfo_CM )
+                  .Concat( this.GetSignatureTableIndexInfos_Type( arr.ArrayType ) );
+            case TypeSignatureKind.GenericParameter:
+            case TypeSignatureKind.Simple:
+               return Empty<SignatureTableIndexInfo>.Enumerable;
+            default:
+               return this.GetSignatureTableIndexInfos_Type_Custom( sig );
+         }
+      }
+
+      private static SignatureTableIndexInfo NewSignatureTableIndexInfo_CM( CustomModifierSignature cm )
+      {
+         return new SignatureTableIndexInfo( cm.CustomModifierType, cm, t => cm.CustomModifierType = t );
+      }
+
+      private static SignatureTableIndexInfo NewSignatureTableIndexInfo_Type( ClassOrValueTypeSignature sig )
+      {
+         return new SignatureTableIndexInfo( sig.Type, sig, t => sig.Type = t );
       }
 
       /// <summary>
