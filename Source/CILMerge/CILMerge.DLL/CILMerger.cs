@@ -680,14 +680,14 @@ namespace CILMerge
                      if ( x.Attributes.IsFullPublicKey() )
                      {
                         // Create public key token for x and compare with y
-                        xBytes = this._moduleLoader.ComputePublicKeyTokenOrNull( xa.PublicKeyOrToken );
+                        xBytes = this._cryptoCallbacks.ComputePublicKeyToken( xa.PublicKeyOrToken );
                         yBytes = ya.PublicKeyOrToken;
                      }
                      else
                      {
                         // Create public key token for y and compare with x
                         xBytes = xa.PublicKeyOrToken;
-                        yBytes = this._moduleLoader.ComputePublicKeyTokenOrNull( ya.PublicKeyOrToken );
+                        yBytes = this._cryptoCallbacks.ComputePublicKeyToken( ya.PublicKeyOrToken );
                      }
                      retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
                   }
@@ -874,7 +874,7 @@ namespace CILMerge
                         }
                         else if ( !targetARef.Attributes.IsFullPublicKey() )
                         {
-                           targetARef.AssemblyInformation.PublicKeyOrToken = this._moduleLoader.ComputePublicKeyTokenOrNull( aDefInfo.PublicKeyOrToken );
+                           targetARef.AssemblyInformation.PublicKeyOrToken = this._cryptoCallbacks.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
                         }
                         retargetableInfos.Add( targetAssemblyRefIndex.Index );
                      }
@@ -2170,10 +2170,7 @@ namespace CILMerge
                   var gArgsRef = classRef.GenericArguments;
                   retVal = classDef.TypeReferenceKind == classRef.TypeReferenceKind
                      && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, classDef.Type, classRef.Type )
-                     && gArgsDef.Count == gArgsRef.Count
-                     && gArgsDef
-                        .Where( ( g, idx ) => this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, g, gArgsRef[idx] ) )
-                        .Count() == gArgsDef.Count;
+                     && ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( gArgsDef, gArgsRef, ( gArgDef, gArgRef ) => this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, gArgDef, gArgRef ) );
                   break;
                case TypeSignatureKind.ComplexArray:
                   var arrayDef = (ComplexArrayTypeSignature) typeDef;
@@ -2288,6 +2285,10 @@ namespace CILMerge
                   // TODO Lazy mapping IDictionary<Tuple<String, String>, ExportedType> for each input module
                   throw new NotImplementedException( "ExportedType in TypeRef while matching method definition and reference signatures." );
                }
+            }
+            else
+            {
+               retVal = false;
             }
          }
 
@@ -3571,6 +3572,99 @@ namespace CILMerge
       }
    }
 
+   public struct MetaDataIndex : IEquatable<MetaDataIndex>
+   {
+      public MetaDataIndex( CILMetaData md, Int32 index )
+      {
+         this.MetaData = ArgumentValidator.ValidateNotNull( "Meta data", md );
+         this.Index = index;
+      }
+
+      public CILMetaData MetaData { get; }
+      public Int32 Index { get; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is MetaDataIndex && this.Equals( (MetaDataIndex) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( 17 * this.MetaData.GetHashCode() + 23 ) * this.Index + 23;
+      }
+
+      public Boolean Equals( MetaDataIndex other )
+      {
+         return ReferenceEquals( this.MetaData, other.MetaData ) && this.Index == other.Index;
+      }
+   }
+
+   public struct TypeInheritanceInfo
+   {
+      private readonly Lazy<MetaDataIndex[]> _baseTypes;
+      private readonly Lazy<MetaDataIndex[]> _interfaces;
+
+      public TypeInheritanceInfo( Lazy<MetaDataIndex[]> baseTypes, Lazy<MetaDataIndex[]> interfaces )
+      {
+         this._baseTypes = ArgumentValidator.ValidateNotNull( "Base types", baseTypes );
+         this._interfaces = ArgumentValidator.ValidateNotNull( "Interfaces", interfaces );
+      }
+
+      public MetaDataIndex[] BaseTypes
+      {
+         get
+         {
+            return this._baseTypes.Value;
+         }
+      }
+
+      public MetaDataIndex[] Interfaces
+      {
+         get
+         {
+            return this._interfaces.Value;
+         }
+      }
+   }
+
+   public struct MethodInheritanceInfo
+   {
+      private readonly Lazy<MetaDataIndex?> _baseTypeOverride;
+      private readonly Lazy<MetaDataIndex[]> _explicitImplementations;
+      private readonly Lazy<MetaDataIndex[]> _implicitImplementations;
+
+      public MethodInheritanceInfo( Lazy<MetaDataIndex?> baseTypeOverride, Lazy<MetaDataIndex[]> explicitImplementations, Lazy<MetaDataIndex[]> implicitImplementations )
+      {
+         this._baseTypeOverride = ArgumentValidator.ValidateNotNull( "Base type overrides", baseTypeOverride );
+         this._explicitImplementations = ArgumentValidator.ValidateNotNull( "Explicit implementations", explicitImplementations );
+         this._implicitImplementations = ArgumentValidator.ValidateNotNull( "Implicit implementations", implicitImplementations );
+      }
+
+      public MetaDataIndex? BaseTypeOverride
+      {
+         get
+         {
+            return this._baseTypeOverride.Value;
+         }
+      }
+
+      public MetaDataIndex[] ExplicitImplementations
+      {
+         get
+         {
+            return this._explicitImplementations.Value;
+         }
+      }
+
+      public MetaDataIndex[] ImplicitImplementations
+      {
+         get
+         {
+            return this._implicitImplementations.Value;
+         }
+      }
+   }
+
    internal static class E_Internal
    {
 
@@ -3586,7 +3680,142 @@ namespace CILMerge
          return retVal;
       }
 
-      internal static void Minify( CILMetaData md, IEnumerable<Int32> entryPointIndices )
+      // Index: typeDef index, value: array of all types that typeDef extends and implements. Generic types only are included as generic type definitions.
+      internal static TypeInheritanceInfo[] CreateTypeHierarchy( this CILMetaData md, MetaDataResolver resolver )
+      {
+         var typeDefs = md.TypeDefinitions.TableContents;
+         var retVal = new TypeInheritanceInfo[typeDefs.Count];
+         var allInterfaceImpls = new Dictionary<CILMetaData, IDictionary<Int32, IList<TableIndex>>>();
+
+         for ( var i = 0; i < retVal.Length; ++i )
+         {
+            var tDefIdx = i;
+            var startingIndex = new MetaDataIndex( md, tDefIdx );
+            // First, get enumerable for all base types
+            var baseTypes = new Lazy<MetaDataIndex[]>( () => new MetaDataIndex?( startingIndex ).AsSingleBranchEnumerable(
+                 cur => cur.Value.MetaData.ProcessTypeHierarchyTableIndexNullable( resolver, cur.Value.MetaData.TypeDefinitions.TableContents[cur.Value.Index].BaseType ),
+                 cur => !cur.HasValue, //  !cur.MetaData.TypeDefinitions.TableContents[cur.Index].BaseType.HasValue,
+                 false ).NotNulls().ToArray(), LazyThreadSafetyMode.None );
+            retVal[tDefIdx] = new TypeInheritanceInfo(
+               baseTypes,
+               new Lazy<MetaDataIndex[]>( () =>
+            {
+               // The result is base types concatenated with interfaces of each base type (and current type), and DISTINCT performed over whole concatenation.
+               var implementedInterfaces = baseTypes.Value.PrependSingle( startingIndex )
+                    .SelectMany( cur =>
+                    {
+                       var curInterfaceImpls = allInterfaceImpls.GetOrAdd_NotThreadSafe( cur.MetaData, CreateInterfaceImplDictionary );
+                       IEnumerable<MetaDataIndex> curInterfaceIndices;
+                       IList<TableIndex> curInterfaces;
+                       if ( curInterfaceImpls.TryGetValue( cur.Index, out curInterfaces ) )
+                       {
+                          curInterfaceIndices = curInterfaces.Select( iFace => cur.MetaData.ProcessTypeHierarchyTableIndex( resolver, iFace ) ).NotNulls();
+                       }
+                       else
+                       {
+                          curInterfaceIndices = Empty<MetaDataIndex>.Enumerable;
+                       }
+                       return curInterfaceIndices;
+                    } );
+               return new HashSet<MetaDataIndex>( implementedInterfaces ).ToArray();
+            }, LazyThreadSafetyMode.None ) );
+         }
+
+         return retVal;
+      }
+
+      private static IDictionary<Int32, IList<TableIndex>> CreateInterfaceImplDictionary( CILMetaData md )
+      {
+         var interfaceImpls = new Dictionary<Int32, IList<TableIndex>>();
+         foreach ( var impl in md.InterfaceImplementations.TableContents )
+         {
+            interfaceImpls
+               .GetOrAdd_NotThreadSafe( impl.Class.Index, i => new List<TableIndex>() )
+               .Add( impl.Interface );
+
+         }
+         return interfaceImpls;
+      }
+
+      private static MetaDataIndex? ProcessTypeHierarchyTableIndexNullable( this CILMetaData md, MetaDataResolver resolver, TableIndex? typeDefOrRefOrSpec )
+      {
+         return typeDefOrRefOrSpec.HasValue ? md.ProcessTypeHierarchyTableIndex( resolver, typeDefOrRefOrSpec.Value ) : null;
+      }
+
+      private static MetaDataIndex? ProcessTypeHierarchyTableIndex( this CILMetaData md, MetaDataResolver resolver, TableIndex typeDefOrRefOrSpec )
+      {
+         MetaDataIndex? retVal;
+         switch ( typeDefOrRefOrSpec.Table )
+         {
+            case Tables.TypeDef:
+               retVal = new MetaDataIndex( md, typeDefOrRefOrSpec.Index );
+               break;
+            case Tables.TypeRef:
+               CILMetaData otherMD; Int32 typeDefIdx;
+               if ( resolver != null && resolver.TryResolveTypeDefOrRefOrSpec( md, typeDefOrRefOrSpec, out otherMD, out typeDefIdx ) )
+               {
+                  retVal = new MetaDataIndex( otherMD, typeDefIdx );
+               }
+               else
+               {
+                  // TODO error/warning reporting
+                  retVal = null;
+               }
+               break;
+            case Tables.TypeSpec:
+               var clazz = md.SignatureProvider.DecomposeSignature( md.TypeSpecifications.TableContents[typeDefOrRefOrSpec.Index].Signature ).OfType<ClassOrValueTypeSignature>().FirstOrDefault();
+               if ( clazz == null )
+               {
+                  // TODO error/warning reporting
+                  retVal = null;
+               }
+               else
+               {
+                  retVal = md.ProcessTypeHierarchyTableIndex( resolver, clazz.Type );
+               }
+               break;
+            default:
+               retVal = null;
+               break;
+         }
+
+         return retVal;
+      }
+
+      // Index: methodDef index, value: All methods that are 'implemented' by methodDef, implicitly or explicitly.
+      internal static MethodInheritanceInfo[] CreateMethodHierarchy( this CILMetaData md, MetaDataResolver resolver, TypeInheritanceInfo[] typeHierarchy )
+      {
+         var typeDefs = md.TypeDefinitions.TableContents;
+         var methodDefs = md.MethodDefinitions.TableContents;
+
+         var retVal = new MethodInheritanceInfo[methodDefs.Count];
+
+         for ( var i = 0; i < typeDefs.Count; ++i )
+         {
+            var tDefIdx = i;
+            var declaringTypeHierarchy = typeHierarchy[tDefIdx];
+            foreach ( var j in md.GetTypeMethodIndices( tDefIdx ) )
+            {
+               var mDefIdx = j;
+               var mDef = methodDefs[mDefIdx];
+               retVal[mDefIdx] = new MethodInheritanceInfo( new Lazy<MetaDataIndex?>( () =>
+               {
+                  // Base type override - only if this method is virtual and not abstract, and matches other method from base type chain which is abstract or virtual.
+                  //var baseTypeOverride = mDef.Attributes.IsVirtual() && !mDef.Attributes.IsAbstract() ?
+                  //   declaringTypeHierarchy.BaseTypes.FirstOrDefault( mdIdx => )
+                  // Walk this type + all of its parent types, for each:
+                  // Check explicit method impl table, and
+                  // methods with same name + signature.
+
+                  return null;
+               }, LazyThreadSafetyMode.None ), null, null );
+            }
+         }
+
+         return retVal;
+      }
+
+      internal static void Minify( this CILMetaData md, MetaDataResolver resolver, IEnumerable<Int32> entryPointIndices )
       {
          // Prepare variables
          var tDefs = md.TypeDefinitions.TableContents;
@@ -3599,6 +3828,11 @@ namespace CILMerge
             .Range( 0, tDefs.Count )
             .SelectMany( tDefIdx => md.GetTypeFieldIndices( tDefIdx ).Select( fDefIdx => Tuple.Create( tDefIdx, fDefIdx ) ) )
             .ToDictionary( tuple => tuple.Item2, tuple => tuple.Item1 );
+
+         // Construct type inheritance hierarchy
+         var typeDefInheritance = md.CreateTypeHierarchy( resolver );
+         // Construct method inheritance hierarchy
+         var methodDefInheritance = md.CreateMethodHierarchy( resolver, typeDefInheritance );
 
          // Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
          var allTableIndices = new Dictionary<Tables, HashSet<Int32>>();
@@ -3635,7 +3869,7 @@ namespace CILMerge
                   tableIndicesThisRound.Add( baseType.Value );
                }
 
-
+               // TODO iterate all added abstract/virtual methods and add methods that 'implement' them!
             }
 
             // Process added method defs
@@ -3658,11 +3892,11 @@ namespace CILMerge
 
                if ( mDef.Attributes.IsAbstract() || mDef.Attributes.IsVirtual() )
                {
-                  // TODO Add to abstract method list
-                  // TODO add all methods that 'implement' the abstract/virtual methods discovered
+                  // TODO Add to abstract/virtual method list
+                  // TODO add all methods that 'implement' the abstract/virtual methods discovered (iterate all types)
                }
 
-               // TODO check explicit method list!
+               // TODO check explicit method implementation!!
             }
 
             // Process added field defs
@@ -3745,5 +3979,16 @@ namespace CILMerge
          // 7. For all field defs, add tables with field info (add also types from field signature)
       }
 
+      private static IEnumerable<T> NotNulls<T>( this IEnumerable<T?> enumerable )
+         where T : struct
+      {
+         foreach ( var item in enumerable )
+         {
+            if ( item.HasValue )
+            {
+               yield return item.Value;
+            }
+         }
+      }
    }
 }

@@ -29,6 +29,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// </summary>
    public abstract class AbstractCryptoCallbacks<TRSA> : AbstractDisposable, CryptoCallbacks
    {
+      private static readonly LocklessInstancePoolForClasses<Byte[]> ByteArrays = new LocklessInstancePoolForClasses<Byte[]>();
+
       private readonly LocklessInstancePoolForClasses<BlockDigestAlgorithm> _sha1Pool;
 
       /// <summary>
@@ -68,14 +70,9 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public abstract Byte[] ExtractPublicKeyFromCSPContainer( String containerName );
 
       /// <inheritdoc />
-      public Byte[] ComputePublicKeyToken( Byte[] fullPublicKey )
+      public IEnumerable<Byte> EnumeratePublicKeyToken( Byte[] fullPublicKey )
       {
-         Byte[] retVal;
-         if ( fullPublicKey.IsNullOrEmpty() )
-         {
-            retVal = fullPublicKey;
-         }
-         else
+         if ( !fullPublicKey.IsNullOrEmpty() )
          {
             var sha1 = this._sha1Pool.TakeInstance();
             try
@@ -84,17 +81,31 @@ namespace CILAssemblyManipulator.Physical.Crypto
                {
                   sha1 = this.CreateHashAlgorithm( AssemblyHashAlgorithm.SHA1 );
                }
-               retVal = sha1.ComputeHash( fullPublicKey, 0, fullPublicKey.Length );
-               // Public key token is actually last 8 bytes reversed
-               retVal = retVal.Skip( retVal.Length - 8 ).ToArray();
-               Array.Reverse( retVal );
+               var bytes = ByteArrays.TakeInstance();
+               try
+               {
+                  if ( bytes == null )
+                  {
+                     bytes = new Byte[sha1.DigestByteCount];
+                  }
+                  sha1.ProcessBlock( fullPublicKey );
+                  sha1.WriteDigest( bytes );
+                  // Public key token is actually last 8 bytes reversed
+                  for ( var i = 0; i < 8; ++i )
+                  {
+                     yield return bytes[bytes.Length - i - 1];
+                  }
+               }
+               finally
+               {
+                  ByteArrays.ReturnInstance( bytes );
+               }
             }
             finally
             {
                this._sha1Pool.ReturnInstance( sha1 );
             }
          }
-         return retVal;
       }
 
       /// <inheritdoc />

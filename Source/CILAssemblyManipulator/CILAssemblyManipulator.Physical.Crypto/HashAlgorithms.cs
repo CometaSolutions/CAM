@@ -63,6 +63,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
    public abstract class BlockDigestAlgorithmWithMessageLength : AbstractDisposable, BlockDigestAlgorithm
    {
 
+      private static readonly LocklessInstancePoolForClasses<ResizableArray<Byte>> Arrays = new LocklessInstancePoolForClasses<ResizableArray<Byte>>();
+
       private readonly Byte[] _block;
       private UInt64 _count;
       private Boolean _stateResetDone;
@@ -147,23 +149,41 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private void HashEnd( Byte[] array, Int32 offset )
       {
-         // We will write 9 more bytes (byte + ulong)
+         // We will write X more bytes.
          // Round up by block size
          var count = this._count;
-         var data = new Byte[
-            ( count + (UInt64) this.CountIncreaseForHashEnd ).RoundUpU64( (UInt32) this._block.Length )
+         var countIncrease = this.CountIncreaseForHashEnd;
+         var dataLen = (Int32) ( ( count + (UInt64) countIncrease ).RoundUpU64( (UInt32) this._block.Length )
             -
-            count];
-         // Write value 128 at the beginning, and amount of written *bits* at the end of the data
-         var idx = 0;
-         data.WriteByteToBytes( ref idx, 0x80 );
-         this.WriteLength( data, unchecked((Int64) count * 8) );
+            count );
+         var dataResizable = Arrays.TakeInstance();
+         try
+         {
+            if ( dataResizable == null )
+            {
+               dataResizable = new ResizableArray<Byte>( initialSize: this._block.Length + countIncrease );
+            }
+            else
+            {
+               dataResizable.CurrentMaxCapacity = dataLen;
+            }
+            var data = dataResizable.Array;
 
-         // Hash the data
-         this.HashBlock( data, 0, data.Length );
+            // Write value 128 at the beginning, and amount of written *bits* at the end of the data
+            var idx = 0;
+            data.WriteByteToBytes( ref idx, 0x80 );
+            this.WriteLength( data, unchecked((Int64) count * 8) );
 
-         // Transform state integers into byte array
-         this.PopulateHash( array, offset );
+            // Hash the data
+            this.HashBlock( data, 0, data.Length );
+
+            // Transform state integers into byte array
+            this.PopulateHash( array, offset );
+         }
+         finally
+         {
+            Arrays.ReturnInstance( dataResizable );
+         }
       }
 
       /// <summary>

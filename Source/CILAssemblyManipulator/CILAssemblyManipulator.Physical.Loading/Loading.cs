@@ -70,13 +70,6 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <param name="metaData">The <see cref="CILMetaData"/>, which should have been obtained through <see cref="GetOrLoadMetaData"/> method of this <see cref="CILMetaDataLoader"/>.</param>
       /// <returns>A textual resource used to load given <paramref name="metaData"/> if <paramref name="metaData"/> was obtained through <see cref="GetOrLoadMetaData"/> method of this <see cref="CILMetaDataLoader"/>; <c>null</c> otherwise.</returns>
       String GetResourceFor( CILMetaData metaData );
-
-      /// <summary>
-      /// Computes the public key token based on given public key.
-      /// </summary>
-      /// <param name="publicKey">The public key. May be <c>null</c>.</param>
-      /// <returns>The public key token, or <c>null</c> if <paramref name="publicKey"/> is <c>null</c> or if this <see cref="CILMetaDataLoader"/> is unable to compute public key tokens.</returns>
-      Byte[] ComputePublicKeyTokenOrNull( Byte[] publicKey );
    }
 
    /// <summary>
@@ -151,7 +144,7 @@ namespace CILAssemblyManipulator.Physical.Loading
                .GetPossibleResourcesForAssemblyReference( thisResource, e.ThisMetaData, e.AssemblyInformation, e.UnparsedAssemblyName )
                .Where( r => this.IsValidResource( r ) )
                .Select( r => this.GetOrLoadMetaData( r, thisResource ) )
-               .Where( md => md.AssemblyDefinitions.GetOrNull( 0 )?.IsMatch( e.AssemblyInformation, false, this.ComputePublicKeyTokenOrNull ) ?? false )
+               .Where( md => md.AssemblyDefinitions.GetOrNull( 0 )?.IsMatch( e.AssemblyInformation, false, this._cryptoCallbacks ) ?? false )
                .FirstOrDefault();
          }
       }
@@ -189,12 +182,6 @@ namespace CILAssemblyManipulator.Physical.Loading
          return this._moduleInfos.TryGetValue( metaData, out moduleInfo ) ?
             moduleInfo :
             null;
-      }
-
-      /// <inheritdoc />
-      public Byte[] ComputePublicKeyTokenOrNull( Byte[] publicKey )
-      {
-         return this._cryptoCallbacks?.ComputePublicKeyToken( publicKey );
       }
 
       /// <summary>

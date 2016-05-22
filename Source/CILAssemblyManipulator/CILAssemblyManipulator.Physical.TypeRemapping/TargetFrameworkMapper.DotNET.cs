@@ -19,7 +19,7 @@
 extern alias CAMPhysicalR;
 using CAMPhysicalR;
 using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
-
+using CILAssemblyManipulator.Physical.Crypto;
 using CILAssemblyManipulator.Physical.IO;
 using System;
 using System.Collections.Concurrent;
@@ -47,14 +47,16 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       /// <summary>
       /// Creates a new instance of <see cref="TargetFrameworkMapperConcurrent"/>.
       /// </summary>
-      public TargetFrameworkMapperConcurrent()
+      /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use to compute public key tokens. If <c>null</c>, <see cref="DefaultCryptoCallbacks"/> will be created.</param>
+      public TargetFrameworkMapperConcurrent( CryptoCallbacks cryptoCallbacks )
          : base(
          new ConcurrentDictionary<CILMetaData, ISet<String>>(),
          new ConcurrentDictionary<TargetFrameworkInfo, String[]>(),
          new ConcurrentDictionary<CILMetaData, ConcurrentDictionary<String, CILMetaData>>(),
          new ConcurrentDictionary<CILMetaData, ConcurrentDictionary<AssemblyInformationForResolving, CILMetaData>>(),
          md => new ConcurrentDictionary<String, CILMetaData>(),
-         md => new ConcurrentDictionary<AssemblyInformationForResolving, CILMetaData>()
+         md => new ConcurrentDictionary<AssemblyInformationForResolving, CILMetaData>(),
+         cryptoCallbacks
          )
       {
          this._notManagedAssemblies = new ConcurrentDictionary<String, String>();

@@ -57,14 +57,14 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          retVal.RegisterFunctionality<CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider>( () => DefaultOpCodeProvider.DefaultInstance );
          retVal.RegisterFunctionality<SignatureProvider>( () => DefaultSignatureProvider.DefaultInstance );
-         retVal.RegisterFunctionality<ResolvingProviderProvider>( () => new ResolvingProviderProvider( md => new DefaultResolvingProvider(
+         retVal.RegisterFunctionality<ResolvingProviderProvider>( () => md => new DefaultResolvingProvider(
             md,
             retVal.TableInformationArray.SelectMany( i => i?.ColumnsInformationNotGeneric
                .Select( c => c?.GetFunctionality<MetaDataColumnInformationWithResolvingCapability>() )
                .Where( info => info != null )
                .Select( info => Tuple.Create( (Tables) i.TableIndex, info ) ) ?? Empty<Tuple<Tables, MetaDataColumnInformationWithResolvingCapability>>.Enumerable
                )
-            ) ) );
+            ) );
          return retVal;
       }
 

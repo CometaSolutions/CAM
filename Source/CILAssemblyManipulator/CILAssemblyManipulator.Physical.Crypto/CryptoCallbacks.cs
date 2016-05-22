@@ -58,11 +58,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       Byte[] CreateSignature( Byte[] contentsHash, KeyBLOBParsingResult parsingResult, String containerName );
 
       /// <summary>
-      /// This method will compute public key token for a given full public key.
+      /// Enumerates public key token computed from given full public key.
       /// </summary>
       /// <param name="fullPublicKey">The full public key.</param>
-      /// <returns>The value of <paramref name="fullPublicKey"/>, if <paramref name="fullPublicKey"/> is <c>null</c> or empty, or the public key token of the <paramref name="fullPublicKey"/>.</returns>
-      Byte[] ComputePublicKeyToken( Byte[] fullPublicKey );
+      /// <returns>Enumerable of the public key token. Will be empty if <paramref name="fullPublicKey"/> is <c>null</c> or empty.</returns>
+      IEnumerable<Byte> EnumeratePublicKeyToken( Byte[] fullPublicKey );
 
       /// <summary>
       /// Tries to parse public and/or private key information from given key BLOB.
@@ -153,5 +153,16 @@ public static partial class E_CILPhysical
    public static Boolean ParsingSucceeded( this KeyBLOBParsingResult result )
    {
       return result != null && result.ErrorMessage == null;
+   }
+
+   /// <summary>
+   /// This method will compute public key token for a given full public key.
+   /// </summary>
+   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/>.</param>
+   /// <param name="fullPublicKey">The full public key.</param>
+   /// <returns>The value of <paramref name="fullPublicKey"/>, if <paramref name="fullPublicKey"/> is <c>null</c> or empty, or the public key token of the <paramref name="fullPublicKey"/>.</returns>
+   public static Byte[] ComputePublicKeyToken( this CryptoCallbacks cryptoCallbacks, Byte[] fullPublicKey )
+   {
+      return cryptoCallbacks.EnumeratePublicKeyToken( fullPublicKey ).ToArray();
    }
 }

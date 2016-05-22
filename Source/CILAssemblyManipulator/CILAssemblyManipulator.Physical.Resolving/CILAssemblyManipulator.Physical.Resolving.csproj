@@ -86,6 +86,10 @@
       <Name>CILAssemblyManipulator.Physical.Core</Name>
       <Aliases>CAMPhysical</Aliases>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
+      <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
+      <Name>CILAssemblyManipulator.Physical.Crypto</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MetaData.cs" />

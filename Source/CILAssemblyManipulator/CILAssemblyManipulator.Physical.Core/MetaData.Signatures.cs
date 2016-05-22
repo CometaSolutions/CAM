@@ -72,6 +72,13 @@ namespace CILAssemblyManipulator.Physical
    }
 
    /// <summary>
+   /// This interface represents any object part of <see cref="AbstractSignature"/>. All signatures are <see cref="SignatureElement"/>s, but also some object not extending <see cref="AbstractSignature"/> can be such elements, e.g. <see cref="CustomModifierSignature"/>.
+   /// </summary>
+   public interface SignatureElement
+   {
+   }
+
+   /// <summary>
    /// This is base class for all signatures in CAM.Physical framework.
    /// </summary>
    /// <remarks>
@@ -97,7 +104,7 @@ namespace CILAssemblyManipulator.Physical
    /// <item><description><see cref="FunctionPointerTypeSignature"/>.</description></item>
    /// </list>
    /// </remarks>
-   public abstract class AbstractSignature
+   public abstract class AbstractSignature : SignatureElement
    {
       // Disable inheritance to other assemblies
       internal AbstractSignature()
@@ -255,6 +262,7 @@ namespace CILAssemblyManipulator.Physical
             return SignatureKind.MethodDefinition;
          }
       }
+
    }
 
    /// <summary>
@@ -291,7 +299,6 @@ namespace CILAssemblyManipulator.Physical
             return SignatureKind.MethodReference;
          }
       }
-
    }
 
    /// <summary>
@@ -355,6 +362,7 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The type for this <see cref="FieldSignature"/>.</value>
       /// <seealso cref="TypeSignature"/>
       public TypeSignature Type { get; set; }
+
    }
 
    /// <summary>
@@ -454,7 +462,7 @@ namespace CILAssemblyManipulator.Physical
    /// <item><description><see cref="LocalSignature"/>.</description></item>
    /// </list>
    /// </remarks>
-   public abstract class ParameterOrLocalSignature
+   public abstract class ParameterOrLocalSignature : SignatureElement
    {
 
       // Disable inheritance to other assemblies
@@ -482,6 +490,7 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The <see cref="TypeSignature"/> of this <see cref="ParameterOrLocalSignature"/>.</value>
       /// <seealso cref="TypeSignature"/>
       public TypeSignature Type { get; set; }
+
    }
 
    /// <summary>
@@ -521,12 +530,13 @@ namespace CILAssemblyManipulator.Physical
       {
 
       }
+
    }
 
    /// <summary>
    /// This class represents a single custom modifier in <see cref="AbstractSignatureWithCustomMods.CustomModifiers"/>, <see cref="ParameterOrLocalSignature.CustomModifiers"/>, <see cref="PointerTypeSignature.CustomModifiers"/>, and <see cref="SimpleArrayTypeSignature.CustomModifiers"/> lists.
    /// </summary>
-   public sealed class CustomModifierSignature
+   public sealed class CustomModifierSignature : SignatureElement
    {
       /// <summary>
       /// Gets or sets the optionality of this <see cref="CustomModifierSignature"/>.
@@ -548,6 +558,7 @@ namespace CILAssemblyManipulator.Physical
       /// </list>
       /// </remarks>
       public TableIndex CustomModifierType { get; set; }
+
    }
 
    /// <summary>
@@ -696,6 +707,7 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The simple type value of this <see cref="SimpleTypeSignature"/>.</value>
       /// <seealso cref="SimpleTypeSignatureKind"/>
       public SimpleTypeSignatureKind SimpleType { get; }
+
    }
 
    /// <summary>
@@ -902,6 +914,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The zero-based index of the referenced generic parameter.</value>
       public Int32 GenericParameterIndex { get; set; }
+
    }
 
    /// <summary>
@@ -1012,6 +1025,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The <see cref="TypeSignature"/> of this <see cref="AbstractArrayTypeSignature"/>.</value>
       public TypeSignature ArrayType { get; set; }
+
    }
 
    /// <summary>
@@ -1059,6 +1073,7 @@ namespace CILAssemblyManipulator.Physical
       /// </summary>
       /// <value>The list of lower bounds of dimensions for this <see cref="ComplexArrayTypeSignature"/>.</value>
       public List<Int32> LowerBounds { get; }
+
    }
 
    /// <summary>
@@ -1128,6 +1143,7 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The list of all generic arguments of this <see cref="GenericMethodSignature"/>.</value>
       /// <seealso cref="TypeSignature"/>
       public List<TypeSignature> GenericArguments { get; }
+
    }
 
    /// <summary>
@@ -2911,4 +2927,5 @@ public static partial class E_CILPhysical
             return null;
       }
    }
+
 }

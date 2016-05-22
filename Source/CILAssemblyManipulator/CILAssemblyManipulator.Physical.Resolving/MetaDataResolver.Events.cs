@@ -21,6 +21,7 @@ using CAMPhysical::CILAssemblyManipulator.Physical;
 using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 
 using CILAssemblyManipulator.Physical;
+using CILAssemblyManipulator.Physical.Crypto;
 using CILAssemblyManipulator.Physical.Resolving;
 using CommonUtils;
 using System;
@@ -229,13 +230,13 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
    /// <param name="aRef">The optional <see cref="AssemblyReference"/>.</param>
-   /// <param name="publicKeyTokenComputer">The callback to use, if public key token computation is required.</param>
+   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use to calculate public key token.</param>
    /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
    /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
    /// <seealso cref="T:CILAssemblyManipulator.Physical.Crypto.HashStreamInfo.HashComputer"/>
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, Func<Byte[], Byte[]> publicKeyTokenComputer )
+   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, CryptoCallbacks cryptoCallbacks )
    {
-      return aDef.IsMatch( aRef == null ? null : new AssemblyInformationForResolving( aRef ), aRef?.Attributes.IsRetargetable() ?? false, publicKeyTokenComputer );
+      return aDef.IsMatch( aRef == null ? null : new AssemblyInformationForResolving( aRef ), aRef?.Attributes.IsRetargetable() ?? false, cryptoCallbacks );
    }
 
    /// <summary>
@@ -244,11 +245,11 @@ public static partial class E_CILPhysical
    /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
    /// <param name="aRef">The optional <see cref="AssemblyInformationForResolving"/>.</param>
    /// <param name="isRetargetable">Whether the <paramref name="aRef"/> is retargetable.</param>
-   /// <param name="publicKeyTokenComputer">The callback to use, if public key token computation is required.</param>
+   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use to calculate public key token.</param>
    /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
    /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
    /// <seealso cref="T:CILAssemblyManipulator.Physical.Crypto.HashStreamInfo.HashComputer"/>
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving aRef, Boolean isRetargetable, Func<Byte[], Byte[]> publicKeyTokenComputer )
+   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving aRef, Boolean isRetargetable, CryptoCallbacks cryptoCallbacks )
    {
       var defInfo = aDef.AssemblyInformation;
       var retVal = aRef != null;
@@ -262,7 +263,7 @@ public static partial class E_CILPhysical
             var refPK = refInfo.PublicKeyOrToken;
             retVal = defPK.IsNullOrEmpty() == refPK.IsNullOrEmpty()
                && defInfo.Equals( refInfo, aRef.IsFullPublicKey )
-               && ( aRef.IsFullPublicKey || ArrayEqualityComparer<Byte>.ArrayEquality( publicKeyTokenComputer?.Invoke( defPK ), refPK ) );
+               && ( aRef.IsFullPublicKey || ( cryptoCallbacks?.EnumeratePublicKeyToken( defPK )?.SequenceEqual( refPK ) ?? false ) );
          }
       }
 

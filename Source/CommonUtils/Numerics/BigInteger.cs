@@ -418,7 +418,7 @@ namespace CommonUtils.Numerics
 
       public override String ToString()
       {
-         return ToString( this._sign, this._bits, this._bits.Length );
+         return ToString( this._sign, this._bits, this._bits?.Length ?? 0 );
       }
 
       internal static String ToString( Int32 sign, UInt32[] bits, Int32 bitsLength )

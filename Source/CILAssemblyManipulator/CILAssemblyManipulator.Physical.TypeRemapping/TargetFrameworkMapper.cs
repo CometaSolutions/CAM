@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using CILAssemblyManipulator.Physical.Crypto;
 
 namespace CILAssemblyManipulator.Physical.TypeRemapping
 {
@@ -105,7 +106,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       TResolvedTargetFWAssembliesDicInner,
       TAssemblyReferenceDic,
       TAssemblyReferenceDicInner
-      > : TargetFrameworkMapper
+      > : AbstractDisposable, TargetFrameworkMapper
       where TTypesDic : class, IDictionary<CILMetaData, ISet<String>>
       where TTargetFWAssembliesDic : class, IDictionary<TargetFrameworkInfo, String[]>
       where TResolvedTargetFWAssembliesDic : class, IDictionary<CILMetaData, TResolvedTargetFWAssembliesDicInner>
@@ -121,28 +122,27 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       private readonly Func<CILMetaData, TResolvedTargetFWAssembliesDicInner> _resolvedInnerFactory;
       private readonly Func<CILMetaData, TAssemblyReferenceDicInner> _assemblyReferenceInnerFactory;
 
+      private readonly CryptoCallbacks _cryptoCallbacks;
+      private readonly Boolean _cryptoCallbacksCreated;
+
       internal AbstractTargetFrameworkMapper(
          TTypesDic mdTypes,
          TTargetFWAssembliesDic targetFWAssemblies,
          TResolvedTargetFWAssembliesDic resolvedTargetFWAssemblies,
          TAssemblyReferenceDic assemblyReferences,
          Func<CILMetaData, TResolvedTargetFWAssembliesDicInner> resolvedInnerFactory,
-         Func<CILMetaData, TAssemblyReferenceDicInner> assemblyReferenceInnerFactory
+         Func<CILMetaData, TAssemblyReferenceDicInner> assemblyReferenceInnerFactory,
+         CryptoCallbacks cryptoCallbacks
          )
       {
-         ArgumentValidator.ValidateNotNull( "Meta data type dictionary", mdTypes );
-         ArgumentValidator.ValidateNotNull( "Target framework assemblies dictionary", targetFWAssemblies );
-         ArgumentValidator.ValidateNotNull( "Resolved target framework assemblies dictionary", resolvedTargetFWAssemblies );
-         ArgumentValidator.ValidateNotNull( "Assembly reference dictionary", assemblyReferences );
-         ArgumentValidator.ValidateNotNull( "Resolved target framework assemblies inner dictionary factory", resolvedInnerFactory );
-         ArgumentValidator.ValidateNotNull( "Assembly reference inner dictionary factory", assemblyReferenceInnerFactory );
-
-         this._mdTypes = mdTypes;
-         this._targetFWAssemblies = targetFWAssemblies;
-         this._resolvedTargetFWAssemblies = resolvedTargetFWAssemblies;
-         this._assemblyReferenceInfo = assemblyReferences;
-         this._resolvedInnerFactory = resolvedInnerFactory;
-         this._assemblyReferenceInnerFactory = assemblyReferenceInnerFactory;
+         this._mdTypes = ArgumentValidator.ValidateNotNull( "Meta data type dictionary", mdTypes );
+         this._targetFWAssemblies = ArgumentValidator.ValidateNotNull( "Target framework assemblies dictionary", targetFWAssemblies );
+         this._resolvedTargetFWAssemblies = ArgumentValidator.ValidateNotNull( "Resolved target framework assemblies dictionary", resolvedTargetFWAssemblies );
+         this._assemblyReferenceInfo = ArgumentValidator.ValidateNotNull( "Assembly reference dictionary", assemblyReferences );
+         this._resolvedInnerFactory = ArgumentValidator.ValidateNotNull( "Resolved target framework assemblies inner dictionary factory", resolvedInnerFactory );
+         this._assemblyReferenceInnerFactory = ArgumentValidator.ValidateNotNull( "Assembly reference inner dictionary factory", assemblyReferenceInnerFactory );
+         this._cryptoCallbacksCreated = cryptoCallbacks == null;
+         this._cryptoCallbacks = cryptoCallbacks ?? new DefaultCryptoCallbacks();
       }
 
       /// <inheritdoc />
@@ -229,7 +229,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
                {
                   // Most likely this metadata didn't have target framework info attribute
                   retVal = this.GetSuitableMDsForTargetFW( thisMD, loader, targetFW.TargetFrameworkInfo, false )
-                     .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 )?.IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, loader.ComputePublicKeyTokenOrNull ) ?? false );
+                     .FirstOrDefault( md => md.AssemblyDefinitions.GetOrNull( 0 )?.IsMatch( assemblyRef, targetFW.AreFrameworkAssemblyReferencesRetargetable, this._cryptoCallbacks ) ?? false );
                }
                else if ( validResource.StartsWith( cb.GetTargetFrameworkPathForFrameworkInfo( targetFW.TargetFrameworkInfo ) ) ) // Check whether resolved reference is located in target framework path
                {
@@ -293,6 +293,18 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       private String[] GetTargetFWAssemblies( TargetFrameworkInfo targetFW, CILMetaDataLoaderWithCallbacks loader )
       {
          return this.GetOrAdd_TargetFWAssemblies( this._targetFWAssemblies, targetFW, tfw => loader.LoaderCallbacks.GetAssemblyResourcesForFramework( tfw ).ToArray() );
+      }
+
+      /// <summary>
+      /// Disposes the <see cref="CryptoCallbacks"/>, if it was created by the constructor.
+      /// </summary>
+      /// <param name="disposing">Wheter we are disposing from <see cref="IDisposable.Dispose"/> method.</param>
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( disposing && this._cryptoCallbacksCreated )
+         {
+            this._cryptoCallbacks.DisposeSafely();
+         }
       }
 
       /// <summary>
@@ -381,14 +393,16 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       /// <summary>
       /// Creates a new instance of <see cref="TargetFrameworkMapperNotThreadSafe"/>.
       /// </summary>
-      public TargetFrameworkMapperNotThreadSafe()
+      /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use to compute public key tokens. If <c>null</c>, <see cref="DefaultCryptoCallbacks"/> will be created.</param>
+      public TargetFrameworkMapperNotThreadSafe( CryptoCallbacks cryptoCallbacks )
          : base(
          new Dictionary<CILMetaData, ISet<String>>(),
          new Dictionary<TargetFrameworkInfo, String[]>(),
          new Dictionary<CILMetaData, Dictionary<String, CILMetaData>>(),
          new Dictionary<CILMetaData, Dictionary<AssemblyInformationForResolving, CILMetaData>>(),
          md => new Dictionary<String, CILMetaData>(),
-         md => new Dictionary<AssemblyInformationForResolving, CILMetaData>()
+         md => new Dictionary<AssemblyInformationForResolving, CILMetaData>(),
+         cryptoCallbacks
          )
       {
          this._notManagedAssemblies = new HashSet<String>();

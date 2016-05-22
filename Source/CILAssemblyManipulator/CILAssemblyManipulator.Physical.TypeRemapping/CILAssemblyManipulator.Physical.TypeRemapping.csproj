@@ -88,6 +88,10 @@
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical.Core</Name>
     </ProjectReference>
+    <ProjectReference Include="..\CILAssemblyManipulator.Physical.Crypto\CILAssemblyManipulator.Physical.Crypto.csproj">
+      <Project>{3c3ee913-1034-4c7d-ab79-67d19e3256fa}</Project>
+      <Name>CILAssemblyManipulator.Physical.Crypto</Name>
+    </ProjectReference>
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.Loading\CILAssemblyManipulator.Physical.Loading.csproj">
       <Project>{10ef5dbb-29d5-4266-9561-1fc44b671ac7}</Project>
       <Name>CILAssemblyManipulator.Physical.IO.Loading</Name>

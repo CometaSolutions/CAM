@@ -34,36 +34,9 @@ using TabularMetaData.Meta;
 namespace CILAssemblyManipulator.Physical.Meta
 {
    /// <summary>
-   /// This class provides creation of <see cref="ResolvingProvider"/> through a callback.
+   /// This delegate provides signature for creating <see cref="ResolvingProvider"/>.
    /// </summary>
-   public sealed class ResolvingProviderProvider
-   {
-      private readonly Func<CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData, ResolvingProvider> _callback;
-
-      /// <summary>
-      /// Creates a new instance of <see cref="ResolvingProviderProvider"/> with given callback.
-      /// </summary>
-      /// <param name="callback">The callback to create <see cref="ResolvingProvider"/>.</param>
-      public ResolvingProviderProvider( Func<CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData, ResolvingProvider> callback )
-      {
-         ArgumentValidator.ValidateNotNull( "Callback", callback );
-
-         this._callback = callback;
-      }
-
-      /// <summary>
-      /// Creates a new <see cref="ResolvingProvider"/> for a given <see cref="CILMetaData"/>.
-      /// </summary>
-      /// <param name="thisMD">The <see cref="CILMetaData"/>.</param>
-      /// <returns>A possibly new instance of <see cref="ResolvingProvider"/> for this <see cref="CILMetaData"/>.</returns>
-      /// <remarks>
-      /// The returned <see cref="ResolvingProvider"/> will be accessible via <see cref="CILMetaData.ResolvingProvider"/> property.
-      /// </remarks>
-      public ResolvingProvider CreateResolvingProvider( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData thisMD )
-      {
-         return this._callback( thisMD );
-      }
-   }
+   public delegate ResolvingProvider ResolvingProviderProvider( CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData md );
 
    /// <summary>
    /// The sole purpose of this interface is to provide resolving capability of <see cref="RawCustomAttributeSignature"/>s and <see cref="RawSecurityInformation"/>s into <see cref="ResolvedCustomAttributeSignature"/>s and <see cref="SecurityInformation"/>, respectively.
@@ -377,6 +350,6 @@ public static partial class E_CILPhysical
    /// <seealso cref="ResolvingProvider"/>
    public static ResolvingProvider CreateResolvingProvider( this MetaDataTableInformationProvider provider, CAMPhysical::CILAssemblyManipulator.Physical.CILMetaData md )
    {
-      return provider.GetFunctionality<ResolvingProviderProvider>()?.CreateResolvingProvider( md );
+      return provider.GetFunctionality<ResolvingProviderProvider>()?.Invoke( md );
    }
 }

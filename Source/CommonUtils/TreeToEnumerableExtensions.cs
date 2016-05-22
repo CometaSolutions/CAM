@@ -50,9 +50,14 @@ namespace CommonUtils
 
             yield return cur;
 
-            foreach ( var child in childrenFunc( cur ) )
+            var children = childrenFunc( cur );
+
+            if ( children != null )
             {
-               stack.Push( child );
+               foreach ( var child in children )
+               {
+                  stack.Push( child );
+               }
             }
          }
       }
@@ -122,9 +127,14 @@ namespace CommonUtils
             {
                yield return cur;
 
-               foreach ( var child in childrenFunc( cur ) )
+               var children = childrenFunc( cur );
+
+               if ( children != null )
                {
-                  stack.Push( child );
+                  foreach ( var child in children )
+                  {
+                     stack.Push( child );
+                  }
                }
             }
          }
@@ -198,9 +208,14 @@ namespace CommonUtils
          {
             var cur = queue.Dequeue();
             yield return cur;
-            foreach ( var child in childrenFunc( cur ) )
+
+            var children = childrenFunc( cur );
+            if ( children != null )
             {
-               queue.Enqueue( child );
+               foreach ( var child in children )
+               {
+                  queue.Enqueue( child );
+               }
             }
          }
       }
@@ -269,9 +284,13 @@ namespace CommonUtils
             {
                yield return cur;
 
-               foreach ( var child in childrenFunc( cur ) )
+               var children = childrenFunc( cur );
+               if ( children != null )
                {
-                  queue.Enqueue( child );
+                  foreach ( var child in children )
+                  {
+                     queue.Enqueue( child );
+                  }
                }
             }
          }
