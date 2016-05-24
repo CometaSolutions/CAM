@@ -81,8 +81,41 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// </summary>
    public struct SignatureMatcher
    {
+      /// <summary>
+      /// Creates a new instance of <see cref="SignatureMatcher"/> with given parameters.
+      /// </summary>
+      /// <param name="typeDefOrRefMatcher">The value for <see cref="TypeDefOrRefMatcher"/>.</param>
+      /// <param name="resolutionScopeMatcher">The value for <see cref="ResolutionScopeMatcher"/>.</param>
+      /// <exception cref="ArgumentNullException">If either of <paramref name="typeDefOrRefMatcher"/> or <paramref name="resolutionScopeMatcher"/> is <c>null</c>.</exception>
+      public SignatureMatcher( SignatureMatcherCallback<TableIndex> typeDefOrRefMatcher, SignatureMatcherCallback<TableIndex?> resolutionScopeMatcher )
+      {
+         this.TypeDefOrRefMatcher = ArgumentValidator.ValidateNotNull( "Type def or ref matcher", typeDefOrRefMatcher );
+         this.ResolutionScopeMatcher = ArgumentValidator.ValidateNotNull( "Resolution scope matcher", resolutionScopeMatcher );
+      }
 
+      /// <summary>
+      /// This callback will be called when one <see cref="TableIndex"/> is pointing to <see cref="Tables.TypeDef"/> table, and another <see cref="TableIndex"/> is pointing to <see cref="Tables.TypeRef"/>, or both are pointing to <see cref="Tables.TypeDef"/>.
+      /// </summary>
+      /// <value>The callback to compare <see cref="TableIndex"/>es pointing to <see cref="Tables.TypeDef"/> and <see cref="Tables.TypeRef"/> such that both are never <see cref="Tables.TypeRef"/>.</value>
+      public SignatureMatcherCallback<TableIndex> TypeDefOrRefMatcher { get; }
+
+      /// <summary>
+      /// This callback will be called to match <see cref="TypeReference.ResolutionScope"/>s of top-level <see cref="TypeReference"/>s.
+      /// </summary>
+      /// <value>The callback to match <see cref="TypeReference.ResolutionScope"/>s of top-level <see cref="TypeReference"/>s.</value>
+      public SignatureMatcherCallback<TableIndex?> ResolutionScopeMatcher { get; }
    }
+
+   /// <summary>
+   /// This delegate contains signature for callbacks used by <see cref="SignatureMatcher"/>.
+   /// </summary>
+   /// <typeparam name="TIndex">The type of the table index.</typeparam>
+   /// <param name="firstMD">The <see cref="CILMetaData"/> passed as first to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
+   /// <param name="firstIndex">The <see cref="TableIndex"/> within the <see cref="AbstractSignature"/> passed as first to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
+   /// <param name="secondMD">The <see cref="CILMetaData"/> passed as second to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
+   /// <param name="secondIndex">The <see cref="TableIndex"/> within the <see cref="AbstractSignature"/> passed as second to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
+   /// <returns>Whether the <paramref name="firstIndex"/> and <paramref name="secondIndex"/> match.</returns>
+   public delegate Boolean SignatureMatcherCallback<TIndex>( CILMetaData firstMD, TIndex firstIndex, CILMetaData secondMD, TIndex secondIndex );
 
    /// <summary>
    /// This type represents information about a single <see cref="Physical.TableIndex"/> reference located in <see cref="SignatureElement"/>.
@@ -278,39 +311,48 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <inheritdoc />
       public Boolean MatchSignatures( CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
       {
-         var retVal = firstSignature?.SignatureKind == secondSignature?.SignatureKind;
+         var retVal = ( ( firstSignature == null ) == ( secondSignature == null ) );
          if ( retVal && firstSignature != null )
          {
-            switch ( firstSignature.SignatureKind )
+            retVal = firstSignature.SignatureKind == secondSignature.SignatureKind
+               || (
+                  ( firstSignature.SignatureKind == SignatureKind.MethodDefinition || firstSignature.SignatureKind == SignatureKind.MethodReference )
+                  &&
+                  ( secondSignature.SignatureKind == SignatureKind.MethodDefinition || secondSignature.SignatureKind == SignatureKind.MethodReference )
+                  );
+            if ( retVal )
             {
-               case SignatureKind.Field:
-                  retVal = this.MatchFieldSignatures( firstMD, (FieldSignature) firstSignature, secondMD, (FieldSignature) secondSignature, matcher );
-                  break;
-               case SignatureKind.GenericMethodInstantiation:
-                  retVal = this.MatchGenericMethodSignatures( firstMD, (GenericMethodSignature) firstSignature, secondMD, (GenericMethodSignature) secondSignature, matcher );
-                  break;
-               case SignatureKind.LocalVariables:
-                  retVal = this.MatchLocalVarsSignatures( firstMD, (LocalVariablesSignature) firstSignature, secondMD, (LocalVariablesSignature) secondSignature, matcher );
-                  break;
-               case SignatureKind.MethodDefinition:
-                  retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
-                  break;
-               case SignatureKind.MethodReference:
-                  retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
-                  break;
-               case SignatureKind.Property:
-                  retVal = this.MatchPropertySignatures( firstMD, (PropertySignature) firstSignature, secondMD, (PropertySignature) secondSignature, matcher );
-                  break;
-               case SignatureKind.Type:
-                  retVal = this.MatchTypeSignatures( firstMD, (TypeSignature) firstSignature, secondMD, (TypeSignature) secondSignature, matcher );
-                  break;
-               case SignatureKind.Raw:
-                  retVal = false;
-                  break;
-               default:
-                  // TODO
-                  retVal = false;
-                  break;
+               switch ( firstSignature.SignatureKind )
+               {
+                  case SignatureKind.Field:
+                     retVal = this.MatchFieldSignatures( firstMD, (FieldSignature) firstSignature, secondMD, (FieldSignature) secondSignature, matcher );
+                     break;
+                  case SignatureKind.GenericMethodInstantiation:
+                     retVal = this.MatchGenericMethodSignatures( firstMD, (GenericMethodSignature) firstSignature, secondMD, (GenericMethodSignature) secondSignature, matcher );
+                     break;
+                  case SignatureKind.LocalVariables:
+                     retVal = this.MatchLocalVarsSignatures( firstMD, (LocalVariablesSignature) firstSignature, secondMD, (LocalVariablesSignature) secondSignature, matcher );
+                     break;
+                  case SignatureKind.MethodDefinition:
+                     retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
+                     break;
+                  case SignatureKind.MethodReference:
+                     retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
+                     break;
+                  case SignatureKind.Property:
+                     retVal = this.MatchPropertySignatures( firstMD, (PropertySignature) firstSignature, secondMD, (PropertySignature) secondSignature, matcher );
+                     break;
+                  case SignatureKind.Type:
+                     retVal = this.MatchTypeSignatures( firstMD, (TypeSignature) firstSignature, secondMD, (TypeSignature) secondSignature, matcher );
+                     break;
+                  case SignatureKind.Raw:
+                     retVal = false;
+                     break;
+                  default:
+                     // TODO
+                     retVal = false;
+                     break;
+               }
             }
          }
 
@@ -530,18 +572,27 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       private Boolean MatchTypeDefOrRefOrSpec( CILMetaData defModule, TableIndex defIdx, CILMetaData refModule, TableIndex refIdx, SignatureMatcher matcher )
       {
-         return false;
-         //switch ( defIdx.Table )
-         //{
-         //   case Tables.TypeDef:
-         //      return refIdx.Table == Tables.TypeRef && this._tableIndexMappings[defModule][defIdx] == this._tableIndexMappings[refModule][refIdx];
-         //   case Tables.TypeRef:
-         //      return refIdx.Table == Tables.TypeRef && this.MatchTypeRefs( defModule, defIdx.Index, refModule, refIdx.Index, matcher );
-         //   case Tables.TypeSpec:
-         //      return refIdx.Table == Tables.TypeSpec && this.MatchTypeSignatures( defModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature, matcher );
-         //   default:
-         //      return false;
-         //}
+         switch ( defIdx.Table )
+         {
+            case Tables.TypeDef:
+               return ( ReferenceEquals( defModule, refModule )
+                  && refIdx.Table == Tables.TypeDef
+                  && matcher.TypeDefOrRefMatcher( defModule, defIdx, refModule, refIdx )
+                  ) || ( !ReferenceEquals( defModule, refModule )
+                  && refIdx.Table == Tables.TypeRef
+                  && matcher.TypeDefOrRefMatcher( defModule, defIdx, refModule, refIdx )
+                  );
+            case Tables.TypeRef:
+               return ( !ReferenceEquals( defModule, refModule )
+                  && refIdx.Table == Tables.TypeDef
+                  && matcher.TypeDefOrRefMatcher( defModule, defIdx, refModule, refIdx )
+                  ) || ( refIdx.Table == Tables.TypeRef
+                  && this.MatchTypeRefs( defModule, defIdx.Index, refModule, refIdx.Index, matcher ) );
+            case Tables.TypeSpec:
+               return refIdx.Table == Tables.TypeSpec && this.MatchTypeSignatures( defModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature, matcher );
+            default:
+               return false;
+         }
       }
 
       private Boolean MatchTypeRefs( CILMetaData defModule, Int32 defIdx, CILMetaData refModule, Int32 refIdx, SignatureMatcher matcher )
@@ -554,57 +605,15 @@ namespace CILAssemblyManipulator.Physical.Meta
          {
             var defResScopeNullable = defTypeRef.ResolutionScope;
             var refResScopeNullable = refTypeRef.ResolutionScope;
-            if ( defResScopeNullable.HasValue == refResScopeNullable.HasValue )
-            {
-               if ( defResScopeNullable.HasValue )
-               {
-                  var defResScope = defResScopeNullable.Value;
-                  var refResScope = refResScopeNullable.Value;
-                  switch ( defResScope.Table )
-                  {
-                     case Tables.TypeRef:
-                        retVal = refResScope.Table == Tables.TypeRef
-                           && this.MatchTypeRefs( defModule, defResScope.Index, refModule, refResScope.Index, matcher );
-                        break;
-                        //case Tables.AssemblyRef:
-                        //   retVal = refResScope.Table == Tables.AssemblyRef
-                        //      && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
-                        //   if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
-                        //   {
-                        //      var defARef = defModule.AssemblyReferences.TableContents[defResScope.Index];
-                        //      var refARef = refModule.AssemblyReferences.TableContents[refResScope.Index];
-                        //      if ( defARef.Attributes.IsRetargetable() || refARef.Attributes.IsRetargetable() )
-                        //      {
-                        //         // Simple name match
-                        //         retVal = String.Equals( defARef.AssemblyInformation.Name, refARef.AssemblyInformation.Name );
-                        //      }
-                        //      else
-                        //      {
-                        //         retVal = this._assemblyReferenceEqualityComparer.Equals( defARef, refARef );
-                        //      }
-                        //   }
-                        //   break;
-                        //case Tables.Module:
-                        //case Tables.ModuleRef:
-                        //   retVal = refResScope.Table == Tables.AssemblyRef
-                        //      && !this._tableIndexMappings[refModule].ContainsKey( refResScope );
-                        //   break;
-                        //default:
-                        //   retVal = false;
-                        //   break;
-                  }
-
-               }
-               else
-               {
-                  // TODO Lazy mapping IDictionary<Tuple<String, String>, ExportedType> for each input module
-                  throw new NotImplementedException( "ExportedType in TypeRef while matching method definition and reference signatures." );
-               }
-            }
-            else
-            {
-               retVal = false;
-            }
+            retVal = ( defResScopeNullable.HasValue
+               && refResScopeNullable.HasValue
+               && defResScopeNullable.Value.Table == Tables.TypeRef
+               && refResScopeNullable.Value.Table == Tables.TypeRef
+               && this.MatchTypeRefs( defModule, defResScopeNullable.Value.Index, refModule, refResScopeNullable.Value.Index, matcher )
+               ) || ( ( !defResScopeNullable.HasValue || defResScopeNullable.Value.Table != Tables.TypeRef )
+               && ( !refResScopeNullable.HasValue || refResScopeNullable.Value.Table != Tables.TypeRef )
+               && matcher.ResolutionScopeMatcher( defModule, defResScopeNullable, refModule, refResScopeNullable )
+               );
          }
 
          return retVal;

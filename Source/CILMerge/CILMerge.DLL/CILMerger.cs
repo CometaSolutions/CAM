@@ -644,6 +644,7 @@ namespace CILMerge
       private readonly Lazy<IDictionary<String, String>> _renames;
 
       private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
+      private readonly CILAssemblyManipulator.Physical.Meta.SignatureMatcher _signatureMatcher; // For matching which member-refs should be changed to field/method defs.
 
       internal CILAssemblyMerger( CILMerger merger, CILMergeOptions options, String inputBasePath )
       {
@@ -696,6 +697,7 @@ namespace CILMerge
             },
             x => x.AssemblyInformation.GetHashCode()
             );
+         this._signatureMatcher = new CILAssemblyManipulator.Physical.Meta.SignatureMatcher( this.MatchTypeDefOrRef, this.MatchResolutionScope );
          this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>( this._assemblyReferenceEqualityComparer );
          this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._tableIndexMappings = new Dictionary<CILMetaData, IDictionary<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
@@ -2017,7 +2019,7 @@ namespace CILMerge
             md => md.MemberReferences,
             ( md, inputIdx, thisIdx ) =>
             {
-               // If member ref declaring type ends up being, replace with corresponding MethodDef/FieldDef reference
+               // If member ref declaring type ends up being merged, replace with corresponding MethodDef/FieldDef reference
                var mRef = md.MemberReferences.TableContents[inputIdx.Index];
                var thisMappings = this._tableIndexMappings[md];
                var declType = mRef.DeclaringType;
@@ -2059,7 +2061,7 @@ namespace CILMerge
                               var mDef = moduleContainingMethodDef.MethodDefinitions.TableContents[mi];
                               return !mDef.Attributes.IsCompilerControlled()
                                  && String.Equals( mRefName, mDef.Name )
-                                 && this.MatchTargetMethodSignatureToMemberRefMethodSignature( moduleContainingMethodDef, md, mDef.Signature, (MethodReferenceSignature) mRef.Signature );
+                                 && this._targetModule.SignatureProvider.MatchSignatures( moduleContainingMethodDef, mDef.Signature, md, mRef.Signature, this._signatureMatcher );
                            } )
                            .FirstOrDefaultCustom( -1 );
                         if ( targetMRefIndex >= 0 )
@@ -2131,164 +2133,68 @@ namespace CILMerge
             );
       }
 
-      private Boolean MatchTargetMethodSignatureToMemberRefMethodSignature( CILMetaData defModule, CILMetaData refModule, AbstractMethodSignature methodDef, AbstractMethodSignature methodRef )
+      private Boolean MatchTypeDefOrRef( CILMetaData defModule, TableIndex defIdx, CILMetaData refModule, TableIndex refIdx )
       {
-         return methodDef.MethodSignatureInformation == methodRef.MethodSignatureInformation
-            && methodDef.Parameters.Count == methodRef.Parameters.Count
-            && methodDef.Parameters
-               .Where( ( p, idx ) => this.MatchTargetParameterSignatureToMemberRefParameterSignature( defModule, refModule, p, methodRef.Parameters[idx] ) )
-               .Count() == methodDef.Parameters.Count
-            && this.MatchTargetParameterSignatureToMemberRefParameterSignature( defModule, refModule, methodDef.ReturnType, methodRef.ReturnType );
+         return defIdx.Table == Tables.TypeDef
+            && refIdx.Table == Tables.TypeRef
+            && this._tableIndexMappings[defModule][defIdx] == this._tableIndexMappings[refModule][refIdx];
+         //switch ( defIdx.Table )
+         //{
+         //   case Tables.TypeDef:
+         //      return refIdx.Table == Tables.TypeRef && this._tableIndexMappings[defModule][defIdx] == this._tableIndexMappings[refModule][refIdx];
+         //   case Tables.TypeRef:
+         //      return refIdx.Table == Tables.TypeRef && this.MatchDefTypeRefToRefTypeRef( defModule, refModule, defIdx.Index, refIdx.Index );
+         //   case Tables.TypeSpec:
+         //      return refIdx.Table == Tables.TypeSpec && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature );
+         //   default:
+         //      return false;
+         //}
       }
 
-      private Boolean MatchTargetParameterSignatureToMemberRefParameterSignature( CILMetaData defModule, CILMetaData refModule, ParameterSignature paramDef, ParameterSignature paramRef )
+      private Boolean MatchResolutionScope( CILMetaData defModule, TableIndex? defResScopeNullable, CILMetaData refModule, TableIndex? refResScopeNullable )
       {
-         return paramDef.IsByRef == paramRef.IsByRef
-            && this.MatchTargetCustomModsToMemberRefCustomMods( defModule, refModule, paramDef.CustomModifiers, paramRef.CustomModifiers )
-            && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, paramDef.Type, paramRef.Type );
-      }
-
-      private Boolean MatchTargetCustomModsToMemberRefCustomMods( CILMetaData defModule, CILMetaData refModule, List<CustomModifierSignature> cmDef, List<CustomModifierSignature> cmRef )
-      {
-         return cmDef.Count == cmRef.Count
-            && cmDef
-               .Where( ( c, idx ) => c.Optionality == cmRef[idx].Optionality && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, c.CustomModifierType, cmRef[idx].CustomModifierType ) )
-               .Count() == cmDef.Count;
-      }
-
-      private Boolean MatchTargetTypeSignatureToMemberRefTypeSignature( CILMetaData defModule, CILMetaData refModule, TypeSignature typeDef, TypeSignature typeRef )
-      {
-         var retVal = typeDef.TypeSignatureKind == typeRef.TypeSignatureKind;
+         var retVal = defResScopeNullable.HasValue == refResScopeNullable.HasValue;
          if ( retVal )
          {
-            switch ( typeDef.TypeSignatureKind )
+            if ( defResScopeNullable.HasValue )
             {
-               case TypeSignatureKind.ClassOrValue:
-                  var classDef = (ClassOrValueTypeSignature) typeDef;
-                  var classRef = (ClassOrValueTypeSignature) typeRef;
-                  var gArgsDef = classDef.GenericArguments;
-                  var gArgsRef = classRef.GenericArguments;
-                  retVal = classDef.TypeReferenceKind == classRef.TypeReferenceKind
-                     && this.MatchTargetSignatureTypeToMemberRefSignatureType( defModule, refModule, classDef.Type, classRef.Type )
-                     && ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( gArgsDef, gArgsRef, ( gArgDef, gArgRef ) => this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, gArgDef, gArgRef ) );
-                  break;
-               case TypeSignatureKind.ComplexArray:
-                  var arrayDef = (ComplexArrayTypeSignature) typeDef;
-                  var arrayRef = (ComplexArrayTypeSignature) typeRef;
-                  retVal = arrayDef.Rank == arrayRef.Rank
-                     && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( arrayDef.Sizes, arrayRef.Sizes )
-                     && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( arrayDef.LowerBounds, arrayRef.LowerBounds )
-                     && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, arrayDef.ArrayType, arrayRef.ArrayType );
-                  break;
-               case TypeSignatureKind.FunctionPointer:
-                  retVal = this.MatchTargetMethodSignatureToMemberRefMethodSignature( defModule, refModule, ( (FunctionPointerTypeSignature) typeDef ).MethodSignature, ( (FunctionPointerTypeSignature) typeRef ).MethodSignature );
-                  break;
-               case TypeSignatureKind.GenericParameter:
-                  var gDef = (GenericParameterTypeSignature) typeDef;
-                  var gRef = (GenericParameterTypeSignature) typeRef;
-                  retVal = gDef.GenericParameterKind == gRef.GenericParameterKind
-                     && gDef.GenericParameterIndex == gRef.GenericParameterIndex;
-                  break;
-               case TypeSignatureKind.Pointer:
-                  var ptrDef = (PointerTypeSignature) typeDef;
-                  var ptrRef = (PointerTypeSignature) typeRef;
-                  retVal = this.MatchTargetCustomModsToMemberRefCustomMods( defModule, refModule, ptrDef.CustomModifiers, ptrRef.CustomModifiers )
-                     && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, ptrDef.PointerType, ptrRef.PointerType );
-                  break;
-               case TypeSignatureKind.Simple:
-                  retVal = ( (SimpleTypeSignature) typeDef ).SimpleType == ( (SimpleTypeSignature) typeRef ).SimpleType;
-                  break;
-               case TypeSignatureKind.SimpleArray:
-                  var szArrayDef = (SimpleArrayTypeSignature) typeDef;
-                  var szArrayRef = (SimpleArrayTypeSignature) typeRef;
-                  retVal = this.MatchTargetCustomModsToMemberRefCustomMods( defModule, refModule, szArrayDef.CustomModifiers, szArrayRef.CustomModifiers )
-                     && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, szArrayDef.ArrayType, szArrayRef.ArrayType );
-                  break;
-               default:
-                  retVal = false;
-                  break;
-                  //throw this.NewCILMergeException( ExitCode.ErrorMatchingMemberReferenceSignature, "Encountered unrecognized type signature kind: " + typeDef.TypeSignatureKind + "." );
-            }
-         }
-
-         return retVal;
-      }
-
-      private Boolean MatchTargetSignatureTypeToMemberRefSignatureType( CILMetaData defModule, CILMetaData refModule, TableIndex defIdx, TableIndex refIdx )
-      {
-         switch ( defIdx.Table )
-         {
-            case Tables.TypeDef:
-               return refIdx.Table == Tables.TypeRef && this._tableIndexMappings[defModule][defIdx] == this._tableIndexMappings[refModule][refIdx];
-            case Tables.TypeRef:
-               return refIdx.Table == Tables.TypeRef && this.MatchDefTypeRefToRefTypeRef( defModule, refModule, defIdx.Index, refIdx.Index );
-            case Tables.TypeSpec:
-               return refIdx.Table == Tables.TypeSpec && this.MatchTargetTypeSignatureToMemberRefTypeSignature( defModule, refModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature );
-            default:
-               return false;
-         }
-      }
-
-      private Boolean MatchDefTypeRefToRefTypeRef( CILMetaData defModule, CILMetaData refModule, Int32 defIdx, Int32 refIdx )
-      {
-         var defTypeRef = defModule.TypeReferences.TableContents[defIdx];
-         var refTypeRef = refModule.TypeReferences.TableContents[refIdx];
-         var retVal = String.Equals( defTypeRef.Name, refTypeRef.Name )
-            && String.Equals( defTypeRef.Namespace, refTypeRef.Namespace );
-         if ( retVal )
-         {
-            var defResScopeNullable = defTypeRef.ResolutionScope;
-            var refResScopeNullable = refTypeRef.ResolutionScope;
-            if ( defResScopeNullable.HasValue == refResScopeNullable.HasValue )
-            {
-               if ( defResScopeNullable.HasValue )
+               var defResScope = defResScopeNullable.Value;
+               var refResScope = refResScopeNullable.Value;
+               switch ( defResScope.Table )
                {
-                  var defResScope = defResScopeNullable.Value;
-                  var refResScope = refResScopeNullable.Value;
-                  switch ( defResScope.Table )
-                  {
-                     case Tables.TypeRef:
-                        retVal = refResScope.Table == Tables.TypeRef
-                           && this.MatchDefTypeRefToRefTypeRef( defModule, refModule, defResScope.Index, refResScope.Index );
-                        break;
-                     case Tables.AssemblyRef:
-                        retVal = refResScope.Table == Tables.AssemblyRef
-                           && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
-                        if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
+                  case Tables.AssemblyRef:
+                     retVal = refResScope.Table == Tables.AssemblyRef
+                        && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
+                     if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
+                     {
+                        var defARef = defModule.AssemblyReferences.TableContents[defResScope.Index];
+                        var refARef = refModule.AssemblyReferences.TableContents[refResScope.Index];
+                        if ( defARef.Attributes.IsRetargetable() || refARef.Attributes.IsRetargetable() )
                         {
-                           var defARef = defModule.AssemblyReferences.TableContents[defResScope.Index];
-                           var refARef = refModule.AssemblyReferences.TableContents[refResScope.Index];
-                           if ( defARef.Attributes.IsRetargetable() || refARef.Attributes.IsRetargetable() )
-                           {
-                              // Simple name match
-                              retVal = String.Equals( defARef.AssemblyInformation.Name, refARef.AssemblyInformation.Name );
-                           }
-                           else
-                           {
-                              retVal = this._assemblyReferenceEqualityComparer.Equals( defARef, refARef );
-                           }
+                           // Simple name match
+                           retVal = String.Equals( defARef.AssemblyInformation.Name, refARef.AssemblyInformation.Name );
                         }
-                        break;
-                     case Tables.Module:
-                     case Tables.ModuleRef:
-                        retVal = refResScope.Table == Tables.AssemblyRef
-                           && !this._tableIndexMappings[refModule].ContainsKey( refResScope );
-                        break;
-                     default:
-                        retVal = false;
-                        break;
-                  }
+                        else
+                        {
+                           retVal = this._assemblyReferenceEqualityComparer.Equals( defARef, refARef );
+                        }
+                     }
+                     break;
+                  case Tables.Module:
+                  case Tables.ModuleRef:
+                     retVal = refResScope.Table == Tables.AssemblyRef
+                        && !this._tableIndexMappings[refModule].ContainsKey( refResScope );
+                     break;
+                  default:
+                     retVal = false;
+                     break;
+               }
 
-               }
-               else
-               {
-                  // TODO Lazy mapping IDictionary<Tuple<String, String>, ExportedType> for each input module
-                  throw new NotImplementedException( "ExportedType in TypeRef while matching method definition and reference signatures." );
-               }
             }
             else
             {
-               retVal = false;
+               // TODO Lazy mapping IDictionary<Tuple<String, String>, ExportedType> for each input module
+               throw new NotImplementedException( "ExportedType in TypeRef while matching method definition and reference signatures." );
             }
          }
 
