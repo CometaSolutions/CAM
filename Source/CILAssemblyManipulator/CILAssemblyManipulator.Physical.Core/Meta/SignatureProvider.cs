@@ -58,11 +58,30 @@ namespace CILAssemblyManipulator.Physical.Meta
       IEnumerable<SignatureElement> DecomposeSignature( AbstractSignature signature );
 
       /// <summary>
-      /// Returns all <see cref="SignatureTableIndexInfo"/> objects related to single signature.
+      /// Returns all <see cref="SignatureTableIndexInfo"/> objects related to single signature element.
       /// </summary>
       /// <param name="element">The <see cref="SignatureElement"/> to get table indices from.</param>
-      /// <returns></returns>
+      /// <returns>All the <see cref="SignatureTableIndexInfo"/> objects related to single signature element.</returns>
       IEnumerable<SignatureTableIndexInfo> GetTableIndexInfoFromSignatureElement( SignatureElement element );
+
+      /// <summary>
+      /// Performs structural match on two signatures.
+      /// </summary>
+      /// <param name="firstMD">The <see cref="CILMetaData"/> containing the <paramref name="firstSignature"/>.</param>
+      /// <param name="firstSignature">The first <see cref="AbstractSignature"/>.</param>
+      /// <param name="secondMD">The <see cref="CILMetaData"/> containing the <paramref name="secondSignature"/>.</param>
+      /// <param name="secondSignature">the second <see cref="AbstractSignature"/>.</param>
+      /// <param name="matcher">The object capturing callbacks to perform non-structural compare.</param>
+      /// <returns>Whether <paramref name="firstSignature"/> and <paramref name="secondSignature"/> match structurally and using the given <paramref name="matcher"/>.</returns>
+      Boolean MatchSignatures( CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher );
+   }
+
+   /// <summary>
+   /// This type encapsulates callbacks needed for comparing signatures using <see cref="SignatureProvider.MatchSignatures"/> method.
+   /// </summary>
+   public struct SignatureMatcher
+   {
+
    }
 
    /// <summary>
@@ -86,15 +105,6 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// </summary>
       /// <value>The <see cref="Physical.TableIndex"/> that is referenced by the signature element.</value>
       public TableIndex TableIndex { get; }
-
-      ///// <summary>
-      ///// Gets the signature element that has the <see cref="TableIndex"/>.
-      ///// </summary>
-      ///// <value>The signature element that has the <see cref="TableIndex"/>.</value>
-      ///// <remarks>
-      ///// By default, this is either <see cref="ClassOrValueTypeSignature"/>, or <see cref="CustomModifierSignature"/>.
-      ///// </remarks>
-      //public SignatureElement Owner { get; }
 
       /// <summary>
       /// Gets the callback to set a new <see cref="Physical.TableIndex"/> value to the <see cref="SignatureElement"/>.
@@ -265,6 +275,48 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
+      /// <inheritdoc />
+      public Boolean MatchSignatures( CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
+      {
+         var retVal = firstSignature?.SignatureKind == secondSignature?.SignatureKind;
+         if ( retVal && firstSignature != null )
+         {
+            switch ( firstSignature.SignatureKind )
+            {
+               case SignatureKind.Field:
+                  retVal = this.MatchFieldSignatures( firstMD, (FieldSignature) firstSignature, secondMD, (FieldSignature) secondSignature, matcher );
+                  break;
+               case SignatureKind.GenericMethodInstantiation:
+                  retVal = this.MatchGenericMethodSignatures( firstMD, (GenericMethodSignature) firstSignature, secondMD, (GenericMethodSignature) secondSignature, matcher );
+                  break;
+               case SignatureKind.LocalVariables:
+                  retVal = this.MatchLocalVarsSignatures( firstMD, (LocalVariablesSignature) firstSignature, secondMD, (LocalVariablesSignature) secondSignature, matcher );
+                  break;
+               case SignatureKind.MethodDefinition:
+                  retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
+                  break;
+               case SignatureKind.MethodReference:
+                  retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
+                  break;
+               case SignatureKind.Property:
+                  retVal = this.MatchPropertySignatures( firstMD, (PropertySignature) firstSignature, secondMD, (PropertySignature) secondSignature, matcher );
+                  break;
+               case SignatureKind.Type:
+                  retVal = this.MatchTypeSignatures( firstMD, (TypeSignature) firstSignature, secondMD, (TypeSignature) secondSignature, matcher );
+                  break;
+               case SignatureKind.Raw:
+                  retVal = false;
+                  break;
+               default:
+                  // TODO
+                  retVal = false;
+                  break;
+            }
+         }
+
+         return retVal;
+      }
+
       /// <summary>
       /// This is called by <see cref="DecomposeSignature"/> when the type of given <see cref="AbstractSignature"/> is not one of the defaults.
       /// </summary>
@@ -376,6 +428,186 @@ namespace CILAssemblyManipulator.Physical.Meta
                }
             }
          }
+      }
+
+      private Boolean MatchFieldSignatures( CILMetaData firstMD, FieldSignature first, CILMetaData secondMD, FieldSignature second, SignatureMatcher matcher )
+      {
+         return this.MatchCustomModifiers( firstMD, first.CustomModifiers, secondMD, second.CustomModifiers, matcher )
+            && this.MatchTypeSignatures( firstMD, first.Type, secondMD, second.Type, matcher );
+      }
+
+      private Boolean MatchGenericMethodSignatures( CILMetaData firstMD, GenericMethodSignature first, CILMetaData secondMD, GenericMethodSignature second, SignatureMatcher matcher )
+      {
+         return ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( first.GenericArguments, second.GenericArguments, ( firstG, secondG ) => this.MatchTypeSignatures( firstMD, firstG, secondMD, secondG, matcher ) );
+      }
+
+      private Boolean MatchLocalVarsSignatures( CILMetaData firstMD, LocalVariablesSignature first, CILMetaData secondMD, LocalVariablesSignature second, SignatureMatcher matcher )
+      {
+         return ListEqualityComparer<List<LocalSignature>, LocalSignature>.ListEquality( first.Locals, second.Locals, ( firstL, secondL ) => firstL.IsPinned == secondL.IsPinned && this.MatchParameterSignatures( firstMD, firstL, secondMD, secondL, matcher ) );
+      }
+
+      private Boolean MatchAbstractMethodSigntures( CILMetaData defModule, AbstractMethodSignature methodDef, CILMetaData refModule, AbstractMethodSignature methodRef, SignatureMatcher matcher )
+      {
+         return methodDef.MethodSignatureInformation == methodRef.MethodSignatureInformation
+            && ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.ListEquality( methodDef.Parameters, methodRef.Parameters, ( pDef, pRef ) => this.MatchParameterSignatures( defModule, pDef, refModule, pRef, matcher ) )
+            && this.MatchParameterSignatures( defModule, methodDef.ReturnType, refModule, methodRef.ReturnType, matcher );
+      }
+
+      private Boolean MatchParameterSignatures( CILMetaData defModule, ParameterOrLocalSignature paramDef, CILMetaData refModule, ParameterOrLocalSignature paramRef, SignatureMatcher matcher )
+      {
+         return paramDef.IsByRef == paramRef.IsByRef
+            && this.MatchCustomModifiers( defModule, paramDef.CustomModifiers, refModule, paramRef.CustomModifiers, matcher )
+            && this.MatchTypeSignatures( defModule, paramDef.Type, refModule, paramRef.Type, matcher );
+      }
+
+      private Boolean MatchPropertySignatures( CILMetaData firstMD, PropertySignature first, CILMetaData secondMD, PropertySignature second, SignatureMatcher matcher )
+      {
+         return first.HasThis == second.HasThis
+            && this.MatchTypeSignatures( firstMD, first.PropertyType, secondMD, second.PropertyType, matcher )
+            && ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.ListEquality( first.Parameters, second.Parameters, ( firstP, secondP ) => this.MatchParameterSignatures( firstMD, firstP, secondMD, secondP, matcher ) )
+            && this.MatchCustomModifiers( firstMD, first.CustomModifiers, secondMD, second.CustomModifiers, matcher );
+      }
+
+      private Boolean MatchCustomModifiers( CILMetaData defModule, List<CustomModifierSignature> cmDef, CILMetaData refModule, List<CustomModifierSignature> cmRef, SignatureMatcher matcher )
+      {
+         return ListEqualityComparer<List<CustomModifierSignature>, CustomModifierSignature>.ListEquality( cmDef, cmRef, ( cDef, cRef ) => this.MatchTypeDefOrRefOrSpec( defModule, cDef.CustomModifierType, refModule, cRef.CustomModifierType, matcher ) );
+      }
+
+      private Boolean MatchTypeSignatures( CILMetaData defModule, TypeSignature typeDef, CILMetaData refModule, TypeSignature typeRef, SignatureMatcher matcher )
+      {
+         var retVal = typeDef.TypeSignatureKind == typeRef.TypeSignatureKind;
+         if ( retVal )
+         {
+            switch ( typeDef.TypeSignatureKind )
+            {
+               case TypeSignatureKind.ClassOrValue:
+                  var classDef = (ClassOrValueTypeSignature) typeDef;
+                  var classRef = (ClassOrValueTypeSignature) typeRef;
+                  retVal = classDef.TypeReferenceKind == classRef.TypeReferenceKind
+                     && this.MatchTypeDefOrRefOrSpec( defModule, classDef.Type, refModule, classRef.Type, matcher )
+                     && ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( classDef.GenericArguments, classRef.GenericArguments, ( gArgDef, gArgRef ) => this.MatchTypeSignatures( defModule, gArgDef, refModule, gArgRef, matcher ) );
+                  break;
+               case TypeSignatureKind.ComplexArray:
+                  var arrayDef = (ComplexArrayTypeSignature) typeDef;
+                  var arrayRef = (ComplexArrayTypeSignature) typeRef;
+                  retVal = arrayDef.Rank == arrayRef.Rank
+                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( arrayDef.Sizes, arrayRef.Sizes )
+                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( arrayDef.LowerBounds, arrayRef.LowerBounds )
+                     && this.MatchTypeSignatures( defModule, arrayDef.ArrayType, refModule, arrayRef.ArrayType, matcher );
+                  break;
+               case TypeSignatureKind.FunctionPointer:
+                  retVal = this.MatchAbstractMethodSigntures( defModule, ( (FunctionPointerTypeSignature) typeDef ).MethodSignature, refModule, ( (FunctionPointerTypeSignature) typeRef ).MethodSignature, matcher );
+                  break;
+               case TypeSignatureKind.GenericParameter:
+                  var gDef = (GenericParameterTypeSignature) typeDef;
+                  var gRef = (GenericParameterTypeSignature) typeRef;
+                  retVal = gDef.GenericParameterKind == gRef.GenericParameterKind
+                     && gDef.GenericParameterIndex == gRef.GenericParameterIndex;
+                  break;
+               case TypeSignatureKind.Pointer:
+                  var ptrDef = (PointerTypeSignature) typeDef;
+                  var ptrRef = (PointerTypeSignature) typeRef;
+                  retVal = this.MatchCustomModifiers( defModule, ptrDef.CustomModifiers, refModule, ptrRef.CustomModifiers, matcher )
+                     && this.MatchTypeSignatures( defModule, ptrDef.PointerType, refModule, ptrRef.PointerType, matcher );
+                  break;
+               case TypeSignatureKind.Simple:
+                  retVal = ( (SimpleTypeSignature) typeDef ).SimpleType == ( (SimpleTypeSignature) typeRef ).SimpleType;
+                  break;
+               case TypeSignatureKind.SimpleArray:
+                  var szArrayDef = (SimpleArrayTypeSignature) typeDef;
+                  var szArrayRef = (SimpleArrayTypeSignature) typeRef;
+                  retVal = this.MatchCustomModifiers( defModule, szArrayDef.CustomModifiers, refModule, szArrayRef.CustomModifiers, matcher )
+                     && this.MatchTypeSignatures( defModule, szArrayDef.ArrayType, refModule, szArrayRef.ArrayType, matcher );
+                  break;
+               default:
+                  retVal = false;
+                  break;
+            }
+         }
+
+         return retVal;
+      }
+
+      private Boolean MatchTypeDefOrRefOrSpec( CILMetaData defModule, TableIndex defIdx, CILMetaData refModule, TableIndex refIdx, SignatureMatcher matcher )
+      {
+         return false;
+         //switch ( defIdx.Table )
+         //{
+         //   case Tables.TypeDef:
+         //      return refIdx.Table == Tables.TypeRef && this._tableIndexMappings[defModule][defIdx] == this._tableIndexMappings[refModule][refIdx];
+         //   case Tables.TypeRef:
+         //      return refIdx.Table == Tables.TypeRef && this.MatchTypeRefs( defModule, defIdx.Index, refModule, refIdx.Index, matcher );
+         //   case Tables.TypeSpec:
+         //      return refIdx.Table == Tables.TypeSpec && this.MatchTypeSignatures( defModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature, matcher );
+         //   default:
+         //      return false;
+         //}
+      }
+
+      private Boolean MatchTypeRefs( CILMetaData defModule, Int32 defIdx, CILMetaData refModule, Int32 refIdx, SignatureMatcher matcher )
+      {
+         var defTypeRef = defModule.TypeReferences.TableContents[defIdx];
+         var refTypeRef = refModule.TypeReferences.TableContents[refIdx];
+         var retVal = String.Equals( defTypeRef.Name, refTypeRef.Name )
+            && String.Equals( defTypeRef.Namespace, refTypeRef.Namespace );
+         if ( retVal )
+         {
+            var defResScopeNullable = defTypeRef.ResolutionScope;
+            var refResScopeNullable = refTypeRef.ResolutionScope;
+            if ( defResScopeNullable.HasValue == refResScopeNullable.HasValue )
+            {
+               if ( defResScopeNullable.HasValue )
+               {
+                  var defResScope = defResScopeNullable.Value;
+                  var refResScope = refResScopeNullable.Value;
+                  switch ( defResScope.Table )
+                  {
+                     case Tables.TypeRef:
+                        retVal = refResScope.Table == Tables.TypeRef
+                           && this.MatchTypeRefs( defModule, defResScope.Index, refModule, refResScope.Index, matcher );
+                        break;
+                        //case Tables.AssemblyRef:
+                        //   retVal = refResScope.Table == Tables.AssemblyRef
+                        //      && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
+                        //   if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
+                        //   {
+                        //      var defARef = defModule.AssemblyReferences.TableContents[defResScope.Index];
+                        //      var refARef = refModule.AssemblyReferences.TableContents[refResScope.Index];
+                        //      if ( defARef.Attributes.IsRetargetable() || refARef.Attributes.IsRetargetable() )
+                        //      {
+                        //         // Simple name match
+                        //         retVal = String.Equals( defARef.AssemblyInformation.Name, refARef.AssemblyInformation.Name );
+                        //      }
+                        //      else
+                        //      {
+                        //         retVal = this._assemblyReferenceEqualityComparer.Equals( defARef, refARef );
+                        //      }
+                        //   }
+                        //   break;
+                        //case Tables.Module:
+                        //case Tables.ModuleRef:
+                        //   retVal = refResScope.Table == Tables.AssemblyRef
+                        //      && !this._tableIndexMappings[refModule].ContainsKey( refResScope );
+                        //   break;
+                        //default:
+                        //   retVal = false;
+                        //   break;
+                  }
+
+               }
+               else
+               {
+                  // TODO Lazy mapping IDictionary<Tuple<String, String>, ExportedType> for each input module
+                  throw new NotImplementedException( "ExportedType in TypeRef while matching method definition and reference signatures." );
+               }
+            }
+            else
+            {
+               retVal = false;
+            }
+         }
+
+         return retVal;
       }
 
       /// <summary>

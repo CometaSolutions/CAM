@@ -3847,6 +3847,7 @@ namespace CILMerge
 
          var tableIndicesLastRound = new Dictionary<Tables, HashSet<Int32>>();
          // Start with entry-point method(s)
+         // TODO all fields that are used only in constructor (immediately or eventually) should be removed as well!
          tableIndicesLastRound.Add( Tables.MethodDef, new HashSet<Int32>( entryPointIndices ) );
          while ( tableIndicesLastRound.Values.Any( set => set.Count > 0 ) )
          {
