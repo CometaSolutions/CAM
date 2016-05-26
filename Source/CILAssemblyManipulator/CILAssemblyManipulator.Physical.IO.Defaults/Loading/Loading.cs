@@ -64,13 +64,11 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// Creates a new instance of <see cref="AbstractCILMetaDataBinaryLoader{TDictionary}"/> with given dictionary, <see cref="CryptoCallbacks"/> (for public key token computation), and <see cref="ReadingArgumentsFactoryDelegate"/> to use when creating <see cref="ReadingArguments"/>.
       /// </summary>
       /// <param name="dictionary">The dictionary to cache <see cref="CILMetaData"/> instances.</param>
-      /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
       /// <param name="readingArgsFactory">The optional <see cref="ReadingArgumentsFactoryDelegate"/> to use to create <see cref="ReadingArguments"/>.</param>
       public AbstractCILMetaDataBinaryLoader(
          TDictionary dictionary,
-         CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory
-         ) : base( dictionary, cryptoCallbacks )
+         ) : base( dictionary )
       {
          this._readingArgumentsFactory = readingArgsFactory;
          this._imageInfos = new Dictionary<CILMetaData, ImageInformation>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
@@ -138,17 +136,15 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// Constructs this <see cref="CILMetaDataLoaderWithCallbacks{TDictionary}"/> with given dictionary for <see cref="CILMetaData"/> cache, given <see cref="CryptoCallbacks"/> for public key token computation, given <see cref="ReadingArgumentsFactoryDelegate"/> to create <see cref="ReadingArguments"/>, and given <see cref="CILMetaDataLoaderResourceCallbacks"/>.
       /// </summary>
       /// <param name="dictionary">The dictionary to cache <see cref="CILMetaData"/> instances.</param>
-      /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
       /// <param name="readingArgsFactory">The optional <see cref="ReadingArgumentsFactoryDelegate"/> to use to create <see cref="ReadingArguments"/>.</param>
       /// <param name="resourceCallbacks">The <see cref="CILMetaDataLoaderResourceCallbacks"/> to use in required methods implementing abstract methods of base class.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="dictionary"/> or <paramref name="resourceCallbacks"/> is <c>null</c>.</exception>
       public CILMetaDataLoaderWithCallbacks(
          TDictionary dictionary,
-         CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
-         : base( dictionary, cryptoCallbacks, readingArgsFactory )
+         : base( dictionary, readingArgsFactory )
       {
          ArgumentValidator.ValidateNotNull( "Resource callbacks", resourceCallbacks );
 
@@ -240,16 +236,14 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <summary>
       /// Creates a new instance of <see cref="CILMetaDataLoaderNotThreadSafe"/> with given <see cref="CryptoCallbacks"/> for public key computation, <see cref="ReadingArgumentsFactoryDelegate"/> to create <see cref="ReadingArguments"/>, and <see cref="CILMetaDataLoaderResourceCallbacks"/> to handle textual resources.
       /// </summary>
-      /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
       /// <param name="readingArgsFactory">The optional <see cref="ReadingArgumentsFactoryDelegate"/> to use to create <see cref="ReadingArguments"/>.</param>
       /// <param name="resourceCallbacks">The <see cref="CILMetaDataLoaderResourceCallbacks"/> to handle textual resources.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="resourceCallbacks"/> is <c>null</c>.</exception>
       public CILMetaDataLoaderNotThreadSafe(
-         CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
-         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
+         : base( new Dictionary<String, CILMetaData>(), readingArgsFactory, resourceCallbacks )
       {
 
       }
@@ -303,16 +297,14 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <summary>
       /// Creates a new instance of <see cref="CILMetaDataLoaderThreadSafeSimple"/> with given <see cref="CryptoCallbacks"/> for public key computation, <see cref="ReadingArgumentsFactoryDelegate"/> to create <see cref="ReadingArguments"/>, and <see cref="CILMetaDataLoaderResourceCallbacks"/> to handle textual resources.
       /// </summary>
-      /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
       /// <param name="readingArgsFactory">The optional <see cref="ReadingArgumentsFactoryDelegate"/> to use to create <see cref="ReadingArguments"/>.</param>
       /// <param name="resourceCallbacks">The <see cref="CILMetaDataLoaderResourceCallbacks"/> to handle textual resources.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="resourceCallbacks"/> is <c>null</c>.</exception>
       public CILMetaDataLoaderThreadSafeSimple(
-         CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
-         : base( new Dictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
+         : base( new Dictionary<String, CILMetaData>(), readingArgsFactory, resourceCallbacks )
       {
 
       }

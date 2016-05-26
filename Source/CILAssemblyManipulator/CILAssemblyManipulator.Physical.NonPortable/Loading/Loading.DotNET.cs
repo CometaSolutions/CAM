@@ -293,15 +293,13 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// Creates a new instance of <see cref="CILMetaDataLoaderNotThreadSafeForFiles"/>.
       /// </summary>
-      /// <param name="crypto">The optional <see cref="CryptoCallbacks"/>. If not supplied, a new instance of <see cref="CryptoCallbacksDotNET"/> will be used.</param>
       /// <param name="readingArgsFactory">The optional callback to create <see cref="ReadingArguments"/>.</param>
       /// <param name="callbacks">The optional <see cref="CILMetaDataLoaderResourceCallbacksForFiles"/>. If not supplied, a new instance of <see cref="CILMetaDataLoaderResourceCallbacksForFiles"/> will be used.</param>
       public CILMetaDataLoaderNotThreadSafeForFiles(
-         CryptoCallbacks crypto = null,
          ReadingArgumentsFactoryDelegate readingArgsFactory = null,
          CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
          )
-         : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+         : base( readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }
@@ -326,15 +324,13 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// Creates a new instance of <see cref="CILMetaDataLoaderThreadSafeSimpleForFiles"/>.
       /// </summary>
-      /// <param name="crypto">The optional <see cref="CryptoCallbacks"/>. If not supplied, a new instance of <see cref="CryptoCallbacksDotNET"/> will be used.</param>
       /// <param name="readingArgsFactory">The optional callback to create <see cref="ReadingArguments"/>.</param>
       /// <param name="callbacks">The optional <see cref="CILMetaDataLoaderResourceCallbacksForFiles"/>. If not supplied, a new instance of <see cref="CILMetaDataLoaderResourceCallbacksForFiles"/> will be used.</param>
       public CILMetaDataLoaderThreadSafeSimpleForFiles(
-         CryptoCallbacks crypto = null,
          ReadingArgumentsFactoryDelegate readingArgsFactory = null,
          CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
          )
-         : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+         : base( readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }
@@ -359,17 +355,15 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// Constructs this <see cref="CILMetaDataLoaderThreadSafeConcurrent"/> with given <see cref="CryptoCallbacks"/> for public key token computation, given <see cref="ReadingArgumentsFactoryDelegate"/> to create <see cref="ReadingArguments"/>, and given <see cref="CILMetaDataLoaderResourceCallbacks"/>.
       /// </summary>
-      /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
       /// <param name="readingArgsFactory">The optional <see cref="ReadingArgumentsFactoryDelegate"/> to use to create <see cref="ReadingArguments"/>.</param>
       /// <param name="resourceCallbacks">The <see cref="CILMetaDataLoaderResourceCallbacks"/> to use in required methods implementing abstract methods of base class.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="resourceCallbacks"/> is <c>null</c>.</exception>
 
       public CILMetaDataLoaderThreadSafeConcurrent(
-         CryptoCallbacks cryptoCallbacks,
          ReadingArgumentsFactoryDelegate readingArgsFactory,
          CILMetaDataBinaryLoaderResourceCallbacks resourceCallbacks
          )
-         : base( new ConcurrentDictionary<String, CILMetaData>(), cryptoCallbacks, readingArgsFactory, resourceCallbacks )
+         : base( new ConcurrentDictionary<String, CILMetaData>(), readingArgsFactory, resourceCallbacks )
       {
 
       }
@@ -439,15 +433,13 @@ namespace CILAssemblyManipulator.Physical.IO
       /// <summary>
       /// Creates a new instance of <see cref="CILMetaDataLoaderThreadSafeConcurrentForFiles"/>.
       /// </summary>
-      /// <param name="crypto">The optional <see cref="CryptoCallbacks"/>. If not supplied, a new instance of <see cref="CryptoCallbacksDotNET"/> will be used.</param>
       /// <param name="readingArgsFactory">The optional callback to create <see cref="ReadingArguments"/>.</param>
       /// <param name="callbacks">The optional <see cref="CILMetaDataLoaderResourceCallbacksForFiles"/>. If not supplied, a new instance of <see cref="CILMetaDataLoaderResourceCallbacksForFiles"/> will be used.</param>
       public CILMetaDataLoaderThreadSafeConcurrentForFiles(
-         CryptoCallbacks crypto = null,
          ReadingArgumentsFactoryDelegate readingArgsFactory = null,
          CILMetaDataLoaderResourceCallbacksForFiles callbacks = null
          )
-         : base( crypto ?? new CryptoCallbacksDotNET(), readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
+         : base( readingArgsFactory, callbacks ?? new CILMetaDataLoaderResourceCallbacksForFiles() )
       {
 
       }

@@ -271,6 +271,6 @@ public static partial class E_CILPhysical
    public static IEnumerable<Byte> EnumeratePublicKeyToken( this HashAlgorithmInstancePoolUser<SHA1_128> instancePoolUser, Byte[] fullPublicKey )
    {
       // Public key token is actually last 8 bytes reversed
-      return instancePoolUser.ComputeHashReverse( fullPublicKey, 8 );
+      return fullPublicKey == null ? null : instancePoolUser.ComputeHashReverse( fullPublicKey, 8 );
    }
 }

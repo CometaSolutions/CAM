@@ -101,24 +101,20 @@ namespace CILAssemblyManipulator.Physical.Loading
    {
       private readonly TDictionary _modules;
       private readonly Dictionary<CILMetaData, String> _moduleInfos;
-      private readonly CryptoCallbacks _cryptoCallbacks;
 
       /// <summary>
       /// Constructs this <see cref="AbstractCILMetaDataLoader{TDictionary}"/> with given dictionary and <see cref="CryptoCallbacks"/> (for public key token computation).
       /// </summary>
       /// <param name="dictionary">The dictionary to cache <see cref="CILMetaData"/> instances.</param>
-      /// <param name="cryptoCallbacks">The optional <see cref="CryptoCallbacks"/> to use for public key token computation.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="dictionary"/> is <c>null</c>.</exception>
       public AbstractCILMetaDataLoader(
-         TDictionary dictionary,
-         CryptoCallbacks cryptoCallbacks
+         TDictionary dictionary
          )
       {
          ArgumentValidator.ValidateNotNull( "Modules", dictionary );
 
          this._modules = dictionary;
          this._moduleInfos = new Dictionary<CILMetaData, String>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
-         this._cryptoCallbacks = cryptoCallbacks;
       }
 
       private void _resolver_ModuleReferenceResolveEvent( Object sender, ModuleReferenceResolveEventArgs e )
@@ -144,7 +140,7 @@ namespace CILAssemblyManipulator.Physical.Loading
                .GetPossibleResourcesForAssemblyReference( thisResource, e.ThisMetaData, e.AssemblyInformation, e.UnparsedAssemblyName )
                .Where( r => this.IsValidResource( r ) )
                .Select( r => this.GetOrLoadMetaData( r, thisResource ) )
-               .Where( md => md.AssemblyDefinitions.GetOrNull( 0 )?.IsMatch( e.AssemblyInformation, false, this._cryptoCallbacks ) ?? false )
+               .Where( md => AssemblyReferenceMatcherExact.Match( md.AssemblyDefinitions.GetOrNull( 0 ), e.AssemblyInformation.AssemblyInformation, e.AssemblyInformation.IsFullPublicKey ? AssemblyFlags.PublicKey : AssemblyFlags.None ) ) // ?.IsMatch( e.AssemblyInformation, false ) ?? false )
                .FirstOrDefault();
          }
       }
@@ -275,15 +271,12 @@ namespace CILAssemblyManipulator.Physical.Loading
       protected abstract void PerformResolving( CILMetaData metaData );
 
       /// <summary>
-      /// Disposes resources created by <see cref="CryptoCallbacks"/> supplied to this instance, if any.
+      /// By default, does nothing.
       /// </summary>
       /// <param name="disposing">Whether this is called from <see cref="AbstractDisposable.Dispose()"/> method.</param>
       protected override void Dispose( Boolean disposing )
       {
-         if ( disposing )
-         {
-            this._cryptoCallbacks.DisposeSafely();
-         }
+         // Nothing to do.
       }
 
       private CILMetaData GetOrLoadMetaData( String resource, String pathForModuleBeingResolved )

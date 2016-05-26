@@ -81,8 +81,9 @@ namespace CILMerge
          // 1. Merge assemblies
          CILModuleMergeResult assemblyMergeResult;
          using ( var assMerger = new CILAssemblyMerger( this, this._options, Environment.CurrentDirectory ) )
+         using ( var cryptoCallbacks = new CryptoCallbacksDotNET() )
          {
-            assemblyMergeResult = assMerger.MergeModules();
+            assemblyMergeResult = assMerger.MergeModules( cryptoCallbacks );
          }
 
          // 2. Merge PDBs
@@ -616,7 +617,6 @@ namespace CILMerge
       private readonly CILMergeOptions _options;
       private readonly CILMetaDataLoaderResourceCallbacksForFiles _loaderCallbacks;
       private readonly CILMetaDataBinaryLoader _moduleLoader;
-      private readonly CryptoCallbacks _cryptoCallbacks;
 
       private readonly List<CILMetaData> _inputModules;
       private readonly IDictionary<AssemblyReference, CILMetaData> _inputModulesAsAssemblyReferences;
@@ -654,13 +654,12 @@ namespace CILMerge
          this._loaderCallbacks = new CILMetaDataLoaderResourceCallbacksForFiles(
             referenceAssemblyBasePath: options.ReferenceAssembliesDirectory
             );
-         this._cryptoCallbacks = new CryptoCallbacksDotNET();
          this._moduleLoader = options.Parallel ?
-            (CILMetaDataBinaryLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks ) :
-            new CILMetaDataLoaderNotThreadSafeForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks );
+            (CILMetaDataBinaryLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks ) :
+            new CILMetaDataLoaderNotThreadSafeForFiles( readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks );
 
          this._signatureMatcher = new CILAssemblyManipulator.Physical.Meta.SignatureMatcher( this.MatchTypeDefOrRef, this.MatchResolutionScope );
-         this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>( AssemblyReferenceMatcherExact.Instance );
+         this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>( AssemblyReferenceMatcherExact.AssemblyRefInstance );
          this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._tableIndexMappings = new Dictionary<CILMetaData, IDictionary<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._targetTableIndexMappings = new Dictionary<TableIndex, Tuple<CILMetaData, Int32>>();
@@ -714,7 +713,7 @@ namespace CILMerge
          }, LazyThreadSafetyMode.None );
       }
 
-      internal CILModuleMergeResult MergeModules()
+      internal CILModuleMergeResult MergeModules( CryptoCallbacks cryptoCallbacks )
       {
          WritingArguments eArgs = null;
          Int32[][] reorderResult = null;
@@ -730,15 +729,13 @@ namespace CILMerge
 
 
             // Then, create target module
-            eArgs = this.CreateEmittingArgumentsForTargetModule();
-            this.CreateTargetAssembly( eArgs );
-
+            this.CreateTargetAssembly();
             this._merger.DoWithStopWatch( "Phase 2: Populating target module", () =>
             {
                // 1. Create structural tables
                var typeDefInfo = this.ConstructStructuralTables();
                // 2. Create tables used in signatures and IL tokens
-               this.ConstructTablesUsedInSignaturesAndILTokens( typeDefInfo, eArgs );
+               this.ConstructTablesUsedInSignaturesAndILTokens( typeDefInfo );
                // 3. Create signatures and IL
                this.ConstructSignaturesAndMethodIL();
                // 4. Create the rest of the tables
@@ -758,6 +755,7 @@ namespace CILMerge
             } );
 
             // Prepare PDB
+            eArgs = this.CreateEmittingArgumentsForTargetModule( cryptoCallbacks );
 
             // Create PDB helper here, so it would modify EmittingArguments *before* actual emitting
             pdbHelper = !this._options.NoDebug && this._inputModules.Any( m => this._moduleLoader.GetImageInformation( m ).DebugInformation != null ) ?
@@ -838,7 +836,7 @@ namespace CILMerge
                         }
                         else if ( !targetARef.Attributes.IsFullPublicKey() )
                         {
-                           targetARef.AssemblyInformation.PublicKeyOrToken = this._cryptoCallbacks.ComputePublicKeyToken( aDefInfo.PublicKeyOrToken );
+                           targetARef.AssemblyInformation.PublicKeyOrToken = HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( aDefInfo.PublicKeyOrToken ).ToArray();
                         }
                         retargetableInfos.Add( targetAssemblyRefIndex.Index );
                      }
@@ -1107,7 +1105,7 @@ namespace CILMerge
          return retVal;
       }
 
-      private WritingArguments CreateEmittingArgumentsForTargetModule()
+      private WritingArguments CreateEmittingArgumentsForTargetModule( CryptoCallbacks cryptoCallbacks )
       {
 
          // Prepare strong _name
@@ -1152,12 +1150,12 @@ namespace CILMerge
          eArgs.DelaySign = this._options.DelaySign;
          eArgs.SigningAlgorithm = this._options.SigningAlgorithm;
          eArgs.StrongName = sn;
-         eArgs.CryptoCallbacks = this._cryptoCallbacks;
+         eArgs.CryptoCallbacks = cryptoCallbacks;
 
          return eArgs;
       }
 
-      private void CreateTargetAssembly( WritingArguments eArgs )
+      private void CreateTargetAssembly()
       {
          var outPath = this._options.OutPath;
          var targetAssemblyName = this._options.TargetAssemblyName;
@@ -1893,8 +1891,7 @@ namespace CILMerge
       }
 
       private void ConstructTablesUsedInSignaturesAndILTokens(
-         IList<IList<Tuple<CILMetaData, Int32>>> targetTypeInfo,
-         WritingArguments eArgs
+         IList<IList<Tuple<CILMetaData, Int32>>> targetTypeInfo
          )
       {
          // AssemblyRef (used by MemberRef table)
@@ -2129,7 +2126,7 @@ namespace CILMerge
                         && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
                      if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
                      {
-                        retVal = AssemblyReferenceMatcherRuntime.Instance.Equals(
+                        retVal = AssemblyReferenceMatcherRuntime.AssemblyRefInstance.Equals(
                            defModule.AssemblyReferences.TableContents[defResScope.Index],
                            refModule.AssemblyReferences.TableContents[refResScope.Index]
                            );
@@ -3526,99 +3523,6 @@ namespace CILMerge
       }
    }
 
-   public class AssemblyReferenceMatcherExact : IEqualityComparer<AssemblyReference>
-   {
-
-      public static AssemblyReferenceMatcherExact Instance { get; }
-
-      static AssemblyReferenceMatcherExact()
-      {
-         Instance = new AssemblyReferenceMatcherExact();
-      }
-
-      private AssemblyReferenceMatcherExact()
-      {
-      }
-
-      public Boolean Equals( AssemblyReference x, AssemblyReference y )
-      {
-         return Match( x.AssemblyInformation, x.Attributes, y.AssemblyInformation, y.Attributes );
-      }
-
-      public Int32 GetHashCode( AssemblyReference obj )
-      {
-         return obj?.AssemblyInformation?.GetHashCode() ?? 0;
-      }
-
-      public static Boolean Match( AssemblyInformation x, AssemblyFlags xFlags, AssemblyInformation y, AssemblyFlags yFlags )
-      {
-         Boolean retVal;
-         if ( xFlags.IsFullPublicKey() == yFlags.IsFullPublicKey() )
-         {
-            retVal = x.Equals( y );
-         }
-         else
-         {
-            retVal = x.Equals( y, false );
-            if ( retVal
-               && !x.PublicKeyOrToken.IsNullOrEmpty()
-               && !y.PublicKeyOrToken.IsNullOrEmpty()
-               )
-            {
-               IEnumerable<Byte> xBytes, yBytes;
-               if ( xFlags.IsFullPublicKey() )
-               {
-                  // Create public key token for x and compare with y
-                  xBytes = HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( x.PublicKeyOrToken );
-                  yBytes = y.PublicKeyOrToken;
-               }
-               else
-               {
-                  // Create public key token for y and compare with x
-                  xBytes = x.PublicKeyOrToken;
-                  yBytes = HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( y.PublicKeyOrToken );
-               }
-               retVal = xBytes.SequenceEqual( yBytes );
-            }
-         }
-         return retVal;
-      }
-   }
-
-   public class AssemblyReferenceMatcherRuntime : IEqualityComparer<AssemblyReference>
-   {
-      public static AssemblyReferenceMatcherRuntime Instance { get; }
-
-      static AssemblyReferenceMatcherRuntime()
-      {
-         Instance = new AssemblyReferenceMatcherRuntime();
-      }
-
-      private AssemblyReferenceMatcherRuntime()
-      {
-
-      }
-
-      public Boolean Equals( AssemblyReference x, AssemblyReference y )
-      {
-         return Match( x.AssemblyInformation, x.Attributes, y.AssemblyInformation, y.Attributes );
-      }
-
-      public Int32 GetHashCode( AssemblyReference obj )
-      {
-         return obj?.AssemblyInformation?.GetHashCode() ?? 0;
-      }
-
-      public static Boolean Match( AssemblyInformation x, AssemblyFlags xFlags, AssemblyInformation y, AssemblyFlags yFlags )
-      {
-         return xFlags.IsRetargetable() || yFlags.IsRetargetable() ?
-            // Simple name match
-            String.Equals( x.Name, y.Name ) :
-            // Exact match since both are not retargetable
-            AssemblyReferenceMatcherExact.Match( x, xFlags, y, yFlags );
-      }
-   }
-
    internal static class E_Internal
    {
 
@@ -3629,6 +3533,7 @@ namespace CILMerge
             this.MD = ArgumentValidator.ValidateNotNull( "Meta data", md );
             this.DeclaringTypeDefInfo = new Dictionary<CILMetaData, IDictionary<Int32, Int32>>();
             this.DeclaringTypeRefInfo = new Dictionary<CILMetaData, IDictionary<Int32, Int32>>();
+            this.TypeInheritances = new Dictionary<CILMetaData, TypeInheritanceInfo[]>();
          }
 
          public CILMetaData MD { get; }
@@ -3636,6 +3541,8 @@ namespace CILMerge
          public IDictionary<CILMetaData, IDictionary<Int32, Int32>> DeclaringTypeDefInfo { get; }
 
          public IDictionary<CILMetaData, IDictionary<Int32, Int32>> DeclaringTypeRefInfo { get; }
+
+         public IDictionary<CILMetaData, TypeInheritanceInfo[]> TypeInheritances { get; }
       }
 
 
@@ -3651,9 +3558,8 @@ namespace CILMerge
       }
 
       // Index: typeDef index, value: array of all types that typeDef extends and implements. Generic types only are included as generic type definitions.
-      private static TypeInheritanceInfo[] CreateTypeHierarchy( this CILMinifyState state )
+      private static TypeInheritanceInfo[] CreateTypeHierarchy( this CILMinifyState state, CILMetaData md )
       {
-         var md = state.MD;
          var typeDefs = md.TypeDefinitions.TableContents;
          var retVal = new TypeInheritanceInfo[typeDefs.Count];
          var allInterfaceImpls = new Dictionary<CILMetaData, IDictionary<Int32, IList<TableIndex>>>();
@@ -3755,7 +3661,7 @@ namespace CILMerge
       }
 
       // Index: methodDef index, value: All methods that are 'implemented' by methodDef, implicitly or explicitly.
-      private static MethodInheritanceInfo[] CreateMethodHierarchy( this CILMinifyState state, TypeInheritanceInfo[] typeHierarchy )
+      private static MethodInheritanceInfo[] CreateMethodHierarchy( this CILMinifyState state )
       {
          var md = state.MD;
          var typeDefs = md.TypeDefinitions.TableContents;
@@ -3764,7 +3670,7 @@ namespace CILMerge
          var retVal = new MethodInheritanceInfo[methodDefs.Count];
 
          var explicitImpls = CreateExplicitImplDictionary( md );
-
+         var typeHierarchy = state.TypeInheritances.GetOrAdd_NotThreadSafe( md, mdd => state.CreateTypeHierarchy( mdd ) );
          for ( var i = 0; i < typeDefs.Count; ++i )
          {
             var tDefIdx = i;
@@ -3777,13 +3683,10 @@ namespace CILMerge
                retVal[mDefIdx] = new MethodInheritanceInfo(
                   new Lazy<MetaDataIndex?>( () =>
                   {
-                     // Base type override - only if this method is virtual and not abstract, and matches other method from base type chain which is abstract or virtual.
-                     return mDef.Attributes.IsVirtual() && !mDef.Attributes.IsAbstract() ?
+                     // Base type override - only if this is class method, is virtual and not abstract, and matches other method from base type chain which is abstract or virtual.
+                     return !typeDefs[tDefIdx].Attributes.IsInterface() && mDef.Attributes.IsVirtual() && !mDef.Attributes.IsAbstract() ?
                         declaringTypeHierarchy.BaseTypes.Select( typeIdx => state.GetMatchingMethodDefIndex( thisMDIdx, typeIdx, true ) ).Where( methodIdx => methodIdx.HasValue ).FirstOrDefault() :
                         null;
-                     // Walk this type + all of its parent types, for each:
-                     // Check explicit method impl table, and
-                     // methods with same name + signature.
                   }, LazyThreadSafetyMode.None ),
                   new Lazy<MetaDataIndex[]>( () =>
                   {
@@ -3798,7 +3701,18 @@ namespace CILMerge
                      // Implicit implementations
                      // First, see what interfaces this type implements:
                      // ( interfaces implemented by this type) minus (interfaces implemented by base type)
-                     return null;
+                     var baseTypes = declaringTypeHierarchy.BaseTypes;
+                     var baseTypeInterfaces = baseTypes.Length == 0 ?
+                        Empty<MetaDataIndex>.Array :
+                        state.TypeInheritances.GetOrAdd_NotThreadSafe( baseTypes[0].MetaData, mdd => state.CreateTypeHierarchy( mdd ) )[baseTypes[0].Index].Interfaces;
+                     var thisTypeInterfaces = new HashSet<MetaDataIndex>( declaringTypeHierarchy.Interfaces );
+                     thisTypeInterfaces.ExceptWith( baseTypeInterfaces );
+
+                     // Iterate directly implemented interfaces, get their methods, and match methods based on signature and name
+                     return thisTypeInterfaces
+                        .Select( iFace => state.GetMatchingMethodDefIndex( thisMDIdx, iFace, true ) )
+                        .NotNulls()
+                        .ToArray();
                   }, LazyThreadSafetyMode.None )
                   );
             }
@@ -3905,8 +3819,8 @@ namespace CILMerge
       private static CILAssemblyManipulator.Physical.Meta.SignatureMatcher CreateSigMatcher( this CILMinifyState state )
       {
          return new CILAssemblyManipulator.Physical.Meta.SignatureMatcher(
-            ( firstMD, firstIndex, secondMD, secondIndex ) => state.MatchTypeDefOrRef( firstMD, firstIndex, secondMD, secondIndex ),
-            ( firstMD, firstIndex, secondMD, secondIndex ) => state.MatchResolutionScope( firstMD, firstIndex, secondMD, secondIndex )
+            state.MatchTypeDefOrRef,
+            state.MatchResolutionScope
             );
       }
 
@@ -4018,10 +3932,8 @@ namespace CILMerge
 
          var state = new CILMinifyState( md );
 
-         // Construct type inheritance hierarchy
-         var typeDefInheritance = state.CreateTypeHierarchy();
          // Construct method inheritance hierarchy
-         var methodDefInheritance = state.CreateMethodHierarchy( typeDefInheritance );
+         var methodDefInheritance = state.CreateMethodHierarchy();
 
          // Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
          var allTableIndices = new Dictionary<Tables, HashSet<Int32>>();

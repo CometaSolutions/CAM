@@ -226,31 +226,17 @@ public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
    /// <summary>
-   /// Checks whether this <see cref="AssemblyDefinition"/> matches the given <see cref="AssemblyReference"/>, 
-   /// </summary>
-   /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
-   /// <param name="aRef">The optional <see cref="AssemblyReference"/>.</param>
-   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use to calculate public key token.</param>
-   /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
-   /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
-   /// <seealso cref="T:CILAssemblyManipulator.Physical.Crypto.HashStreamInfo.HashComputer"/>
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyReference aRef, CryptoCallbacks cryptoCallbacks )
-   {
-      return aDef.IsMatch( aRef == null ? null : new AssemblyInformationForResolving( aRef ), aRef?.Attributes.IsRetargetable() ?? false, cryptoCallbacks );
-   }
-
-   /// <summary>
    /// Checks whether this <see cref="AssemblyDefinition"/> matches the given <see cref="AssemblyInformationForResolving"/>.
    /// </summary>
    /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
    /// <param name="aRef">The optional <see cref="AssemblyInformationForResolving"/>.</param>
    /// <param name="isRetargetable">Whether the <paramref name="aRef"/> is retargetable.</param>
-   /// <param name="cryptoCallbacks">The <see cref="CryptoCallbacks"/> to use to calculate public key token.</param>
    /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
    /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
    /// <seealso cref="T:CILAssemblyManipulator.Physical.Crypto.HashStreamInfo.HashComputer"/>
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving aRef, Boolean isRetargetable, CryptoCallbacks cryptoCallbacks )
+   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving aRef, Boolean isRetargetable )
    {
+      // TODO this functionality can be replaced by AssemblyReferenceMatcherExact/Runtime
       var defInfo = aDef.AssemblyInformation;
       var retVal = aRef != null;
       if ( retVal )
@@ -263,7 +249,7 @@ public static partial class E_CILPhysical
             var refPK = refInfo.PublicKeyOrToken;
             retVal = defPK.IsNullOrEmpty() == refPK.IsNullOrEmpty()
                && defInfo.Equals( refInfo, aRef.IsFullPublicKey )
-               && ( aRef.IsFullPublicKey || ( cryptoCallbacks?.EnumeratePublicKeyToken( defPK )?.SequenceEqual( refPK ) ?? false ) );
+               && ( aRef.IsFullPublicKey || ( HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( defPK )?.SequenceEqual( refPK ) ?? false ) );
          }
       }
 
