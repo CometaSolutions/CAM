@@ -220,39 +220,3 @@ namespace CILAssemblyManipulator.Physical.Resolving
 #endif
 
 }
-
-#pragma warning disable 1591
-public static partial class E_CILPhysical
-#pragma warning restore 1591
-{
-   /// <summary>
-   /// Checks whether this <see cref="AssemblyDefinition"/> matches the given <see cref="AssemblyInformationForResolving"/>.
-   /// </summary>
-   /// <param name="aDef">The <see cref="AssemblyDefinition"/>.</param>
-   /// <param name="aRef">The optional <see cref="AssemblyInformationForResolving"/>.</param>
-   /// <param name="isRetargetable">Whether the <paramref name="aRef"/> is retargetable.</param>
-   /// <returns><c>true</c> if <paramref name="aRef"/> is not <c>null</c> and matches this <see cref="AssemblyDefinition"/>, taking into account that <paramref name="aRef"/> might have public key token instead of full public key; <c>false</c> otherwise.</returns>
-   /// <exception cref="NullReferenceException">If this <see cref="AssemblyDefinition"/> is <c>null</c>.</exception>
-   /// <seealso cref="T:CILAssemblyManipulator.Physical.Crypto.HashStreamInfo.HashComputer"/>
-   public static Boolean IsMatch( this AssemblyDefinition aDef, AssemblyInformationForResolving aRef, Boolean isRetargetable )
-   {
-      // TODO this functionality can be replaced by AssemblyReferenceMatcherExact/Runtime
-      var defInfo = aDef.AssemblyInformation;
-      var retVal = aRef != null;
-      if ( retVal )
-      {
-         var refInfo = aRef.AssemblyInformation;
-         retVal = String.Equals( defInfo.Name, refInfo.Name );
-         if ( retVal && !isRetargetable )
-         {
-            var defPK = defInfo.PublicKeyOrToken;
-            var refPK = refInfo.PublicKeyOrToken;
-            retVal = defPK.IsNullOrEmpty() == refPK.IsNullOrEmpty()
-               && defInfo.Equals( refInfo, aRef.IsFullPublicKey )
-               && ( aRef.IsFullPublicKey || ( HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( defPK )?.SequenceEqual( refPK ) ?? false ) );
-         }
-      }
-
-      return retVal;
-   }
-}
