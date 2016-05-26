@@ -180,9 +180,6 @@ namespace CILAssemblyManipulator.Physical
       /// Gets the hash code for this <see cref="AssemblyInformation"/>.
       /// </summary>
       /// <returns>The hash code for this <see cref="AssemblyInformation"/>.</returns>
-      /// <remarks>
-      /// The values that are compared are <see cref="Name"/>, <see cref="Culture"/> (both exact and case-sensitive), <see cref="VersionMajor"/>, <see cref="VersionMinor"/>, <see cref="VersionBuild"/>, <see cref="VersionRevision"/>, and <see cref="PublicKeyOrToken"/> (exact array comparison, except that null matches empty array).
-      /// </remarks>
       public override Int32 GetHashCode()
       {
          unchecked

@@ -87,6 +87,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private Boolean _canUseManagedCryptoAlgorithms;
       private Boolean _canUseCNGCryptoAlgorithms;
+      private readonly LocklessInstancePoolForClasses<SHA1> _sha1Pool;
+      private readonly LocklessInstancePoolForClasses<Byte[]> _bytesPool;
 
       /// <summary>
       /// Creates a new instance of <see cref="CryptoCallbacksDotNET"/>.
@@ -95,36 +97,70 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          this._canUseManagedCryptoAlgorithms = true;
          this._canUseCNGCryptoAlgorithms = true;
+         this._sha1Pool = new LocklessInstancePoolForClasses<SHA1>();
+         this._bytesPool = new LocklessInstancePoolForClasses<Byte[]>();
+      }
+
+      /// <inheritdoc />
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( disposing )
+         {
+            SHA1 algo;
+            while ( ( algo = this._sha1Pool.TakeInstance() ) != null )
+            {
+               algo.DisposeSafely();
+            }
+         }
       }
 
       /// <inheritdoc />
       public override BlockDigestAlgorithm CreateHashAlgorithm( AssemblyHashAlgorithm algorithm )
       {
-         System.Security.Cryptography.HashAlgorithm transform;
-         switch ( algorithm )
-         {
-            case AssemblyHashAlgorithm.MD5:
-               transform = GetTransform( null, () => new System.Security.Cryptography.MD5Cng(), () => new System.Security.Cryptography.MD5CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA1:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA1Managed(), () => new System.Security.Cryptography.SHA1Cng(), () => new System.Security.Cryptography.SHA1CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA256:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA256Managed(), () => new System.Security.Cryptography.SHA256Cng(), () => new System.Security.Cryptography.SHA256CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA384:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA384Managed(), () => new System.Security.Cryptography.SHA384Cng(), () => new System.Security.Cryptography.SHA384CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.SHA512:
-               transform = GetTransform( () => new System.Security.Cryptography.SHA512Managed(), () => new System.Security.Cryptography.SHA512Cng(), () => new System.Security.Cryptography.SHA512CryptoServiceProvider() );
-               break;
-            case AssemblyHashAlgorithm.None:
-               throw new InvalidOperationException( "Tried to create hash stream with no hash algorithm" );
-            default:
-               throw new ArgumentException( "Unknown hash algorithm: " + algorithm + "." );
-         }
+         return new BlockHashAlgorithmWrapper( this.CreateHashAlgorithmNative( algorithm ) );
+      }
 
-         return new BlockHashAlgorithmWrapper( transform );
+      /// <inheritdoc/>
+      public override IEnumerable<Byte> EnumeratePublicKeyToken( Byte[] fullPublicKey )
+      {
+         if ( !fullPublicKey.IsNullOrEmpty() )
+         {
+            var sha1 = this._sha1Pool.TakeInstance();
+            try
+            {
+               if ( sha1 == null )
+               {
+                  sha1 = (SHA1) this.CreateHashAlgorithmNative( AssemblyHashAlgorithm.SHA1 );
+               }
+               else
+               {
+                  sha1.Initialize();
+               }
+               var bytes = this._bytesPool.TakeInstance();
+               try
+               {
+                  if ( bytes == null )
+                  {
+                     bytes = new Byte[sha1.HashSize / 8];
+                  }
+                  sha1.TransformFinalBlock( fullPublicKey, 0, fullPublicKey.Length );
+                  var hash = sha1.Hash;
+                  // Public key token is actually last 8 bytes reversed
+                  for ( var i = 0; i < 8; ++i )
+                  {
+                     yield return hash[bytes.Length - i - 1];
+                  }
+               }
+               finally
+               {
+                  this._bytesPool.ReturnInstance( bytes );
+               }
+            }
+            finally
+            {
+               this._sha1Pool.ReturnInstance( sha1 );
+            }
+         }
       }
 
       /// <inheritdoc />
@@ -215,6 +251,34 @@ namespace CILAssemblyManipulator.Physical.Crypto
             }
          }
          return spVersion();
+      }
+
+      private System.Security.Cryptography.HashAlgorithm CreateHashAlgorithmNative( AssemblyHashAlgorithm algorithm )
+      {
+         System.Security.Cryptography.HashAlgorithm transform;
+         switch ( algorithm )
+         {
+            case AssemblyHashAlgorithm.MD5:
+               transform = GetTransform( null, () => new System.Security.Cryptography.MD5Cng(), () => new System.Security.Cryptography.MD5CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA1:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA1Managed(), () => new System.Security.Cryptography.SHA1Cng(), () => new System.Security.Cryptography.SHA1CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA256:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA256Managed(), () => new System.Security.Cryptography.SHA256Cng(), () => new System.Security.Cryptography.SHA256CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA384:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA384Managed(), () => new System.Security.Cryptography.SHA384Cng(), () => new System.Security.Cryptography.SHA384CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.SHA512:
+               transform = GetTransform( () => new System.Security.Cryptography.SHA512Managed(), () => new System.Security.Cryptography.SHA512Cng(), () => new System.Security.Cryptography.SHA512CryptoServiceProvider() );
+               break;
+            case AssemblyHashAlgorithm.None:
+               throw new InvalidOperationException( "Tried to create hash stream with no hash algorithm" );
+            default:
+               throw new ArgumentException( "Unknown hash algorithm: " + algorithm + "." );
+         }
+         return transform;
       }
 
       /// <inheritdoc />

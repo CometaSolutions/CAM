@@ -81,6 +81,19 @@ namespace CILAssemblyManipulator.Tests.Physical
       }
 
       [Test]
+      public void TestPublicKeyTokenComputation()
+      {
+         var token = HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( new Byte[]
+            {
+               00, 00, 00, 00, 00, 00, 00, 00, 04, 00, 00, 00, 00, 00, 00, 00
+            } ).ToArray();
+         Assert.IsTrue( ArrayEqualityComparer<Byte>.ArrayEquality(
+            token,
+            new Byte[] { 0xb7, 0x7a, 0x5c, 0x56, 0x19, 0x34, 0xe0, 0x89 }
+            ) );
+      }
+
+      [Test]
       public void VerifyHashComputation()
       {
          VerifyNativeVSCAM( () => new System.Security.Cryptography.SHA1Managed(), () => new SHA1_128() );

@@ -166,16 +166,17 @@ namespace CILAssemblyManipulator.Physical.Crypto
             else
             {
                dataResizable.CurrentMaxCapacity = dataLen;
+               Array.Clear( dataResizable.Array, 0, dataLen );
             }
             var data = dataResizable.Array;
 
             // Write value 128 at the beginning, and amount of written *bits* at the end of the data
             var idx = 0;
             data.WriteByteToBytes( ref idx, 0x80 );
-            this.WriteLength( data, unchecked((Int64) count * 8) );
+            this.WriteLength( data, dataLen, unchecked((Int64) count * 8) );
 
             // Hash the data
-            this.HashBlock( data, 0, data.Length );
+            this.HashBlock( data, 0, dataLen );
 
             // Transform state integers into byte array
             this.PopulateHash( array, offset );
@@ -217,10 +218,11 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// 
       /// </summary>
       /// <param name="array"></param>
+      /// <param name="length"></param>
       /// <param name="bitsWritten"></param>
-      protected virtual void WriteLength( Byte[] array, Int64 bitsWritten )
+      protected virtual void WriteLength( Byte[] array, Int32 length, Int64 bitsWritten )
       {
-         array.WriteInt64BEToBytesNoRef( array.Length - 8, bitsWritten );
+         array.WriteInt64BEToBytesNoRef( length - 8, bitsWritten );
       }
    }
 
@@ -1255,11 +1257,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// 
       /// </summary>
       /// <param name="array"></param>
+      /// <param name="length"></param>
       /// <param name="bitsWritten"></param>
-      protected override void WriteLength( Byte[] array, Int64 bitsWritten )
+      protected override void WriteLength( Byte[] array, Int32 length, Int64 bitsWritten )
       {
          // MD5 is little-endian
-         array.WriteInt64LEToBytesNoRef( array.Length - 8, bitsWritten );
+         array.WriteInt64LEToBytesNoRef( length - 8, bitsWritten );
       }
 
       private static UInt32 F( UInt32 u, UInt32 v, UInt32 w )

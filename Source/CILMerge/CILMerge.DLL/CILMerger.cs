@@ -643,7 +643,6 @@ namespace CILMerge
       private readonly String _inputBasePath;
       private readonly Lazy<IDictionary<String, String>> _renames;
 
-      private readonly IEqualityComparer<AssemblyReference> _assemblyReferenceEqualityComparer;
       private readonly CILAssemblyManipulator.Physical.Meta.SignatureMatcher _signatureMatcher; // For matching which member-refs should be changed to field/method defs.
 
       internal CILAssemblyMerger( CILMerger merger, CILMergeOptions options, String inputBasePath )
@@ -659,46 +658,9 @@ namespace CILMerge
          this._moduleLoader = options.Parallel ?
             (CILMetaDataBinaryLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks ) :
             new CILMetaDataLoaderNotThreadSafeForFiles( crypto: this._cryptoCallbacks, readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks );
-         this._assemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>(
-            ( x, y ) =>
-            {
-               Boolean retVal;
-               var xa = x.AssemblyInformation;
-               var ya = y.AssemblyInformation;
-               if ( x.Attributes.IsFullPublicKey() == y.Attributes.IsFullPublicKey() )
-               {
-                  retVal = xa.Equals( ya );
-               }
-               else
-               {
-                  retVal = xa.Equals( ya, false );
-                  if ( retVal
-                     && !xa.PublicKeyOrToken.IsNullOrEmpty()
-                     && !ya.PublicKeyOrToken.IsNullOrEmpty()
-                     )
-                  {
-                     Byte[] xBytes, yBytes;
-                     if ( x.Attributes.IsFullPublicKey() )
-                     {
-                        // Create public key token for x and compare with y
-                        xBytes = this._cryptoCallbacks.ComputePublicKeyToken( xa.PublicKeyOrToken );
-                        yBytes = ya.PublicKeyOrToken;
-                     }
-                     else
-                     {
-                        // Create public key token for y and compare with x
-                        xBytes = xa.PublicKeyOrToken;
-                        yBytes = this._cryptoCallbacks.ComputePublicKeyToken( ya.PublicKeyOrToken );
-                     }
-                     retVal = ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( xBytes, yBytes );
-                  }
-               }
-               return retVal;
-            },
-            x => x.AssemblyInformation.GetHashCode()
-            );
+
          this._signatureMatcher = new CILAssemblyManipulator.Physical.Meta.SignatureMatcher( this.MatchTypeDefOrRef, this.MatchResolutionScope );
-         this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>( this._assemblyReferenceEqualityComparer );
+         this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>( AssemblyReferenceMatcherExact.Instance );
          this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._tableIndexMappings = new Dictionary<CILMetaData, IDictionary<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._targetTableIndexMappings = new Dictionary<TableIndex, Tuple<CILMetaData, Int32>>();
@@ -2167,17 +2129,10 @@ namespace CILMerge
                         && this._tableIndexMappings[defModule].ContainsKey( defResScope ) == this._tableIndexMappings[refModule].ContainsKey( refResScope );
                      if ( retVal && this._tableIndexMappings[defModule].ContainsKey( defResScope ) )
                      {
-                        var defARef = defModule.AssemblyReferences.TableContents[defResScope.Index];
-                        var refARef = refModule.AssemblyReferences.TableContents[refResScope.Index];
-                        if ( defARef.Attributes.IsRetargetable() || refARef.Attributes.IsRetargetable() )
-                        {
-                           // Simple name match
-                           retVal = String.Equals( defARef.AssemblyInformation.Name, refARef.AssemblyInformation.Name );
-                        }
-                        else
-                        {
-                           retVal = this._assemblyReferenceEqualityComparer.Equals( defARef, refARef );
-                        }
+                        retVal = AssemblyReferenceMatcherRuntime.Instance.Equals(
+                           defModule.AssemblyReferences.TableContents[defResScope.Index],
+                           refModule.AssemblyReferences.TableContents[refResScope.Index]
+                           );
                      }
                      break;
                   case Tables.Module:
@@ -3571,8 +3526,117 @@ namespace CILMerge
       }
    }
 
+   public class AssemblyReferenceMatcherExact : IEqualityComparer<AssemblyReference>
+   {
+
+      public static AssemblyReferenceMatcherExact Instance { get; }
+
+      static AssemblyReferenceMatcherExact()
+      {
+         Instance = new AssemblyReferenceMatcherExact();
+      }
+
+      private AssemblyReferenceMatcherExact()
+      {
+      }
+
+      public Boolean Equals( AssemblyReference x, AssemblyReference y )
+      {
+         return Match( x.AssemblyInformation, x.Attributes, y.AssemblyInformation, y.Attributes );
+      }
+
+      public Int32 GetHashCode( AssemblyReference obj )
+      {
+         return obj?.AssemblyInformation?.GetHashCode() ?? 0;
+      }
+
+      public static Boolean Match( AssemblyInformation x, AssemblyFlags xFlags, AssemblyInformation y, AssemblyFlags yFlags )
+      {
+         Boolean retVal;
+         if ( xFlags.IsFullPublicKey() == yFlags.IsFullPublicKey() )
+         {
+            retVal = x.Equals( y );
+         }
+         else
+         {
+            retVal = x.Equals( y, false );
+            if ( retVal
+               && !x.PublicKeyOrToken.IsNullOrEmpty()
+               && !y.PublicKeyOrToken.IsNullOrEmpty()
+               )
+            {
+               IEnumerable<Byte> xBytes, yBytes;
+               if ( xFlags.IsFullPublicKey() )
+               {
+                  // Create public key token for x and compare with y
+                  xBytes = HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( x.PublicKeyOrToken );
+                  yBytes = y.PublicKeyOrToken;
+               }
+               else
+               {
+                  // Create public key token for y and compare with x
+                  xBytes = x.PublicKeyOrToken;
+                  yBytes = HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( y.PublicKeyOrToken );
+               }
+               retVal = xBytes.SequenceEqual( yBytes );
+            }
+         }
+         return retVal;
+      }
+   }
+
+   public class AssemblyReferenceMatcherRuntime : IEqualityComparer<AssemblyReference>
+   {
+      public static AssemblyReferenceMatcherRuntime Instance { get; }
+
+      static AssemblyReferenceMatcherRuntime()
+      {
+         Instance = new AssemblyReferenceMatcherRuntime();
+      }
+
+      private AssemblyReferenceMatcherRuntime()
+      {
+
+      }
+
+      public Boolean Equals( AssemblyReference x, AssemblyReference y )
+      {
+         return Match( x.AssemblyInformation, x.Attributes, y.AssemblyInformation, y.Attributes );
+      }
+
+      public Int32 GetHashCode( AssemblyReference obj )
+      {
+         return obj?.AssemblyInformation?.GetHashCode() ?? 0;
+      }
+
+      public static Boolean Match( AssemblyInformation x, AssemblyFlags xFlags, AssemblyInformation y, AssemblyFlags yFlags )
+      {
+         return xFlags.IsRetargetable() || yFlags.IsRetargetable() ?
+            // Simple name match
+            String.Equals( x.Name, y.Name ) :
+            // Exact match since both are not retargetable
+            AssemblyReferenceMatcherExact.Match( x, xFlags, y, yFlags );
+      }
+   }
+
    internal static class E_Internal
    {
+
+      private class CILMinifyState
+      {
+         public CILMinifyState( CILMetaData md )
+         {
+            this.MD = ArgumentValidator.ValidateNotNull( "Meta data", md );
+            this.DeclaringTypeDefInfo = new Dictionary<CILMetaData, IDictionary<Int32, Int32>>();
+            this.DeclaringTypeRefInfo = new Dictionary<CILMetaData, IDictionary<Int32, Int32>>();
+         }
+
+         public CILMetaData MD { get; }
+
+         public IDictionary<CILMetaData, IDictionary<Int32, Int32>> DeclaringTypeDefInfo { get; }
+
+         public IDictionary<CILMetaData, IDictionary<Int32, Int32>> DeclaringTypeRefInfo { get; }
+      }
 
 
       internal static Boolean TryAdd_NotThreadSafe<TKey, TValue>( this IDictionary<TKey, TValue> dic, TKey key, TValue value )
@@ -3587,8 +3651,9 @@ namespace CILMerge
       }
 
       // Index: typeDef index, value: array of all types that typeDef extends and implements. Generic types only are included as generic type definitions.
-      internal static TypeInheritanceInfo[] CreateTypeHierarchy( this CILMetaData md, MetaDataResolver resolver )
+      private static TypeInheritanceInfo[] CreateTypeHierarchy( this CILMinifyState state )
       {
+         var md = state.MD;
          var typeDefs = md.TypeDefinitions.TableContents;
          var retVal = new TypeInheritanceInfo[typeDefs.Count];
          var allInterfaceImpls = new Dictionary<CILMetaData, IDictionary<Int32, IList<TableIndex>>>();
@@ -3599,7 +3664,7 @@ namespace CILMerge
             var startingIndex = new MetaDataIndex( md, tDefIdx );
             // First, get enumerable for all base types
             var baseTypes = new Lazy<MetaDataIndex[]>( () => new MetaDataIndex?( startingIndex ).AsSingleBranchEnumerable(
-                 cur => cur.Value.MetaData.ProcessTypeHierarchyTableIndexNullable( resolver, cur.Value.MetaData.TypeDefinitions.TableContents[cur.Value.Index].BaseType ),
+                 cur => cur.Value.MetaData.ProcessTypeHierarchyTableIndexNullable( cur.Value.MetaData.TypeDefinitions.TableContents[cur.Value.Index].BaseType ),
                  cur => !cur.HasValue, //  !cur.MetaData.TypeDefinitions.TableContents[cur.Index].BaseType.HasValue,
                  false ).NotNulls().ToArray(), LazyThreadSafetyMode.None );
             retVal[tDefIdx] = new TypeInheritanceInfo(
@@ -3615,7 +3680,7 @@ namespace CILMerge
                        IList<TableIndex> curInterfaces;
                        if ( curInterfaceImpls.TryGetValue( cur.Index, out curInterfaces ) )
                        {
-                          curInterfaceIndices = curInterfaces.Select( iFace => cur.MetaData.ProcessTypeHierarchyTableIndex( resolver, iFace ) ).NotNulls();
+                          curInterfaceIndices = curInterfaces.Select( iFace => cur.MetaData.ProcessTypeHierarchyTableIndex( iFace ) ).NotNulls();
                        }
                        else
                        {
@@ -3643,12 +3708,12 @@ namespace CILMerge
          return interfaceImpls;
       }
 
-      private static MetaDataIndex? ProcessTypeHierarchyTableIndexNullable( this CILMetaData md, MetaDataResolver resolver, TableIndex? typeDefOrRefOrSpec )
+      private static MetaDataIndex? ProcessTypeHierarchyTableIndexNullable( this CILMetaData md, TableIndex? typeDefOrRefOrSpec )
       {
-         return typeDefOrRefOrSpec.HasValue ? md.ProcessTypeHierarchyTableIndex( resolver, typeDefOrRefOrSpec.Value ) : null;
+         return typeDefOrRefOrSpec.HasValue ? md.ProcessTypeHierarchyTableIndex( typeDefOrRefOrSpec.Value ) : null;
       }
 
-      private static MetaDataIndex? ProcessTypeHierarchyTableIndex( this CILMetaData md, MetaDataResolver resolver, TableIndex typeDefOrRefOrSpec )
+      private static MetaDataIndex? ProcessTypeHierarchyTableIndex( this CILMetaData md, TableIndex typeDefOrRefOrSpec )
       {
          MetaDataIndex? retVal;
          switch ( typeDefOrRefOrSpec.Table )
@@ -3658,6 +3723,7 @@ namespace CILMerge
                break;
             case Tables.TypeRef:
                CILMetaData otherMD; Int32 typeDefIdx;
+               var resolver = ( (CAMPhysicalR::CILAssemblyManipulator.Physical.CILMetaData) md ).ResolvingProvider.Resolver;
                if ( resolver != null && resolver.TryResolveTypeDefOrRefOrSpec( md, typeDefOrRefOrSpec, out otherMD, out typeDefIdx ) )
                {
                   retVal = new MetaDataIndex( otherMD, typeDefIdx );
@@ -3677,7 +3743,7 @@ namespace CILMerge
                }
                else
                {
-                  retVal = md.ProcessTypeHierarchyTableIndex( resolver, clazz.Type );
+                  retVal = md.ProcessTypeHierarchyTableIndex( clazz.Type );
                }
                break;
             default:
@@ -3689,12 +3755,15 @@ namespace CILMerge
       }
 
       // Index: methodDef index, value: All methods that are 'implemented' by methodDef, implicitly or explicitly.
-      internal static MethodInheritanceInfo[] CreateMethodHierarchy( this CILMetaData md, MetaDataResolver resolver, TypeInheritanceInfo[] typeHierarchy )
+      private static MethodInheritanceInfo[] CreateMethodHierarchy( this CILMinifyState state, TypeInheritanceInfo[] typeHierarchy )
       {
+         var md = state.MD;
          var typeDefs = md.TypeDefinitions.TableContents;
          var methodDefs = md.MethodDefinitions.TableContents;
 
          var retVal = new MethodInheritanceInfo[methodDefs.Count];
+
+         var explicitImpls = CreateExplicitImplDictionary( md );
 
          for ( var i = 0; i < typeDefs.Count; ++i )
          {
@@ -3704,21 +3773,233 @@ namespace CILMerge
             {
                var mDefIdx = j;
                var mDef = methodDefs[mDefIdx];
-               retVal[mDefIdx] = new MethodInheritanceInfo( new Lazy<MetaDataIndex?>( () =>
-               {
-                  // Base type override - only if this method is virtual and not abstract, and matches other method from base type chain which is abstract or virtual.
-                  //var baseTypeOverride = mDef.Attributes.IsVirtual() && !mDef.Attributes.IsAbstract() ?
-                  //   declaringTypeHierarchy.BaseTypes.FirstOrDefault( mdIdx => )
-                  // Walk this type + all of its parent types, for each:
-                  // Check explicit method impl table, and
-                  // methods with same name + signature.
-
-                  return null;
-               }, LazyThreadSafetyMode.None ), null, null );
+               var thisMDIdx = new MetaDataIndex( md, mDefIdx );
+               retVal[mDefIdx] = new MethodInheritanceInfo(
+                  new Lazy<MetaDataIndex?>( () =>
+                  {
+                     // Base type override - only if this method is virtual and not abstract, and matches other method from base type chain which is abstract or virtual.
+                     return mDef.Attributes.IsVirtual() && !mDef.Attributes.IsAbstract() ?
+                        declaringTypeHierarchy.BaseTypes.Select( typeIdx => state.GetMatchingMethodDefIndex( thisMDIdx, typeIdx, true ) ).Where( methodIdx => methodIdx.HasValue ).FirstOrDefault() :
+                        null;
+                     // Walk this type + all of its parent types, for each:
+                     // Check explicit method impl table, and
+                     // methods with same name + signature.
+                  }, LazyThreadSafetyMode.None ),
+                  new Lazy<MetaDataIndex[]>( () =>
+                  {
+                     // Explicit implementations
+                     IList<MethodImplementation> explicits;
+                     return explicitImpls.TryGetValue( mDefIdx, out explicits ) ?
+                        explicits.Select( expl => state.ProcessMethodHierarchyTableIndex( expl.MethodDeclaration ) ).NotNulls().ToArray() :
+                        Empty<MetaDataIndex>.Array;
+                  }, LazyThreadSafetyMode.None ),
+                  new Lazy<MetaDataIndex[]>( () =>
+                  {
+                     // Implicit implementations
+                     // First, see what interfaces this type implements:
+                     // ( interfaces implemented by this type) minus (interfaces implemented by base type)
+                     return null;
+                  }, LazyThreadSafetyMode.None )
+                  );
             }
          }
 
          return retVal;
+      }
+
+      private static IDictionary<Int32, IList<MethodImplementation>> CreateExplicitImplDictionary( CILMetaData md )
+      {
+         var interfaceImpls = new Dictionary<Int32, IList<MethodImplementation>>();
+         // TODO method body in MemberRef table!!
+         foreach ( var impl in md.MethodImplementations.TableContents.Where( i => i.MethodBody.Table == Tables.TypeDef ) )
+         {
+            interfaceImpls
+               .GetOrAdd_NotThreadSafe( impl.MethodBody.Index, i => new List<MethodImplementation>() )
+               .Add( impl );
+
+         }
+         return interfaceImpls;
+      }
+
+      private static MetaDataIndex? ProcessMethodHierarchyTableIndex( this CILMinifyState state, TableIndex methodDefOrRef )
+      {
+         var md = state.MD;
+         MetaDataIndex? retVal;
+         switch ( methodDefOrRef.Table )
+         {
+            case Tables.MethodDef:
+               retVal = new MetaDataIndex( md, methodDefOrRef.Index );
+               break;
+            case Tables.MemberRef:
+               var mRef = md.MemberReferences.TableContents[methodDefOrRef.Index];
+               Boolean isMethodDefIndex;
+               var declType = md.ProcessMethodHierarchyDeclaringTypeIndex( mRef.DeclaringType, out isMethodDefIndex );
+               retVal = isMethodDefIndex ?
+                  declType :
+                  ( declType.HasValue ?
+                     state.GetMatchingMethodDefIndex( md, mRef.Name, mRef.Signature, declType.Value, true ) :
+                     null
+                  );
+               break;
+            default:
+               retVal = null;
+               break;
+         }
+
+         return retVal;
+      }
+
+      private static MetaDataIndex? ProcessMethodHierarchyDeclaringTypeIndex( this CILMetaData md, TableIndex declaringType, out Boolean isMethodDefIndex )
+      {
+         MetaDataIndex? retVal;
+         isMethodDefIndex = false;
+         switch ( declaringType.Table )
+         {
+            case Tables.TypeDef:
+            case Tables.TypeRef:
+            case Tables.TypeSpec:
+               retVal = md.ProcessTypeHierarchyTableIndex( declaringType );
+               break;
+            case Tables.ModuleRef:
+               throw new NotImplementedException( "ModuleRef as declaring type of member ref." );
+            case Tables.MethodDef:
+               isMethodDefIndex = true;
+               retVal = new MetaDataIndex( md, declaringType.Index );
+               break;
+            default:
+               retVal = null;
+               break;
+         }
+
+         return retVal;
+      }
+
+      private static MetaDataIndex? GetMatchingMethodDefIndex( this CILMinifyState state, MetaDataIndex currentMethodIndex, MetaDataIndex typeDef, Boolean matchName )
+      {
+         var currentMD = currentMethodIndex.MetaData;
+         var currentMethod = currentMethodIndex.MetaData.MethodDefinitions.TableContents[currentMethodIndex.Index];
+         return state.GetMatchingMethodDefIndex(
+            currentMD,
+            currentMethod.Name,
+            currentMethod.Signature,
+            typeDef,
+            matchName
+            );
+      }
+
+      private static MetaDataIndex? GetMatchingMethodDefIndex( this CILMinifyState state, CILMetaData currentMD, String name, AbstractSignature signature, MetaDataIndex typeDef, Boolean matchName )
+      {
+         var md = typeDef.MetaData;
+         var idx = md.GetTypeMethodIndices( typeDef.Index )
+            .Where( mDefIdx =>
+            {
+               var mDef = md.MethodDefinitions.TableContents[mDefIdx];
+               return ( ( matchName && String.Equals( mDef.Name, name ) )
+               || !matchName )
+               && currentMD.SignatureProvider.MatchSignatures( currentMD, signature, md, mDef.Signature, state.CreateSigMatcher() );
+            } )
+            .FirstOrDefaultCustom( -1 );
+         return idx == -1 ? (MetaDataIndex?) null : new MetaDataIndex( md, idx );
+      }
+
+      private static CILAssemblyManipulator.Physical.Meta.SignatureMatcher CreateSigMatcher( this CILMinifyState state )
+      {
+         return new CILAssemblyManipulator.Physical.Meta.SignatureMatcher(
+            ( firstMD, firstIndex, secondMD, secondIndex ) => state.MatchTypeDefOrRef( firstMD, firstIndex, secondMD, secondIndex ),
+            ( firstMD, firstIndex, secondMD, secondIndex ) => state.MatchResolutionScope( firstMD, firstIndex, secondMD, secondIndex )
+            );
+      }
+
+      private static Boolean MatchTypeDefOrRef( this CILMinifyState state, CILMetaData firstMD, TableIndex firstIndex, CILMetaData secondMD, TableIndex secondIndex )
+      {
+         var retVal = firstIndex.Table == secondIndex.Table // This is 'true' only when both are TypeDefs. If both are TypeRefs, this method is not used.
+            && firstIndex.Index == secondIndex.Index; // TypeDefs are same only when they match exactly
+         if ( !retVal && firstIndex.Table != secondIndex.Table ) // This is 'true' when one is TypeRef and another is TypeDef
+         {
+            CILMetaData typeDefMD, typeRefMD;
+            Int32 typeDefIndex, typeRefIndex;
+            if ( firstIndex.Table == Tables.TypeDef )
+            {
+               typeDefMD = firstMD;
+               typeDefIndex = firstIndex.Index;
+               typeRefMD = secondMD;
+               typeRefIndex = secondIndex.Index;
+            }
+            else
+            {
+               typeDefMD = secondMD;
+               typeDefIndex = secondIndex.Index;
+               typeRefMD = firstMD;
+               typeRefIndex = firstIndex.Index;
+            }
+
+            var typeDefName = state.ConstructNameFromTypeDef( typeDefMD, typeDefIndex );
+            var typeRefTuple = state.ConstructNameFromTypeRef( typeRefMD, typeRefIndex );
+            if ( !typeRefTuple.Item2.HasValue || typeRefTuple.Item2.Value.Table != Tables.AssemblyRef )
+            {
+               throw new NotImplementedException( "Matching other than assembly-ref top-level type-refs." );
+            }
+            else if ( typeDefMD.AssemblyDefinitions.TableContents.Count <= 0 )
+            {
+               throw new NotImplementedException( "Type def in module that is not main module." );
+            }
+
+            var aDef = typeDefMD.AssemblyDefinitions.TableContents[0];
+            var aRef = typeRefMD.AssemblyReferences.TableContents[typeRefTuple.Item2.Value.Index];
+            retVal = String.Equals( typeDefName, typeRefTuple.Item1 )
+               && AssemblyReferenceMatcherRuntime.Match( aDef.AssemblyInformation, aDef.Attributes, aRef.AssemblyInformation, aRef.Attributes );
+         }
+         return retVal;
+      }
+
+      private static String ConstructNameFromTypeDef( this CILMinifyState state, CILMetaData md, Int32 typeDefIndex )
+      {
+         Int32 enclosingClass;
+         String retVal;
+         var tDef = md.TypeDefinitions.TableContents[typeDefIndex];
+         if ( state.DeclaringTypeDefInfo
+            .GetOrAdd_NotThreadSafe( md, mdd => mdd.NestedClassDefinitions.TableContents.ToDictionary_Overwrite( nc => nc.NestedClass.Index, nc => nc.EnclosingClass.Index ) )
+            .TryGetValue( typeDefIndex, out enclosingClass ) )
+         {
+            retVal = Miscellaneous.CombineEnclosingAndNestedType( state.ConstructNameFromTypeDef( md, enclosingClass ), tDef.Name );
+         }
+         else
+         {
+            retVal = Miscellaneous.CombineNamespaceAndType( tDef.Namespace, tDef.Name );
+         }
+         return retVal;
+      }
+
+      private static Tuple<String, TableIndex?> ConstructNameFromTypeRef( this CILMinifyState state, CILMetaData md, Int32 typeRefIndex )
+      {
+         Int32 enclosingClass;
+         String finalName;
+         TableIndex? resScope;
+         var typeRef = md.TypeReferences.TableContents[typeRefIndex];
+         if ( state.DeclaringTypeRefInfo
+            .GetOrAdd_NotThreadSafe( md, mdd => mdd.TypeReferences.TableContents
+               .Select( ( tRef, idx ) => Tuple.Create( tRef, idx ) )
+                .Where( tuple => tuple.Item1.ResolutionScope.HasValue && tuple.Item1.ResolutionScope.Value.Table == Tables.TypeRef )
+                .ToDictionary_Overwrite( tuple => tuple.Item2, tuple => tuple.Item1.ResolutionScope.Value.Index )
+               )
+            .TryGetValue( typeRefIndex, out enclosingClass ) )
+         {
+            var tuple = state.ConstructNameFromTypeRef( md, enclosingClass );
+            finalName = Miscellaneous.CombineEnclosingAndNestedType( tuple.Item1, typeRef.Name );
+            resScope = tuple.Item2;
+         }
+         else
+         {
+            finalName = Miscellaneous.CombineNamespaceAndType( typeRef.Namespace, typeRef.Name );
+            resScope = typeRef.ResolutionScope;
+         }
+
+         return Tuple.Create( finalName, resScope );
+      }
+
+      private static Boolean MatchResolutionScope( this CILMinifyState state, CILMetaData firstMD, TableIndex? firstIndex, CILMetaData secondMD, TableIndex? secondIndex )
+      {
+         return false;
       }
 
       internal static void Minify( this CILMetaData md, MetaDataResolver resolver, IEnumerable<Int32> entryPointIndices )
@@ -3735,10 +4016,12 @@ namespace CILMerge
             .SelectMany( tDefIdx => md.GetTypeFieldIndices( tDefIdx ).Select( fDefIdx => Tuple.Create( tDefIdx, fDefIdx ) ) )
             .ToDictionary( tuple => tuple.Item2, tuple => tuple.Item1 );
 
+         var state = new CILMinifyState( md );
+
          // Construct type inheritance hierarchy
-         var typeDefInheritance = md.CreateTypeHierarchy( resolver );
+         var typeDefInheritance = state.CreateTypeHierarchy();
          // Construct method inheritance hierarchy
-         var methodDefInheritance = md.CreateMethodHierarchy( resolver, typeDefInheritance );
+         var methodDefInheritance = state.CreateMethodHierarchy( typeDefInheritance );
 
          // Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
          var allTableIndices = new Dictionary<Tables, HashSet<Int32>>();

@@ -29,29 +29,25 @@ namespace CILAssemblyManipulator.Physical.Crypto
    /// </summary>
    public abstract class AbstractCryptoCallbacks<TRSA> : AbstractDisposable, CryptoCallbacks
    {
-      private static readonly LocklessInstancePoolForClasses<Byte[]> ByteArrays = new LocklessInstancePoolForClasses<Byte[]>();
-
-      private readonly LocklessInstancePoolForClasses<BlockDigestAlgorithm> _sha1Pool;
-
       /// <summary>
       /// Creates a new instance of <see cref="AbstractCryptoCallbacks{TRSA}"/>.
       /// </summary>
       public AbstractCryptoCallbacks()
       {
-         this._sha1Pool = new LocklessInstancePoolForClasses<BlockDigestAlgorithm>();
+
       }
 
       /// <inheritdoc />
       protected override void Dispose( Boolean disposing )
       {
-         if ( disposing )
-         {
-            BlockDigestAlgorithm algo;
-            while ( ( algo = this._sha1Pool.TakeInstance() ) != null )
-            {
-               algo.DisposeSafely();
-            }
-         }
+         //if ( disposing )
+         //{
+         //   BlockDigestAlgorithm algo;
+         //   while ( ( algo = this._sha1Pool.TakeInstance() ) != null )
+         //   {
+         //      algo.DisposeSafely();
+         //   }
+         //}
       }
 
       /// <inheritdoc />
@@ -70,43 +66,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public abstract Byte[] ExtractPublicKeyFromCSPContainer( String containerName );
 
       /// <inheritdoc />
-      public IEnumerable<Byte> EnumeratePublicKeyToken( Byte[] fullPublicKey )
-      {
-         if ( !fullPublicKey.IsNullOrEmpty() )
-         {
-            var sha1 = this._sha1Pool.TakeInstance();
-            try
-            {
-               if ( sha1 == null )
-               {
-                  sha1 = this.CreateHashAlgorithm( AssemblyHashAlgorithm.SHA1 );
-               }
-               var bytes = ByteArrays.TakeInstance();
-               try
-               {
-                  if ( bytes == null )
-                  {
-                     bytes = new Byte[sha1.DigestByteCount];
-                  }
-                  sha1.ProcessBlock( fullPublicKey );
-                  sha1.WriteDigest( bytes );
-                  // Public key token is actually last 8 bytes reversed
-                  for ( var i = 0; i < 8; ++i )
-                  {
-                     yield return bytes[bytes.Length - i - 1];
-                  }
-               }
-               finally
-               {
-                  ByteArrays.ReturnInstance( bytes );
-               }
-            }
-            finally
-            {
-               this._sha1Pool.ReturnInstance( sha1 );
-            }
-         }
-      }
+      public abstract IEnumerable<Byte> EnumeratePublicKeyToken( Byte[] fullPublicKey );
 
       /// <inheritdoc />
       public virtual KeyBLOBParsingResult TryParseKeyBLOB( Byte[] keyBLOB, AssemblyHashAlgorithm? hashAlgorithmOverride )
@@ -486,7 +446,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       private static IDictionary<AssemblyHashAlgorithm, ASN1ObjectIdentifier> ObjIDCache { get; }
 
       /// <summary>
-      /// Gets the default instance of <see cref="DefaultCryptoCallbacks"/>, which uses 
+      /// Gets the default instance of <see cref="DefaultCryptoCallbacks"/>, which uses normal RSA algorithm instead of blinded one.
       /// </summary>
       public static DefaultCryptoCallbacks NonBlindedInstance { get; }
 
@@ -584,6 +544,12 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public override Byte[] ExtractPublicKeyFromCSPContainer( String containerName )
       {
          throw new NotSupportedException( "CSP is not supported in portable environment." );
+      }
+
+      /// <inheritdoc />
+      public override IEnumerable<Byte> EnumeratePublicKeyToken( Byte[] fullPublicKey )
+      {
+         return HashAlgorithmPool.SHA1.EnumeratePublicKeyToken( fullPublicKey );
       }
 
       /// <summary>
