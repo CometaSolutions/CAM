@@ -597,8 +597,9 @@ public static partial class E_CILLogical
                return cilClazz;
             case TypeSignatureKind.ComplexArray:
                var array = (ComplexArrayTypeSignature) sig;
+               var cInfo = array.ComplexArrayInfo;
                return this.ResolveTypeSignature( array.ArrayType, contextType, contextMethod, populateAssemblyRefStructure )
-                  .MakeArrayType( array.Rank, array.Sizes.ToArray(), array.LowerBounds.ToArray() );
+                  .MakeArrayType( cInfo.Rank, cInfo.Sizes.ToArray(), cInfo.LowerBounds.ToArray() );
             case TypeSignatureKind.FunctionPointer:
                var fn = ( (FunctionPointerTypeSignature) sig ).MethodSignature;
                return this._module.ReflectionContext.NewMethodSignature(
@@ -1101,9 +1102,7 @@ public static partial class E_CILLogical
                case TypeSignatureKind.ComplexArray:
                   var thisArray = (ComplexArrayTypeSignature) thisSignature;
                   var declaringArray = (ComplexArrayTypeSignature) declaringTypeSignature;
-                  retVal = thisArray.Rank == declaringArray.Rank
-                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( thisArray.LowerBounds, declaringArray.LowerBounds )
-                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( thisArray.Sizes, declaringArray.Sizes )
+                  retVal = Comparers.ComplexArrayInfoEqualityComparer.Equals(thisArray.ComplexArrayInfo, declaringArray.ComplexArrayInfo)
                      && this.MatchTypeSignatures( thisArray.ArrayType, declaringTypeCreationResult, declaringArray.ArrayType );
                   break;
                case TypeSignatureKind.FunctionPointer:

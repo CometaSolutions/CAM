@@ -2503,9 +2503,9 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If <paramref name="args"/> is <c>null</c>.</exception>
    public static Boolean IsWide( this TableSerializationBinaryFunctionalityCreationArgs args, String streamName )
    {
-      Int32 streamSize;
-      return streamName != null
-         && args.StreamSizes.TryGetValue( streamName, out streamSize )
-         && streamSize.IsWideMDStreamSize();
+      Boolean success;
+      return streamName == null ?
+         false :
+         args.StreamSizes.TryGetValue( streamName, out success ).IsWideMDStreamSize();
    }
 }

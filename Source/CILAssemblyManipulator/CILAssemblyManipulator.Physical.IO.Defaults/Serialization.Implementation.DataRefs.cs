@@ -349,11 +349,8 @@ public static partial class E_CILPhysical
                         }
                         else
                         {
-                           ClassLayout layout;
-                           if ( layoutInfo.TryGetValue( typeIdx.Index, out layout ) )
-                           {
-                              size = layout.ClassSize;
-                           }
+                           Boolean success;
+                           size = layoutInfo.TryGetValue( typeIdx.Index, out success )?.ClassSize ?? 0;
                         }
 
                      }

@@ -426,8 +426,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          lock ( this.securityInfo.Value )
          {
-            ListProxy<LogicalSecurityInformation> list;
-            if ( !this.securityInfo.Value.CQ.TryGetValue( action, out list ) )
+            Boolean success;
+            var list = this.securityInfo.Value.CQ.TryGetValue( action, out success );
+            if ( !success )
             {
                list = this.context.CollectionsFactory.NewListProxy<LogicalSecurityInformation>();
                this.securityInfo.Value.Add( action, list );
@@ -445,8 +446,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
             var result = information != null;
             if ( !result )
             {
-               ListProxy<LogicalSecurityInformation> list;
-               if ( this.securityInfo.Value.CQ.TryGetValue( information.SecurityAction, out list ) )
+               Boolean success;
+               var list = this.securityInfo.Value.CQ.TryGetValue( information.SecurityAction, out success );
+               if ( success )
                {
                   result = list.Remove( information );
                }

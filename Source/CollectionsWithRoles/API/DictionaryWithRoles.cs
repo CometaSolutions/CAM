@@ -96,11 +96,12 @@ namespace CollectionsWithRoles.API
       /// <summary>
       /// Gets the value associated with the specified key.
       /// </summary>
-      /// <returns><c>true</c> if this dictionary contains an element with the specified key; otherwise, <c>false</c>.</returns>
+      /// <returns>The value associated with the specified key, if the key is found; otherwise, the default value for the <typeparamref name="TValue"/>. This parameter may be passed uninitialized.</returns>
       /// <param name="key">The key whose value to get.</param>
-      /// <param name="value">When this method returns, the value associated with the specified key, if the key is found; otherwise, the default value for the <typeparamref name="TValue"/>. This parameter may be passed uninitialized.</param>
+      /// <param name="success"><c>true</c> if this dictionary contains an element with the specified key; otherwise, <c>false</c>.</param>
       /// <exception cref="System.ArgumentNullException"><paramref name="key" /> is <c>null</c>.</exception>
-      Boolean TryGetValue( TKey key, out TValue value );
+      TValue TryGetValue( TKey key, out Boolean success );
+      //Boolean TryGetValue( TKey key, out TValue value ); // TODO: TValue TryGetValue( TKey key, out Boolean success); to easen up GC & to make TValue 'out'!
    }
 
    /// <summary>

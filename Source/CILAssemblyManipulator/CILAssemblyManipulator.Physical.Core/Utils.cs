@@ -721,9 +721,9 @@ namespace CILAssemblyManipulator.Physical
 
          return x.Count == y.Count && x.All( kvp =>
          {
-            TValue val;
-            return y.TryGetValue( kvp.Key, out val )
-               && equality( kvp.Value, val );
+            Boolean success;
+            var val = y.TryGetValue( kvp.Key, out success );
+            return success && equality( kvp.Value, val );
          } );
       }
 

@@ -17,6 +17,7 @@
  */
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
+using CollectionsWithRoles.API;
 using CommonUtils;
 using System;
 using System.Collections.Generic;
@@ -109,13 +110,196 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <summary>
    /// This delegate contains signature for callbacks used by <see cref="SignatureMatcher"/>.
    /// </summary>
-   /// <typeparam name="TIndex">The type of the table index.</typeparam>
+   /// <typeparam name="TItem">The type of the first item index.</typeparam>
    /// <param name="firstMD">The <see cref="CILMetaData"/> passed as first to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
-   /// <param name="firstIndex">The <see cref="TableIndex"/> within the <see cref="AbstractSignature"/> passed as first to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
+   /// <param name="firstIndex">The item within the <see cref="AbstractSignature"/> passed as first to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
    /// <param name="secondMD">The <see cref="CILMetaData"/> passed as second to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
-   /// <param name="secondIndex">The <see cref="TableIndex"/> within the <see cref="AbstractSignature"/> passed as second to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
+   /// <param name="secondIndex">The item within the <see cref="AbstractSignature"/> passed as second to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
    /// <returns>Whether the <paramref name="firstIndex"/> and <paramref name="secondIndex"/> match.</returns>
-   public delegate Boolean SignatureMatcherCallback<TIndex>( CILMetaData firstMD, TIndex firstIndex, CILMetaData secondMD, TIndex secondIndex );
+   public delegate Boolean SignatureMatcherCallback<TItem>( CILMetaData firstMD, TItem firstIndex, CILMetaData secondMD, TItem secondIndex );
+
+   internal delegate TTransform SignatureTransformCallbackDelegate<TTransform>( AbstractSignature signature );
+
+   internal delegate TTransform SignatureTransformDelegate<TTransform>( AbstractSignature signature, SignatureTransformCallbackDelegate<TTransform> callback );
+
+   internal delegate Boolean VisitElementDelegate<TElement>( TElement element, VisitElementCallbackDelegate<TElement> callback );
+
+   internal delegate Boolean VisitElementDelegateTyped<TElement, in TActualElement>( TActualElement element, VisitElementCallbackDelegate<TElement> callback )
+      where TActualElement : TElement;
+
+   internal delegate Boolean VisitElementCallbackDelegate<in TElement>( TElement element, Type overrideType = null );
+
+   internal delegate Boolean AcceptElementDelegate<in TElement>( TElement element );
+
+   internal delegate Boolean AcceptElementDelegateWithContext<in TElement, in TContext>( TElement element, TContext context );
+
+   internal class TypeBasedVisitor<TElement>
+   {
+      private struct Visitor
+      {
+         private readonly TypeBasedVisitor<TElement> _visitor;
+         private readonly VisitElementCallbackDelegate<TElement> _callback;
+         private readonly DictionaryQuery<Type, AcceptElementDelegate<TElement>> _acceptorDictionary;
+
+         public Visitor( TypeBasedVisitor<TElement> visitor, DictionaryQuery<Type, AcceptElementDelegate<TElement>> acceptorDictionary )
+         {
+            this._visitor = visitor;
+            this._acceptorDictionary = acceptorDictionary;
+            this._callback = null;
+
+            this._callback = this.Visit;
+         }
+         public Boolean Visit( TElement element, Type overrideType )
+         {
+            return this._visitor.VisitElementWithNoContext( element, this._acceptorDictionary, this._callback, overrideType );
+         }
+
+
+      }
+
+      private struct Visitor<TContext>
+      {
+         private readonly TypeBasedVisitor<TElement> _visitor;
+         private readonly VisitElementCallbackDelegate<TElement> _callback;
+         private readonly DictionaryQuery<Type, AcceptElementDelegateWithContext<TElement, TContext>> _acceptorDictionary;
+         private readonly TContext _context;
+
+         public Visitor( TypeBasedVisitor<TElement> visitor, DictionaryQuery<Type, AcceptElementDelegateWithContext<TElement, TContext>> acceptorDictionary, TContext context )
+         {
+            this._visitor = visitor;
+            this._acceptorDictionary = acceptorDictionary;
+            this._context = context;
+            this._callback = null;
+
+            this._callback = this.Visit;
+         }
+
+         public Boolean Visit( TElement element, Type overrideType )
+         {
+            return this._visitor.VisitElementWithContext( element, this._acceptorDictionary, this._context, this._callback, overrideType );
+         }
+      }
+
+
+      public TypeBasedVisitor()
+      {
+         this.VisitorDictionary = new Dictionary<Type, VisitElementDelegate<TElement>>();
+      }
+
+      private IDictionary<Type, VisitElementDelegate<TElement>> VisitorDictionary { get; }
+
+      public void RegisterVisitor( Type elementType, VisitElementDelegate<TElement> visitor )
+      {
+         this.VisitorDictionary[elementType] = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
+      }
+
+      public Boolean Visit(
+         TElement element,
+         DictionaryQuery<Type, AcceptElementDelegate<TElement>> acceptorDictionary
+         )
+      {
+         var visitor = new Visitor( this, acceptorDictionary );
+         return visitor.Visit( element, null );
+      }
+
+      public Boolean VisitWithContext<TContext>(
+         TElement element,
+         DictionaryQuery<Type, AcceptElementDelegateWithContext<TElement, TContext>> acceptorDictionary,
+         TContext context
+         )
+      {
+         var visitor = new Visitor<TContext>( this, acceptorDictionary, context );
+         return visitor.Visit( element, null );
+      }
+
+      private Boolean VisitElementWithNoContext(
+         TElement element,
+         DictionaryQuery<Type, AcceptElementDelegate<TElement>> acceptorDictionary,
+         VisitElementCallbackDelegate<TElement> callback,
+         Type overrideType
+         )
+      {
+         VisitElementDelegate<TElement> visitor;
+         AcceptElementDelegate<TElement> acceptor;
+         Boolean hadAcceptor;
+         return element != null
+            && ( ( acceptor = acceptorDictionary.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || acceptor( element ) )
+            && this.VisitorDictionary.TryGetValue( overrideType ?? element.GetType(), out visitor )
+            && visitor( element, callback );
+      }
+
+      private Boolean VisitElementWithContext<TContext>(
+         TElement element,
+         DictionaryQuery<Type, AcceptElementDelegateWithContext<TElement, TContext>> acceptorDictionary,
+         TContext context,
+         VisitElementCallbackDelegate<TElement> callback,
+         Type overrideType
+         )
+      {
+         VisitElementDelegate<TElement> visitor;
+         AcceptElementDelegateWithContext<TElement, TContext> acceptor;
+         Boolean hadAcceptor;
+         return element != null
+            && ( ( acceptor = acceptorDictionary.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || acceptor( element, context ) )
+            && this.VisitorDictionary.TryGetValue( overrideType ?? element.GetType(), out visitor )
+            && visitor( element, callback );
+      }
+   }
+
+   internal abstract class AbstractTypeBasedAcceptor<TElement>
+   {
+      internal AbstractTypeBasedAcceptor( TypeBasedVisitor<TElement> visitor )
+      {
+         this.Visitor = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
+
+      }
+
+      protected TypeBasedVisitor<TElement> Visitor { get; }
+
+   }
+
+   internal sealed class TypeBasedAcceptor<TElement> : AbstractTypeBasedAcceptor<TElement>
+   {
+      internal TypeBasedAcceptor( TypeBasedVisitor<TElement> visitor )
+         : base( visitor )
+      {
+         this.AcceptorDictionary = new Dictionary<Type, AcceptElementDelegate<TElement>>().ToDictionaryProxy();
+      }
+
+      private DictionaryProxy<Type, AcceptElementDelegate<TElement>> AcceptorDictionary { get; }
+
+      public void RegisterAcceptor( Type type, AcceptElementDelegate<TElement> acceptor )
+      {
+         this.AcceptorDictionary[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
+      }
+
+      public Boolean Accept( TElement element )
+      {
+         return this.Visitor.Visit( element, this.AcceptorDictionary.CQ );
+      }
+   }
+
+   internal class TypeBasedAcceptor<TElement, TContext> : AbstractTypeBasedAcceptor<TElement>
+   {
+      internal TypeBasedAcceptor( TypeBasedVisitor<TElement> visitor )
+         : base( visitor )
+      {
+         this.AcceptorDictionary = new Dictionary<Type, AcceptElementDelegateWithContext<TElement, TContext>>().ToDictionaryProxy();
+      }
+
+      private DictionaryProxy<Type, AcceptElementDelegateWithContext<TElement, TContext>> AcceptorDictionary { get; }
+
+      public void RegisterAcceptor( Type type, AcceptElementDelegateWithContext<TElement, TContext> acceptor )
+      {
+         this.AcceptorDictionary[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
+      }
+
+      public Boolean AcceptWithContext( TElement element, TContext context )
+      {
+         return this.Visitor.VisitWithContext( element, this.AcceptorDictionary.CQ, context );
+      }
+   }
+
 
    /// <summary>
    /// This type represents information about a single <see cref="Physical.TableIndex"/> reference located in <see cref="SignatureElement"/>.
@@ -206,6 +390,8 @@ namespace CILAssemblyManipulator.Physical.Meta
       private readonly IDictionary<CustomAttributeArgumentTypeSimpleKind, CustomAttributeArgumentTypeSimple> _simpleCATypes;
       private readonly IDictionary<Type, SignatureTableIndexInfoProvider> _signatureElementTableIndexProviders;
 
+
+
       /// <summary>
       /// Creates a new instance of <see cref="DefaultSignatureProvider"/> with given supported <see cref="SimpleTypeSignature"/>s and <see cref="CustomAttributeArgumentTypeSimple"/>s.
       /// </summary>
@@ -294,6 +480,162 @@ namespace CILAssemblyManipulator.Physical.Meta
             }
          }
       }
+      private class DecomposeSignatureContext
+      {
+         public DecomposeSignatureContext()
+         {
+            this.CurrentEnumerable = Empty<SignatureElement>.Enumerable;
+         }
+
+         public IEnumerable<SignatureElement> CurrentEnumerable { get; private set; }
+
+         public Boolean AddElementsFromSignature( AbstractSignature signature, IEnumerable<SignatureElement> elements )
+         {
+            var cur = this.CurrentEnumerable.ConcatSingle( signature );
+            if ( elements != null )
+            {
+               cur = cur.Concat( elements );
+            }
+            this.CurrentEnumerable = cur;
+
+            return true;
+         }
+      }
+
+      private IEnumerable<SignatureElement> DecomposeSignature_Visitor( AbstractSignature signature )
+      {
+         var decomposeContext = new DecomposeSignatureContext();
+         var signatureVisitor = new TypeBasedVisitor<AbstractSignature>();
+
+         signatureVisitor.RegisterVisitor( typeof( FieldSignature ), VisitSignatureCast<FieldSignature>( ( sig, cb ) => cb( sig.Type ) ) );
+         signatureVisitor.RegisterVisitor( typeof( AbstractMethodSignature ), VisitSignatureCast<AbstractMethodSignature>( VisitSignature_AbstractMethod ) );
+         signatureVisitor.RegisterVisitor( typeof( MethodDefinitionSignature ), VisitSignatureCast<MethodDefinitionSignature>( VisitSignature_MethodDef ) );
+         signatureVisitor.RegisterVisitor( typeof( MethodReferenceSignature ), VisitSignatureCast<MethodReferenceSignature>( VisitSignature_MethodRef ) );
+         signatureVisitor.RegisterVisitor( typeof( PropertySignature ), VisitSignatureCast<PropertySignature>( VisitSignature_Property ) );
+         signatureVisitor.RegisterVisitor( typeof( LocalVariablesSignature ), VisitSignatureCast<LocalVariablesSignature>( VisitSignature_Locals ) );
+         signatureVisitor.RegisterVisitor( typeof( GenericMethodSignature ), VisitSignatureCast<GenericMethodSignature>( VisitSignature_GenericMethod ) );
+         signatureVisitor.RegisterVisitor( typeof( AbstractArrayTypeSignature ), VisitSignatureCast<AbstractArrayTypeSignature>( VisitTypeSignature_AbstractArray ) );
+         signatureVisitor.RegisterVisitor( typeof( ComplexArrayTypeSignature ), VisitSignatureCast<ComplexArrayTypeSignature>( VisitTypeSignature_ComplexArray ) );
+         signatureVisitor.RegisterVisitor( typeof( SimpleArrayTypeSignature ), VisitSignatureCast<SimpleArrayTypeSignature>( VisitTypeSignature_SimpleArray ) );
+         signatureVisitor.RegisterVisitor( typeof( ClassOrValueTypeSignature ), VisitSignatureCast<ClassOrValueTypeSignature>( VisitTypeSignature_ClassOrValue ) );
+         signatureVisitor.RegisterVisitor( typeof( FunctionPointerTypeSignature ), VisitSignatureCast<FunctionPointerTypeSignature>( VisitTypeSignature_FunctionPointer ) );
+         signatureVisitor.RegisterVisitor( typeof( PointerTypeSignature ), VisitSignatureCast<PointerTypeSignature>( VisitTypeSignature_Pointer ) );
+
+         var decomposer = new TypeBasedAcceptor<AbstractSignature, DecomposeSignatureContext>( signatureVisitor );
+         decomposer.RegisterAcceptor( typeof( FieldSignature ), AcceptSignatureCast<FieldSignature, DecomposeSignatureContext>( ( field, ctx ) => ctx.AddElementsFromSignature( field, field.CustomModifiers ) ) );
+         signatureVisitor.VisitWithContext(
+            signature,
+            new Dictionary<Type, AcceptElementDelegateWithContext<AbstractSignature, DecomposeSignatureContext>>()
+            {
+               { typeof(FieldSignature), (sig, ctx) => ctx.AddElementsFromSignature(sig, ( (FieldSignature) sig ).CustomModifiers) },
+               { typeof(LocalVariablesSignature), (sig, ctx) => ctx.AddElementsFromSignature(sig, ( ( LocalVariablesSignature) sig).Locals.SelectMany( l => ((IEnumerable<SignatureElement>) l.CustomModifiers).PrependSingle( l ) ) ) }
+               //{ typeof(AbstractMethodSignature), (sig, ctx) => ctx.AddElementsFromSignature(sig, ( ( AbstractMethodSignature) sig).ReturnType.CustomModifiers.PrependSingle( }
+            }.ToDictionaryProxy().CQ,
+            decomposeContext
+            );
+         return decomposeContext.CurrentEnumerable;
+      }
+
+      private static VisitElementDelegate<AbstractSignature> VisitSignatureCast<TSignature>( VisitElementDelegateTyped<AbstractSignature, TSignature> actual )
+         where TSignature : AbstractSignature
+      {
+         return VisitElementCast( actual );
+      }
+
+      private static VisitElementDelegate<TElement> VisitElementCast<TElement, TActualElement>( VisitElementDelegateTyped<TElement, TActualElement> actual )
+         where TActualElement : TElement
+      {
+         return ( element, cb ) => actual( (TActualElement) element, cb );
+      }
+
+      private static AcceptElementDelegateWithContext<AbstractSignature, TContext> AcceptSignatureCast<TSignature, TContext>( AcceptElementDelegateWithContext<TSignature, TContext> actual )
+         where TSignature : AbstractSignature
+      {
+         return AcceptElementCast<AbstractSignature, TContext, TSignature>( actual );
+      }
+
+      private static AcceptElementDelegateWithContext<TElement, TContext> AcceptElementCast<TElement, TContext, TActualElement>( AcceptElementDelegateWithContext<TActualElement, TContext> actual )
+         where TActualElement : TElement
+      {
+         return ( element, context ) => actual( (TActualElement) element, context );
+      }
+
+
+      private static Boolean VisitSignature_AbstractMethod( AbstractMethodSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature.ReturnType.Type )
+            && signature.Parameters.All( p => callback( p.Type ) );
+      }
+
+      private static Boolean VisitSignature_MethodDef( MethodDefinitionSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature, typeof( AbstractMethodSignature ) );
+      }
+
+      private static Boolean VisitSignature_MethodRef( MethodReferenceSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature, typeof( AbstractMethodSignature ) )
+            && signature.VarArgsParameters.All( p => callback( p.Type ) );
+      }
+
+      private static Boolean VisitSignature_Property( PropertySignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature.PropertyType )
+            && signature.Parameters.All( p => callback( p.Type ) );
+      }
+
+      private static Boolean VisitSignature_Locals( LocalVariablesSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return signature.Locals.All( l => callback( l.Type ) );
+      }
+
+      private static Boolean VisitSignature_GenericMethod( GenericMethodSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return signature.GenericArguments.All( g => callback( g ) );
+      }
+
+      private static Boolean VisitTypeSignature_AbstractArray( AbstractArrayTypeSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature.ArrayType );
+      }
+
+      private static Boolean VisitTypeSignature_ComplexArray( ComplexArrayTypeSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature, typeof( AbstractArrayTypeSignature ) );
+      }
+
+      private static Boolean VisitTypeSignature_SimpleArray( SimpleArrayTypeSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature, typeof( AbstractArrayTypeSignature ) );
+      }
+
+      private static Boolean VisitTypeSignature_ClassOrValue( ClassOrValueTypeSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return signature.GenericArguments.All( g => callback( g ) );
+      }
+
+      private static Boolean VisitTypeSignature_FunctionPointer( FunctionPointerTypeSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature.MethodSignature );
+      }
+
+      private static Boolean VisitTypeSignature_Pointer( PointerTypeSignature signature, VisitElementCallbackDelegate<AbstractSignature> callback )
+      {
+         return callback( signature.PointerType );
+      }
+
+      //private static TTransform ExecuteFunctionality<TTransform>( IDictionary<Type, SignatureTransformDelegate<TTransform>> dictionary, AbstractSignature signature )
+      //{
+      //   SignatureTransformDelegate<TTransform> transformDelegate;
+      //   return dictionary.TryGetValue( signature.GetType(), out transformDelegate ) ?
+      //      transformDelegate( signature, sig => ExecuteFunctionality( dictionary, sig ) ) :
+      //      default( TTransform );
+      //}
+
+      //private static IEnumerable<SignatureElement> DecomposeSignature_Field( FieldSignature field, SignatureTransformCallbackDelegate<IEnumerable<SignatureElement>> callback )
+      //{
+      //   return field.CustomModifiers.Concat( callback( field.Type ) );
+      //}
 
       /// <inheritdoc />
       public IEnumerable<SignatureTableIndexInfo> GetTableIndexInfoFromSignatureElement( SignatureElement element )
@@ -532,9 +874,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                case TypeSignatureKind.ComplexArray:
                   var arrayDef = (ComplexArrayTypeSignature) typeDef;
                   var arrayRef = (ComplexArrayTypeSignature) typeRef;
-                  retVal = arrayDef.Rank == arrayRef.Rank
-                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( arrayDef.Sizes, arrayRef.Sizes )
-                     && ListEqualityComparer<List<Int32>, Int32>.ListEquality( arrayDef.LowerBounds, arrayRef.LowerBounds )
+                  retVal = Comparers.ComplexArrayInfoEqualityComparer.Equals( arrayDef.ComplexArrayInfo, arrayRef.ComplexArrayInfo )
                      && this.MatchTypeSignatures( defModule, arrayDef.ArrayType, refModule, arrayRef.ArrayType, matcher );
                   break;
                case TypeSignatureKind.FunctionPointer:

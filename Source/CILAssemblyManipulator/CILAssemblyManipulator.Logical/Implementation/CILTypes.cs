@@ -1100,8 +1100,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          this.ThrowIfNotTrueDefinition();
          var map = this.explicitMethodImplementationMap.Value;
-         ListProxy<CILMethod> list;
-         if ( !map.MQ.TryGetValue( methodBody, out list ) )
+         Boolean success;
+         var list = map.MQ.TryGetValue( methodBody, out success );
+         if ( !success )
          {
             list = this.context.CollectionsFactory.NewListProxy<CILMethod>();
             map.Add( methodBody, list );
@@ -1115,10 +1116,12 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          this.ThrowIfNotTrueDefinition();
          var map = this.explicitMethodImplementationMap.Value;
-         ListProxy<CILMethod> list;
-         var retVal = false;
-         if ( map.MQ.TryGetValue( methodBody, out list ) )
+
+         Boolean retVal;
+         var list = map.MQ.TryGetValue( methodBody, out retVal );
+         if ( retVal )
          {
+            retVal = false;
             foreach ( var method in methodDeclarations )
             {
                retVal = list.Remove( method ) || retVal;
@@ -1185,8 +1188,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
       {
          lock ( this.securityInfo.Value )
          {
-            ListProxy<LogicalSecurityInformation> list;
-            if ( !this.securityInfo.Value.CQ.TryGetValue( action, out list ) )
+            Boolean success;
+            var list = this.securityInfo.Value.CQ.TryGetValue( action, out success );
+            if ( !success )
             {
                list = this.context.CollectionsFactory.NewListProxy<LogicalSecurityInformation>();
                this.securityInfo.Value.Add( action, list );
@@ -1204,8 +1208,9 @@ namespace CILAssemblyManipulator.Logical.Implementation
             var result = information != null;
             if ( !result )
             {
-               ListProxy<LogicalSecurityInformation> list;
-               if ( this.securityInfo.Value.CQ.TryGetValue( information.SecurityAction, out list ) )
+               Boolean success;
+               var list = this.securityInfo.Value.CQ.TryGetValue( information.SecurityAction, out success );
+               if ( success )
                {
                   result = list.Remove( information );
                }

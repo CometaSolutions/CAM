@@ -585,23 +585,28 @@ public static partial class E_CILPhysical
    {
       var rank = array.DecompressUInt32( ref idx );
       var curSize = array.DecompressUInt32( ref idx );
-      var retVal = new ComplexArrayTypeSignature( sizesCount: curSize ) // TODO skip thru sizes and detect lower bound count
+      // TODO skip thru sizes and detect lower bound count
+      var cInfo = new ComplexArrayInfo( sizesCount: curSize )
       {
          Rank = rank
       };
+
       while ( curSize > 0 )
       {
-         retVal.Sizes.Add( array.DecompressUInt32( ref idx ) );
+         cInfo.Sizes.Add( array.DecompressUInt32( ref idx ) );
          --curSize;
       }
       curSize = array.DecompressUInt32( ref idx );
 
       while ( curSize > 0 )
       {
-         retVal.LowerBounds.Add( array.DecompressInt32( ref idx ) );
+         cInfo.LowerBounds.Add( array.DecompressInt32( ref idx ) );
          --curSize;
       }
-      return retVal;
+      return new ComplexArrayTypeSignature()
+      {
+         ComplexArrayInfo = cInfo
+      };
    }
 
    private static GenericMethodSignature ReadGenericMethodSignature(
@@ -1232,17 +1237,18 @@ public static partial class E_CILPhysical
             break;
          case TypeSignatureKind.ComplexArray:
             var array = (ComplexArrayTypeSignature) type;
+            var cInfo = array.ComplexArrayInfo;
             info
                .AddSigByte( ref idx, SignatureElementTypes.Array )
                .WriteTypeSignature( ref idx, array.ArrayType )
-               .AddCompressedUInt32( ref idx, array.Rank )
-               .AddCompressedUInt32( ref idx, array.Sizes.Count );
-            foreach ( var size in array.Sizes )
+               .AddCompressedUInt32( ref idx, cInfo.Rank )
+               .AddCompressedUInt32( ref idx, cInfo.Sizes.Count );
+            foreach ( var size in cInfo.Sizes )
             {
                info.AddCompressedUInt32( ref idx, size );
             }
-            info.AddCompressedUInt32( ref idx, array.LowerBounds.Count );
-            foreach ( var lobo in array.LowerBounds )
+            info.AddCompressedUInt32( ref idx, cInfo.LowerBounds.Count );
+            foreach ( var lobo in cInfo.LowerBounds )
             {
                info.AddCompressedInt32( ref idx, lobo );
             }

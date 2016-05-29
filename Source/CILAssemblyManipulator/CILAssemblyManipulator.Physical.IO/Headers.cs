@@ -3647,9 +3647,10 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If this <see cref="DataReferencesInfo"/> is <c>null</c>.</exception>
    public static TRVAList GetDataReferencesOrEmpty( this DataReferencesInfo info, Tables table, Int32 colIndex )
    {
-      ArrayQuery<TRVAList> array;
       TRVAList refs = null;
-      refs = info.DataReferences.TryGetValue( table, out array )
+      Boolean success;
+      var array = info.DataReferences.TryGetValue( table, out success );
+      refs = success
          && colIndex < array.Count ?
          array[colIndex] :
          null;

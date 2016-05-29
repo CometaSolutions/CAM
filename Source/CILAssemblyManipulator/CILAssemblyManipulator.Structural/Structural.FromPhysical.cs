@@ -877,13 +877,11 @@ public static partial class E_CILStructural
             break;
          case TypeSignatureKind.ComplexArray:
             var cArray = (ComplexArrayTypeSignature) sig;
-            var cClone = new ComplexArrayTypeStructureSignature( cArray.Sizes.Count, cArray.LowerBounds.Count )
+            var cClone = new ComplexArrayTypeStructureSignature( )
             {
-               Rank = cArray.Rank,
+               ComplexArrayInfo = new ComplexArrayInfo( cArray.ComplexArrayInfo ),
                ArrayType = state.CreateTypeStructureSignature( cArray.ArrayType )
             };
-            cClone.LowerBounds.AddRange( cArray.LowerBounds );
-            cClone.Sizes.AddRange( cArray.Sizes );
             retVal = cClone;
             break;
          case TypeSignatureKind.FunctionPointer:

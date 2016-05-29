@@ -116,9 +116,11 @@ namespace CollectionsWithRoles.Implementation
          return this._iq.Collection.ContainsKey( key );
       }
 
-      public bool TryGetValue( TKey key, out TValue value )
+      public TValue TryGetValue( TKey key, out Boolean success ) // Boolean TryGetValue( TKey key, out TValue value )
       {
-         return this._iq.Collection.TryGetValue( key, out value );
+         TValue value;
+         success = this._iq.Collection.TryGetValue( key, out value );
+         return value;
       }
 
       #endregion
@@ -208,12 +210,12 @@ namespace CollectionsWithRoles.Implementation
          return this._collection.ContainsKey( key );
       }
 
-      public bool TryGetValue( TKey key, out TValueQuery value )
+      public TValueQuery TryGetValue( TKey key, out Boolean success ) // bool TryGetValue( TKey key, out TValueQuery value )
       {
          TValue mutable;
-         Boolean result = this._collection.TryGetValue( key, out mutable );
-         value = mutable == null ? default( TValueQuery ) : mutable.MQ;
-         return result;
+         success = this._collection.TryGetValue( key, out mutable );
+         return mutable == null ? default( TValueQuery ) : mutable.MQ;
+         //return result;
       }
 
       #endregion
@@ -314,12 +316,11 @@ namespace CollectionsWithRoles.Implementation
          return this._collection.ContainsKey( key );
       }
 
-      public bool TryGetValue( TKey key, out TValueImmutable value )
+      public TValueImmutable TryGetValue( TKey key, out Boolean success ) // bool TryGetValue( TKey key, out TValueImmutable value )
       {
          TValue mutable;
-         Boolean result = this._collection.TryGetValue( key, out mutable );
-         value = mutable.GetIQ();
-         return result;
+         success = this._collection.TryGetValue( key, out mutable );
+         return mutable.GetIQ();
       }
 
       #endregion
@@ -582,9 +583,11 @@ namespace CollectionsWithRoles.Implementation
          return this.Collection.ContainsKey( key );
       }
 
-      public bool TryGetValue( TKey key, out TValue value )
+      public TValue TryGetValue( TKey key, out Boolean success ) // bool TryGetValue( TKey key, out TValue value )
       {
-         return this.Collection.TryGetValue( key, out value );
+         TValue value;
+         success = this.Collection.TryGetValue( key, out value );
+         return value;
       }
 
       #endregion

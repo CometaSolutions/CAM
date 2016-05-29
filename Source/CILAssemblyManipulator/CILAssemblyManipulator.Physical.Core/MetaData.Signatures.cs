@@ -1033,16 +1033,6 @@ namespace CILAssemblyManipulator.Physical
    /// </summary>
    public sealed class ComplexArrayTypeSignature : AbstractArrayTypeSignature
    {
-      /// <summary>
-      /// Creates a new instance of <see cref="ComplexArrayTypeSignature"/> with given initial capacities for <see cref="Sizes"/> and <see cref="LowerBounds"/> lists.
-      /// </summary>
-      /// <param name="sizesCount">The initial capacity for <see cref="Sizes"/> list.</param>
-      /// <param name="lowerBoundsCount">The initial capacity for <see cref="LowerBounds"/> list.</param>
-      public ComplexArrayTypeSignature( Int32 sizesCount = 0, Int32 lowerBoundsCount = 0 )
-      {
-         this.Sizes = new List<Int32>( Math.Max( 0, sizesCount ) );
-         this.LowerBounds = new List<Int32>( Math.Max( 0, lowerBoundsCount ) );
-      }
 
       /// <summary>
       /// Returns the <see cref="TypeSignatureKind.ComplexArray"/>.
@@ -1053,6 +1043,45 @@ namespace CILAssemblyManipulator.Physical
          get
          {
             return TypeSignatureKind.ComplexArray;
+         }
+      }
+
+      /// <summary>
+      /// Gets or sets the <see cref="Physical.ComplexArrayInfo"/> object containing information about rank, lower bounds, and sizes.
+      /// </summary>
+      /// <value>The <see cref="Physical.ComplexArrayInfo"/> object containing information about rank, lower bounds, and sizes.</value>
+      public ComplexArrayInfo ComplexArrayInfo { get; set; }
+
+   }
+
+   /// <summary>
+   /// This type encapsulates information that is related to <see cref="ComplexArrayTypeSignature"/>.
+   /// </summary>
+   public sealed class ComplexArrayInfo // : IEquatable<ComplexArrayInfo>
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="ComplexArrayInfo"/> with given initial capacities for <see cref="Sizes"/> and <see cref="LowerBounds"/> lists.
+      /// </summary>
+      /// <param name="sizesCount">The initial capacity for <see cref="Sizes"/> list.</param>
+      /// <param name="lowerBoundsCount">The initial capacity for <see cref="LowerBounds"/> list.</param>
+      public ComplexArrayInfo( Int32 sizesCount = 0, Int32 lowerBoundsCount = 0 )
+      {
+         this.Sizes = new List<Int32>( Math.Max( 0, sizesCount ) );
+         this.LowerBounds = new List<Int32>( Math.Max( 0, lowerBoundsCount ) );
+      }
+
+      /// <summary>
+      /// Creates a new instance of <see cref="ComplexArrayInfo"/> with the values copied from given <see cref="ComplexArrayInfo"/>.
+      /// </summary>
+      /// <param name="other">The other <see cref="ComplexArrayInfo"/>. May be <c>null</c>.</param>
+      public ComplexArrayInfo(ComplexArrayInfo other)
+         : this(other?.Sizes.Count?? 0, other?.LowerBounds.Count ?? 0)
+      {
+         this.Rank = other?.Rank ?? 0;
+         if ( other != null )
+         {
+            this.Sizes.AddRange( other.Sizes );
+            this.LowerBounds.AddRange( other.LowerBounds );
          }
       }
 
@@ -1074,6 +1103,27 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The list of lower bounds of dimensions for this <see cref="ComplexArrayTypeSignature"/>.</value>
       public List<Int32> LowerBounds { get; }
 
+      ///// <inheritdoc/>
+      //public override Boolean Equals( Object obj )
+      //{
+      //   return this.Equals( obj as ComplexArrayInfo );
+      //}
+
+      ///// <inheritdoc/>
+      //public override Int32 GetHashCode()
+      //{
+      //   return ( ( 17 * 23 + this.Rank ) * 23 + ListEqualityComparer<List<Int32>, Int32>.GetHashCode( this.Sizes ) ) * 23;
+      //}
+
+      ///// <inheritdoc/>
+      //public Boolean Equals( ComplexArrayInfo other )
+      //{
+      //   return ReferenceEquals(this, other)
+      //      || (other != null &&this.Rank == other.Rank
+      //      && ListEqualityComparer<List<Int32>, Int32>.ListEquality( this.Sizes, other.Sizes )
+      //      && ListEqualityComparer<List<Int32>, Int32>.ListEquality( this.LowerBounds, other.LowerBounds )
+      //      );
+      //}
    }
 
    /// <summary>
@@ -2499,13 +2549,11 @@ public static partial class E_CILPhysical
             break;
          case TypeSignatureKind.ComplexArray:
             var cArray = (ComplexArrayTypeSignature) sig;
-            var cClone = new ComplexArrayTypeSignature( cArray.Sizes.Count, cArray.LowerBounds.Count )
+            var cClone = new ComplexArrayTypeSignature( )
             {
-               Rank = cArray.Rank,
+               ComplexArrayInfo = new ComplexArrayInfo(cArray.ComplexArrayInfo),
                ArrayType = CloneTypeSignature( cArray.ArrayType, tableIndexTranslator )
             };
-            cClone.LowerBounds.AddRange( cArray.LowerBounds );
-            cClone.Sizes.AddRange( cArray.Sizes );
             retVal = cClone;
             break;
          case TypeSignatureKind.FunctionPointer:

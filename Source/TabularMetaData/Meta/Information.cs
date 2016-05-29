@@ -30,11 +30,11 @@ namespace TabularMetaData.Meta
    /// This is common interface for objects providing extensionability through composition (instead of inheritance).
    /// </summary>
    /// <typeparam name="TFunctionality">The base type for all extensions that this type supports.</typeparam>
-   public interface ExtensionByCompositionProvider<TFunctionality>
+   public interface SelfDescribingExtensionByCompositionProvider<TFunctionality>
       where TFunctionality : class
    {
       /// <summary>
-      /// Registers a certain type of functionality for this <see cref="ExtensionByCompositionProvider{TFunctionality}"/>, with lazy initialization of functionality.
+      /// Registers a certain type of functionality for this <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>, with lazy initialization of functionality.
       /// </summary>
       /// <typeparam name="TThisFunctionality">The type of the functionality.</typeparam>
       /// <param name="functionality">The callback to create an instance of functionality.</param>
@@ -43,26 +43,31 @@ namespace TabularMetaData.Meta
          where TThisFunctionality : class, TFunctionality;
 
       /// <summary>
-      /// Gets all the functionalities for this <see cref="MetaDataColumnInformation"/>.
+      /// Gets all the functionalities for this <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.
       /// </summary>
-      /// <value>All the functionalities for this <see cref="MetaDataColumnInformation"/>.</value>
+      /// <value>All the functionalities for this <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.</value>
       DictionaryQuery<Type, Lazy<TFunctionality>> Functionalities { get; }
    }
 
    /// <summary>
-   /// This class provides default implementation of <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.
+   /// This class provides default implementation of <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.
    /// </summary>
    /// <typeparam name="TFunctionality">The base type for all functionalities.</typeparam>
-   public class DefaultExtensionByCompositionProvider<TFunctionality> : ExtensionByCompositionProvider<TFunctionality>
+   public class DefaultSelfDescribingExtensionByCompositionProvider<TFunctionality> : SelfDescribingExtensionByCompositionProvider<TFunctionality>
       where TFunctionality : class
    {
       private readonly DictionaryProxy<Type, Lazy<TFunctionality>> _functionalities;
+      private readonly System.Threading.LazyThreadSafetyMode _lazyThreadSafety;
 
       /// <summary>
-      /// Creates a new instance of <see cref="DefaultExtensionByCompositionProvider{TFunctionality}"/>.
+      /// Creates a new instance of <see cref="DefaultSelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.
+      /// <param name="lazyThreadSafety">The lazy thread safety for the <see cref="Lazy{T}"/> object.</param>
       /// </summary>
-      public DefaultExtensionByCompositionProvider()
+      public DefaultSelfDescribingExtensionByCompositionProvider(
+         System.Threading.LazyThreadSafetyMode lazyThreadSafety = System.Threading.LazyThreadSafetyMode.ExecutionAndPublication
+         )
       {
+         this._lazyThreadSafety = lazyThreadSafety;
          this._functionalities = new Dictionary<Type, Lazy<TFunctionality>>().ToDictionaryProxy();
       }
 
@@ -82,16 +87,35 @@ namespace TabularMetaData.Meta
          var retVal = functionality != null;
          if ( retVal )
          {
-            this._functionalities[typeof( TThisFunctionality )] = new Lazy<TFunctionality>( () => functionality(), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+            this._functionalities[typeof( TThisFunctionality )] = new Lazy<TFunctionality>( () => functionality(), this._lazyThreadSafety );
          }
          return retVal;
       }
    }
 
+   //#pragma warning disable 1591
+   //   public static class ExtensionByCompositionProviderFactory
+   //   {
+   //      public static DefaultExtensionByCompositionProvider<TFunctionality> NewDefaultProvider<TFunctionality>(
+   //         System.Threading.LazyThreadSafetyMode lazyThreadSafety = System.Threading.LazyThreadSafetyMode.None,
+   //         params TFunctionality[] existingFunctionality
+   //         )
+   //         where TFunctionality : class
+   //      {
+   //         var retVal = new DefaultExtensionByCompositionProvider<TFunctionality>( lazyThreadSafety );
+   //         foreach ( var func in existingFunctionality )
+   //         {
+   //            retVal.RegisterFunctionalityDirect( func );
+   //         }
+   //         return retVal;
+   //      }
+   //   }
+   //#pragma warning restore 1591
+
    /// <summary>
    /// This class is used to obtain <see cref="MetaDataTableInformation"/>s when creating new <see cref="TabularMetaDataWithSchema"/>s.
    /// </summary>
-   public abstract class MetaDataTableInformationProvider : DefaultExtensionByCompositionProvider<Object>
+   public abstract class MetaDataTableInformationProvider : DefaultSelfDescribingExtensionByCompositionProvider<Object>
    {
       /// <summary>
       /// Creates a new instance of <see cref="MetaDataTableInformationProvider"/>.
@@ -178,7 +202,7 @@ namespace TabularMetaData.Meta
    /// </remarks>
    /// <seealso cref="MetaDataTableInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation"/>
-   public abstract class MetaDataTableInformation : DefaultExtensionByCompositionProvider<Object>
+   public abstract class MetaDataTableInformation : DefaultSelfDescribingExtensionByCompositionProvider<Object>
    {
       // Disable instatiation of this class from other assemblies.
       internal MetaDataTableInformation(
@@ -356,7 +380,7 @@ namespace TabularMetaData.Meta
    /// <seealso cref="MetaDataTableInformation"/>
    /// <seealso cref="MetaDataColumnInformation{TRow}"/>
    /// <seealso cref="MetaDataColumnInformation{TRow, TValue}"/>
-   public abstract class MetaDataColumnInformation : DefaultExtensionByCompositionProvider<Object>
+   public abstract class MetaDataColumnInformation : DefaultSelfDescribingExtensionByCompositionProvider<Object>
    {
       // Disable instatiation of this class from other assemblies.
       internal MetaDataColumnInformation()
@@ -544,14 +568,14 @@ namespace TabularMetaData.Meta
 public static partial class E_TabularMetaData
 {
    /// <summary>
-   /// Registers a certain type of functionality for this <see cref="ExtensionByCompositionProvider{TFunctionality}"/>, when the functionality is already created.
+   /// Registers a certain type of functionality for this <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>, when the functionality is already created.
    /// </summary>
    /// <typeparam name="TFunctionality">The base type of the functionality.</typeparam>
    /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
-   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="provider">The <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <param name="functionality">The instance of functionality.</param>
    /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
-   public static Boolean RegisterFunctionalityDirect<TFunctionality, TThisFunctionality>( this ExtensionByCompositionProvider<TFunctionality> provider, TThisFunctionality functionality )
+   public static Boolean RegisterFunctionalityDirect<TFunctionality, TThisFunctionality>( this SelfDescribingExtensionByCompositionProvider<TFunctionality> provider, TThisFunctionality functionality )
       where TFunctionality : class
       where TThisFunctionality : class, TFunctionality
    {
@@ -559,13 +583,13 @@ public static partial class E_TabularMetaData
    }
 
    /// <summary>
-   /// Registers a certain type of functionality for this <see cref="ExtensionByCompositionProvider{TFunctionality}"/>, when the functionality is already created.
+   /// Registers a certain type of functionality for this <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>, when the functionality is already created.
    /// </summary>
    /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
-   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="provider">The <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <param name="functionality">The instance of functionality.</param>
    /// <returns><c>true</c> if <paramref name="functionality"/> was not <c>null</c> and registered; <c>false</c> otherwise.</returns>
-   public static Boolean RegisterFunctionalityDirect<TThisFunctionality>( this ExtensionByCompositionProvider<Object> provider, TThisFunctionality functionality )
+   public static Boolean RegisterFunctionalityDirect<TThisFunctionality>( this SelfDescribingExtensionByCompositionProvider<Object> provider, TThisFunctionality functionality )
       where TThisFunctionality : class
    {
       return functionality != null && provider.RegisterFunctionality( () => functionality );
@@ -576,10 +600,10 @@ public static partial class E_TabularMetaData
    /// </summary>
    /// <typeparam name="TFunctionality">The base type of the functionality.</typeparam>
    /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
-   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="provider">The <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
-   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
-   public static TThisFunctionality GetFunctionality<TFunctionality, TThisFunctionality>( this ExtensionByCompositionProvider<TFunctionality> provider )
+   /// <exception cref="NullReferenceException">If the <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static TThisFunctionality GetFunctionality<TFunctionality, TThisFunctionality>( this SelfDescribingExtensionByCompositionProvider<TFunctionality> provider )
       where TFunctionality : class
       where TThisFunctionality : class, TFunctionality
    {
@@ -590,10 +614,10 @@ public static partial class E_TabularMetaData
    /// Helper method to get functionality when the type of functionality is known at compile time.
    /// </summary>
    /// <typeparam name="TThisFunctionality">The type of this functionality.</typeparam>
-   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="provider">The <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
-   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
-   public static TThisFunctionality GetFunctionality<TThisFunctionality>( this ExtensionByCompositionProvider<Object> provider )
+   /// <exception cref="NullReferenceException">If the <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static TThisFunctionality GetFunctionality<TThisFunctionality>( this SelfDescribingExtensionByCompositionProvider<Object> provider )
       where TThisFunctionality : class
    {
       return provider.GetFunctionality( typeof( TThisFunctionality ) ) as TThisFunctionality;
@@ -603,31 +627,35 @@ public static partial class E_TabularMetaData
    /// Helpe rmethod to get functionality when the type of functionality is not known at compile time.
    /// </summary>
    /// <typeparam name="TFunctionality">The base type of the functionality.</typeparam>
-   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="provider">The <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <param name="functionalityType">The type of the functionality.</param>
    /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
-   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
-   public static Object GetFunctionality<TFunctionality>( this ExtensionByCompositionProvider<TFunctionality> provider, Type functionalityType )
+   /// <exception cref="NullReferenceException">If the <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static Object GetFunctionality<TFunctionality>( this SelfDescribingExtensionByCompositionProvider<TFunctionality> provider, Type functionalityType )
       where TFunctionality : class
    {
-      Lazy<TFunctionality> retVal;
-      return functionalityType != null && provider.Functionalities.TryGetValue( functionalityType, out retVal ) ?
-         retVal.Value :
-         null;
+      Boolean success;
+      return functionalityType == null ? null : provider.Functionalities.TryGetValue( functionalityType, out success )?.Value;
+      //Lazy<TFunctionality> retVal; Boolean contained;
+      //return functionalityType != null && ( retVal = provider?.Functionalities.TryGetValue( functionalityType, out contained )) ?
+      //   retVal.Value :
+      //   null;
    }
 
    /// <summary>
    /// Helpe rmethod to get functionality when the type of functionality is not known at compile time.
    /// </summary>
-   /// <param name="provider">The <see cref="ExtensionByCompositionProvider{TFunctionality}"/>.</param>
+   /// <param name="provider">The <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.</param>
    /// <param name="functionalityType">The type of the functionality.</param>
    /// <returns>The functionality, or <c>null</c> if functionality is not found.</returns>
-   /// <exception cref="NullReferenceException">If the <see cref="ExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
-   public static Object GetFunctionality( this ExtensionByCompositionProvider<Object> provider, Type functionalityType )
+   /// <exception cref="NullReferenceException">If the <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/> is <c>null</c>.</exception>
+   public static Object GetFunctionality( this SelfDescribingExtensionByCompositionProvider<Object> provider, Type functionalityType )
    {
-      Lazy<Object> retVal;
-      return functionalityType != null && provider.Functionalities.TryGetValue( functionalityType, out retVal ) ?
-         retVal.Value :
-         null;
+      Boolean success;
+      return functionalityType == null ? null : provider.Functionalities.TryGetValue( functionalityType, out success )?.Value;
+      //Lazy<Object> retVal;
+      //return functionalityType != null && provider.Functionalities.TryGetValue( functionalityType, out retVal ) ?
+      //   retVal.Value :
+      //   null;
    }
 }

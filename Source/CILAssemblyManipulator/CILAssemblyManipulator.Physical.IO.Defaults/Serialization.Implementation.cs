@@ -147,7 +147,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
    /// This class is the functionality that will be present in <see cref="MetaDataColumnInformation{TRow, TValue}"/>s created by methods of <see cref="MetaDataColumnInformationFactory"/> class.
    /// </para>
    /// </remarks>
-   /// <seealso cref="ExtensionByCompositionProvider{TFunctionality}"/>
+   /// <seealso cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>
    /// <seealso cref="MetaDataColumnInformation"/>
    public class DefaultColumnSerializationInfo<TRow, TRawRow> // : DefaultColumnSerializationInfo<TRow>
       where TRawRow : class

@@ -731,6 +731,8 @@ public static partial class E_CILLogical
    /// <exception cref="NullReferenceException">If <paramref name="assembly"/> is <c>null</c>.</exception>
    public static Boolean TryGetTypeForwarder( this CILAssembly assembly, String typeName, String typeNamespace, out TypeForwardingInfo tfInfo )
    {
-      return assembly.ForwardedTypeInfos.TryGetValue( Tuple.Create( typeName, typeNamespace ), out tfInfo );
+      Boolean success;
+      tfInfo = assembly.ForwardedTypeInfos.TryGetValue( Tuple.Create( typeName, typeNamespace ), out success );
+      return success;
    }
 }

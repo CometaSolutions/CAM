@@ -461,13 +461,9 @@ namespace CILAssemblyManipulator.Structural
 
    public sealed class ComplexArrayTypeStructureSignature : AbstractArrayTypeStructureSignature
    {
-      private readonly List<Int32> _sizes;
-      private readonly List<Int32> _lowerBounds;
 
-      public ComplexArrayTypeStructureSignature( Int32 sizesCount = 0, Int32 lowerBoundsCount = 0 )
+      public ComplexArrayTypeStructureSignature(  )
       {
-         this._sizes = new List<Int32>( sizesCount );
-         this._lowerBounds = new List<Int32>( lowerBoundsCount );
       }
 
       public override TypeStructureSignatureKind TypeSignatureKind
@@ -478,21 +474,7 @@ namespace CILAssemblyManipulator.Structural
          }
       }
 
-      public Int32 Rank { get; set; }
-      public List<Int32> Sizes
-      {
-         get
-         {
-            return this._sizes;
-         }
-      }
-      public List<Int32> LowerBounds
-      {
-         get
-         {
-            return this._lowerBounds;
-         }
-      }
+      public ComplexArrayInfo ComplexArrayInfo { get;set; }
    }
 
    public sealed class SimpleArrayTypeStructureSignature : AbstractArrayTypeStructureSignature

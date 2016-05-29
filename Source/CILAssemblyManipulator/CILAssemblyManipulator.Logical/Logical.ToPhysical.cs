@@ -1336,13 +1336,17 @@ public static partial class E_CILLogical
                      }
                      else
                      {
-                        var cArray = new ComplexArrayTypeSignature( complexInfo.Sizes.Count, complexInfo.LowerBounds.Count )
+                        var cInfo = new ComplexArrayInfo( complexInfo.Sizes.Count, complexInfo.LowerBounds.Count )
                         {
-                           Rank = complexInfo.Rank,
+                           Rank = complexInfo.Rank
+                        };
+                        cInfo.Sizes.AddRange( complexInfo.Sizes );
+                        cInfo.LowerBounds.AddRange( complexInfo.LowerBounds );
+                        var cArray = new ComplexArrayTypeSignature()
+                        {
+                           ComplexArrayInfo = cInfo,
                            ArrayType = state.CreateTypeSignature( t.ElementType )
                         };
-                        cArray.Sizes.AddRange( complexInfo.Sizes );
-                        cArray.LowerBounds.AddRange( complexInfo.LowerBounds );
                         return cArray;
                      }
                   case ElementKind.Pointer:

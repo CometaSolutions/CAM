@@ -613,6 +613,20 @@ namespace CILAssemblyManipulator.Physical
       public static IEqualityComparer<TypeSignature> TypeSignatureEqualityComparer { get; }
 
       /// <summary>
+      /// Gets the equality comparer to check whether two instances of <see cref="ComplexArrayInfo"/> are exactly equal.
+      /// </summary>
+      /// <value>The equality comparer to check whether two instances of <see cref="ComplexArrayInfo"/> are exactly equal.</value>
+      /// <remarks>
+      /// Two instances of <see cref="ComplexArrayInfo"/> are considered to be equal by this comparer when their
+      /// <list type="bullet">
+      /// <item><description><see cref="ComplexArrayInfo.Rank"/> properties equal exactly,</description></item>
+      /// <item><description><see cref="ComplexArrayInfo.Sizes"/> properties equal exactly, and</description></item>
+      /// <item><description><see cref="ComplexArrayInfo.LowerBounds"/> properties equal exactly.</description></item>
+      /// </list>
+      /// </remarks>
+      public static IEqualityComparer<ComplexArrayInfo> ComplexArrayInfoEqualityComparer { get; }
+
+      /// <summary>
       /// Get the equality comparer to check whether two instances of <see cref="GenericMethodSignature"/> are exactly equal.
       /// </summary>
       /// <value>The equality comparer to check whether two instances of <see cref="GenericMethodSignature"/> are exactly equal.</value>
@@ -745,6 +759,7 @@ namespace CILAssemblyManipulator.Physical
          ParameterSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ParameterSignature>( Equality_ParameterSignature, HashCode_ParameterSignature );
          CustomModifierSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomModifierSignature>( Equality_CustomModifierSignature, HashCode_CustomModifierSignature );
          TypeSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeSignature>( Equality_TypeSignature, HashCode_TypeSignature );
+         ComplexArrayInfoEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ComplexArrayInfo>( Equality_ComplexArrayInfo, HashCode_ComplexArrayInfo );
          GenericMethodSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<GenericMethodSignature>( Equality_GenericMethodSignature, HashCode_GenericMethodSignature );
          AbstractCustomAttributeSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractCustomAttributeSignature>( Equality_AbstractCustomAttributeSignature, HashCode_AbstractCustomAttributeSignature );
          CustomAttributeTypedArgumentEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeTypedArgument>( Equality_CustomAttributeTypedArgument, HashCode_CustomAttributeTypedArgument );
@@ -1562,9 +1577,17 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_ComplexArrayTypeSignature_NoReferenceEquals( ComplexArrayTypeSignature x, ComplexArrayTypeSignature y )
       {
          return Equality_AbstractArrayTypeSignature_NoReferenceEquals( x, y )
+            && Equality_ComplexArrayInfo(x.ComplexArrayInfo, y.ComplexArrayInfo);
+      }
+
+      private static Boolean Equality_ComplexArrayInfo(ComplexArrayInfo x, ComplexArrayInfo y)
+      {
+         return ReferenceEquals( x, y )
+            || ( x != null && y != null
             && x.Rank == y.Rank
-            && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( x.Sizes, y.Sizes )
-            && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( x.LowerBounds, y.LowerBounds );
+            && ListEqualityComparer<List<Int32>, Int32>.ListEquality( x.Sizes, y.Sizes )
+            && ListEqualityComparer<List<Int32>, Int32>.ListEquality( x.LowerBounds, y.LowerBounds )
+            );
       }
 
       private static Boolean Equality_SimpleArrayTypeSignature_NoReferenceEquals( SimpleArrayTypeSignature x, SimpleArrayTypeSignature y )
@@ -2223,7 +2246,12 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeSignature x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.Rank ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
+         return x == null ? 0 : ( ( 17 * 23 + HashCode_ComplexArrayInfo(x.ComplexArrayInfo) ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
+      }
+
+      private static Int32 HashCode_ComplexArrayInfo(ComplexArrayInfo x)
+      {
+         return x == null ? 0 : ( ( 17 * 23 + x.Rank ) * 23 + ListEqualityComparer<List<Int32>, Int32>.GetHashCode( x.Sizes ) );
       }
 
       private static Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeSignature x )

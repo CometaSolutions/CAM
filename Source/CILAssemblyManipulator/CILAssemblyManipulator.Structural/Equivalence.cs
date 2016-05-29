@@ -1169,9 +1169,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_Signature_Type_ComplexArray( ComplexArrayTypeStructureSignature thisSig, ComplexArrayTypeStructureSignature otherSig )
       {
-         return thisSig.Rank == otherSig.Rank
-            && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( thisSig.LowerBounds, otherSig.LowerBounds )
-            && ListEqualityComparer<List<Int32>, Int32>.DefaultListEqualityComparer.Equals( thisSig.Sizes, otherSig.Sizes )
+         return Comparers.ComplexArrayInfoEqualityComparer.Equals(thisSig.ComplexArrayInfo, otherSig.ComplexArrayInfo)
             && Equivalence_Signature_Type( thisSig.ArrayType, otherSig.ArrayType );
       }
 
@@ -1607,7 +1605,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeStructureSignature x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.Rank ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
+         return x == null ? 0 : ( ( 17 * 23 + Comparers.ComplexArrayInfoEqualityComparer.GetHashCode( x.ComplexArrayInfo) ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
       }
 
       private Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeStructureSignature x )

@@ -3288,10 +3288,8 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
                var byteArray = array.Array;
                var valIdx = 0;
                var arrayIdx = 0;
-               ArrayQuery<ArrayQuery<Int64>> dataRefs;
-               dataReferences.DataReferences.TryGetValue( info.Table, out dataRefs );
-
-               foreach ( var rawValue in info.GetAllRawValues( table, dataRefs, heapIndices ) )
+               Boolean success;
+               foreach ( var rawValue in info.GetAllRawValues( table, dataReferences.DataReferences.TryGetValue( info.Table, out success ), heapIndices ) )
                {
                   var col = cols[valIdx % cols.Count];
                   col.WriteValue( byteArray, arrayIdx, rawValue );

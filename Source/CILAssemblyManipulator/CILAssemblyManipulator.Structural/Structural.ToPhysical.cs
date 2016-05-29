@@ -1189,13 +1189,11 @@ public static partial class E_CILStructural
                return clazzP;
             case TypeStructureSignatureKind.ComplexArray:
                var cArray = (ComplexArrayTypeStructureSignature) sig;
-               var cArrayP = new ComplexArrayTypeSignature( cArray.Sizes.Count, cArray.LowerBounds.Count )
+               var cArrayP = new ComplexArrayTypeSignature( )
                {
                   ArrayType = state.CreatePhysicalTypeSignature( cArray.ArrayType ),
-                  Rank = cArray.Rank
+                  ComplexArrayInfo = new ComplexArrayInfo(cArray.ComplexArrayInfo)
                };
-               cArrayP.Sizes.AddRange( cArray.Sizes );
-               cArrayP.LowerBounds.AddRange( cArray.LowerBounds );
                return cArrayP;
             case TypeStructureSignatureKind.FunctionPointer:
                return new FunctionPointerTypeSignature()

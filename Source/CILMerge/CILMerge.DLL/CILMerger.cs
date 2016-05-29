@@ -3430,7 +3430,7 @@ namespace CILMerge
       }
    }
 
-   public struct MetaDataIndex : IEquatable<MetaDataIndex>
+   internal struct MetaDataIndex : IEquatable<MetaDataIndex>
    {
       public MetaDataIndex( CILMetaData md, Int32 index )
       {
@@ -3457,18 +3457,57 @@ namespace CILMerge
       }
    }
 
-   public struct TypeInheritanceInfo
+   internal struct TypeMetaDataIndex : IEquatable<TypeMetaDataIndex>
    {
-      private readonly Lazy<MetaDataIndex[]> _baseTypes;
-      private readonly Lazy<MetaDataIndex[]> _interfaces;
+      public TypeMetaDataIndex( MetaDataIndex index )
+         : this( index, null, null )
+      {
 
-      public TypeInheritanceInfo( Lazy<MetaDataIndex[]> baseTypes, Lazy<MetaDataIndex[]> interfaces )
+      }
+
+      public TypeMetaDataIndex( MetaDataIndex index, CILMetaData gArgsMD, TypeSignature[] gArgs )
+      {
+         this.Index = index;
+         this.GenericArgumentsMetaData = gArgsMD;
+         this.GenericArguments = gArgs ?? Empty<TypeSignature>.Array;
+      }
+
+      public MetaDataIndex Index { get; }
+
+      public CILMetaData GenericArgumentsMetaData { get; }
+
+      public TypeSignature[] GenericArguments { get; }
+
+      public override Boolean Equals( Object obj )
+      {
+         return obj is TypeMetaDataIndex && this.Equals( (TypeMetaDataIndex) obj );
+      }
+
+      public override Int32 GetHashCode()
+      {
+         return ( 17 * this.Index.GetHashCode() + 23 ) * ArrayEqualityComparer<TypeSignature>.GetHashCode( this.GenericArguments, Comparers.TypeSignatureEqualityComparer ) + 23;
+      }
+
+      public Boolean Equals( TypeMetaDataIndex other )
+      {
+         return this.Index.Equals( other.Index )
+            && ReferenceEquals( this.GenericArgumentsMetaData, other.GenericArgumentsMetaData )
+            && ArrayEqualityComparer<TypeSignature>.ArrayEquality( this.GenericArguments, other.GenericArguments, Comparers.TypeSignatureEqualityComparer.Equals );
+      }
+   }
+
+   internal struct TypeInheritanceInfo
+   {
+      private readonly Lazy<TypeMetaDataIndex[]> _baseTypes;
+      private readonly Lazy<TypeMetaDataIndex[]> _interfaces;
+
+      public TypeInheritanceInfo( Lazy<TypeMetaDataIndex[]> baseTypes, Lazy<TypeMetaDataIndex[]> interfaces )
       {
          this._baseTypes = ArgumentValidator.ValidateNotNull( "Base types", baseTypes );
          this._interfaces = ArgumentValidator.ValidateNotNull( "Interfaces", interfaces );
       }
 
-      public MetaDataIndex[] BaseTypes
+      public TypeMetaDataIndex[] BaseTypes
       {
          get
          {
@@ -3476,7 +3515,7 @@ namespace CILMerge
          }
       }
 
-      public MetaDataIndex[] Interfaces
+      public TypeMetaDataIndex[] Interfaces
       {
          get
          {
@@ -3485,7 +3524,7 @@ namespace CILMerge
       }
    }
 
-   public struct MethodInheritanceInfo
+   internal struct MethodInheritanceInfo
    {
       private readonly Lazy<MetaDataIndex?> _baseTypeOverride;
       private readonly Lazy<MetaDataIndex[]> _explicitImplementations;
@@ -3534,6 +3573,8 @@ namespace CILMerge
             this.DeclaringTypeDefInfo = new Dictionary<CILMetaData, IDictionary<Int32, Int32>>();
             this.DeclaringTypeRefInfo = new Dictionary<CILMetaData, IDictionary<Int32, Int32>>();
             this.TypeInheritances = new Dictionary<CILMetaData, TypeInheritanceInfo[]>();
+            this.InterfaceImpls = new Dictionary<CILMetaData, IDictionary<Int32, IList<TableIndex>>>();
+            this.ExplicitImpls = new Dictionary<CILMetaData, IDictionary<Int32, IList<MethodImplementation>>>();
          }
 
          public CILMetaData MD { get; }
@@ -3543,6 +3584,10 @@ namespace CILMerge
          public IDictionary<CILMetaData, IDictionary<Int32, Int32>> DeclaringTypeRefInfo { get; }
 
          public IDictionary<CILMetaData, TypeInheritanceInfo[]> TypeInheritances { get; }
+
+         public IDictionary<CILMetaData, IDictionary<Int32, IList<TableIndex>>> InterfaceImpls { get; }
+
+         public IDictionary<CILMetaData, IDictionary<Int32, IList<MethodImplementation>>> ExplicitImpls { get; }
       }
 
 
@@ -3562,43 +3607,64 @@ namespace CILMerge
       {
          var typeDefs = md.TypeDefinitions.TableContents;
          var retVal = new TypeInheritanceInfo[typeDefs.Count];
-         var allInterfaceImpls = new Dictionary<CILMetaData, IDictionary<Int32, IList<TableIndex>>>();
 
          for ( var i = 0; i < retVal.Length; ++i )
          {
             var tDefIdx = i;
-            var startingIndex = new MetaDataIndex( md, tDefIdx );
+            var startingIndex = new TypeMetaDataIndex( new MetaDataIndex( md, tDefIdx ) );
             // First, get enumerable for all base types
-            var baseTypes = new Lazy<MetaDataIndex[]>( () => new MetaDataIndex?( startingIndex ).AsSingleBranchEnumerable(
-                 cur => cur.Value.MetaData.ProcessTypeHierarchyTableIndexNullable( cur.Value.MetaData.TypeDefinitions.TableContents[cur.Value.Index].BaseType ),
+            var baseTypes = new Lazy<TypeMetaDataIndex[]>( () => new TypeMetaDataIndex?( startingIndex ).AsSingleBranchEnumerable(
+                 cur => cur.Value.Index.MetaData.ProcessTypeHierarchyTableIndexNullable( cur.Value.Index.MetaData.TypeDefinitions.TableContents[cur.Value.Index.Index].BaseType, cur.Value.GenericArguments ),
                  cur => !cur.HasValue, //  !cur.MetaData.TypeDefinitions.TableContents[cur.Index].BaseType.HasValue,
                  false ).NotNulls().ToArray(), LazyThreadSafetyMode.None );
             retVal[tDefIdx] = new TypeInheritanceInfo(
                baseTypes,
-               new Lazy<MetaDataIndex[]>( () =>
+               new Lazy<TypeMetaDataIndex[]>( () =>
             {
-               // The result is base types concatenated with interfaces of each base type (and current type), and DISTINCT performed over whole concatenation.
-               var implementedInterfaces = baseTypes.Value.PrependSingle( startingIndex )
-                    .SelectMany( cur =>
-                    {
-                       var curInterfaceImpls = allInterfaceImpls.GetOrAdd_NotThreadSafe( cur.MetaData, CreateInterfaceImplDictionary );
-                       IEnumerable<MetaDataIndex> curInterfaceIndices;
-                       IList<TableIndex> curInterfaces;
-                       if ( curInterfaceImpls.TryGetValue( cur.Index, out curInterfaces ) )
-                       {
-                          curInterfaceIndices = curInterfaces.Select( iFace => cur.MetaData.ProcessTypeHierarchyTableIndex( iFace ) ).NotNulls();
-                       }
-                       else
-                       {
-                          curInterfaceIndices = Empty<MetaDataIndex>.Enumerable;
-                       }
-                       return curInterfaceIndices;
-                    } );
-               return new HashSet<MetaDataIndex>( implementedInterfaces ).ToArray();
+
+               return state.GetImplementedInterfaces( startingIndex ).ToArray();
+               //// The result is base types concatenated with interfaces of each base type (and current type), and DISTINCT performed over whole concatenation.
+               //var thisTypeImplementedInterfaces = state.GetImplementedInterfaces( startingIndex );
+               //var baseTypesImplementedInterfaces = baseTypes.Value.SelectMany( bType => state.GetImplementedInterfaces( bType ) );
+               //return null;
+
+               //   var implementedInterfaces = baseTypes.Value.PrependSingle( startingIndex )
+               //        .SelectMany( cur =>
+               //        {
+               //           var curInterfaceImpls = state.InterfaceImpls.GetOrAdd_NotThreadSafe( cur.Index.MetaData, CreateInterfaceImplDictionary );
+               //           IEnumerable<TypeMetaDataIndex> curInterfaceIndices;
+               //           IList<TableIndex> curInterfaces;
+               //           if ( curInterfaceImpls.TryGetValue( cur.Index.Index, out curInterfaces ) )
+               //           {
+               //              curInterfaceIndices = curInterfaces.Select( iFace => cur.Index.MetaData.ProcessTypeHierarchyTableIndex( iFace ) ).NotNulls();
+               //           }
+               //           else
+               //           {
+               //              curInterfaceIndices = Empty<TypeMetaDataIndex>.Enumerable;
+               //           }
+               //           return curInterfaceIndices;
+               //        } );
+               //   return new HashSet<TypeMetaDataIndex>( implementedInterfaces ).ToArray();
             }, LazyThreadSafetyMode.None ) );
          }
 
          return retVal;
+      }
+
+      private static IEnumerable<TypeMetaDataIndex> GetImplementedInterfaces( this CILMinifyState state, TypeMetaDataIndex type )
+      {
+         var curInterfaceImpls = state.InterfaceImpls.GetOrAdd_NotThreadSafe( type.Index.MetaData, CreateInterfaceImplDictionary );
+         IEnumerable<TypeMetaDataIndex> curInterfaceIndices;
+         IList<TableIndex> curInterfaces;
+         if ( curInterfaceImpls.TryGetValue( type.Index.Index, out curInterfaces ) )
+         {
+            curInterfaceIndices = curInterfaces.Select( iFace => type.Index.MetaData.ProcessTypeHierarchyTableIndex( iFace, null ) ).NotNulls();
+         }
+         else
+         {
+            curInterfaceIndices = Empty<TypeMetaDataIndex>.Enumerable;
+         }
+         return curInterfaceIndices;
       }
 
       private static IDictionary<Int32, IList<TableIndex>> CreateInterfaceImplDictionary( CILMetaData md )
@@ -3614,25 +3680,25 @@ namespace CILMerge
          return interfaceImpls;
       }
 
-      private static MetaDataIndex? ProcessTypeHierarchyTableIndexNullable( this CILMetaData md, TableIndex? typeDefOrRefOrSpec )
+      private static TypeMetaDataIndex? ProcessTypeHierarchyTableIndexNullable( this CILMetaData md, TableIndex? typeDefOrRefOrSpec, TypeSignature[] currentGArgs )
       {
-         return typeDefOrRefOrSpec.HasValue ? md.ProcessTypeHierarchyTableIndex( typeDefOrRefOrSpec.Value ) : null;
+         return typeDefOrRefOrSpec.HasValue ? md.ProcessTypeHierarchyTableIndex( typeDefOrRefOrSpec.Value, currentGArgs ) : null;
       }
 
-      private static MetaDataIndex? ProcessTypeHierarchyTableIndex( this CILMetaData md, TableIndex typeDefOrRefOrSpec )
+      private static TypeMetaDataIndex? ProcessTypeHierarchyTableIndex( this CILMetaData md, TableIndex typeDefOrRefOrSpec, TypeSignature[] currentGArgs )
       {
-         MetaDataIndex? retVal;
+         TypeMetaDataIndex? retVal;
          switch ( typeDefOrRefOrSpec.Table )
          {
             case Tables.TypeDef:
-               retVal = new MetaDataIndex( md, typeDefOrRefOrSpec.Index );
+               retVal = new TypeMetaDataIndex( new MetaDataIndex( md, typeDefOrRefOrSpec.Index ) );
                break;
             case Tables.TypeRef:
                CILMetaData otherMD; Int32 typeDefIdx;
                var resolver = ( (CAMPhysicalR::CILAssemblyManipulator.Physical.CILMetaData) md ).ResolvingProvider.Resolver;
                if ( resolver != null && resolver.TryResolveTypeDefOrRefOrSpec( md, typeDefOrRefOrSpec, out otherMD, out typeDefIdx ) )
                {
-                  retVal = new MetaDataIndex( otherMD, typeDefIdx );
+                  retVal = new TypeMetaDataIndex( new MetaDataIndex( otherMD, typeDefIdx ) );
                }
                else
                {
@@ -3641,16 +3707,34 @@ namespace CILMerge
                }
                break;
             case Tables.TypeSpec:
-               var clazz = md.SignatureProvider.DecomposeSignature( md.TypeSpecifications.TableContents[typeDefOrRefOrSpec.Index].Signature ).OfType<ClassOrValueTypeSignature>().FirstOrDefault();
-               if ( clazz == null )
+               var sig = md.TypeSpecifications.TableContents[typeDefOrRefOrSpec.Index].Signature as ClassOrValueTypeSignature;
+               TypeMetaDataIndex? idx;
+               if ( sig != null && ( idx = md.ProcessTypeHierarchyTableIndex( sig.Type, currentGArgs ) ).HasValue && idx.Value.GenericArguments.Length == 0 )
                {
-                  // TODO error/warning reporting
-                  retVal = null;
+                  var gArgs = sig.GenericArguments.ToArray();
+                  if ( !currentGArgs.IsNullOrEmpty() )
+                  {
+                     for ( var i = 0; i < gArgs.Length; ++i )
+                     {
+                        gArgs[i] = ReplaceGArgs( gArgs[i], currentGArgs );
+                     }
+                  }
+                  retVal = new TypeMetaDataIndex( idx.Value.Index, md, gArgs );
                }
                else
                {
-                  retVal = md.ProcessTypeHierarchyTableIndex( clazz.Type );
+                  retVal = null;
                }
+               //var clazz = md.SignatureProvider.DecomposeSignature( md.TypeSpecifications.TableContents[typeDefOrRefOrSpec.Index].Signature ).OfType<ClassOrValueTypeSignature>().FirstOrDefault();
+               //if ( clazz == null )
+               //{
+               //   // TODO error/warning reporting
+               //   retVal = null;
+               //}
+               //else
+               //{
+               //   retVal = md.ProcessTypeHierarchyTableIndex( clazz.Type );
+               //}
                break;
             default:
                retVal = null;
@@ -3658,6 +3742,11 @@ namespace CILMerge
          }
 
          return retVal;
+      }
+
+      private static TypeSignature ReplaceGArgs( TypeSignature sig, TypeSignature[] currentGArgs )
+      {
+         throw new NotImplementedException();
       }
 
       // Index: methodDef index, value: All methods that are 'implemented' by methodDef, implicitly or explicitly.
@@ -3669,7 +3758,7 @@ namespace CILMerge
 
          var retVal = new MethodInheritanceInfo[methodDefs.Count];
 
-         var explicitImpls = CreateExplicitImplDictionary( md );
+         var explicitImpls = state.CreateExplicitImplDictionary( md );
          var typeHierarchy = state.TypeInheritances.GetOrAdd_NotThreadSafe( md, mdd => state.CreateTypeHierarchy( mdd ) );
          for ( var i = 0; i < typeDefs.Count; ++i )
          {
@@ -3701,15 +3790,16 @@ namespace CILMerge
                      // Implicit implementations
                      // First, see what interfaces this type implements:
                      // ( interfaces implemented by this type) minus (interfaces implemented by base type)
-                     var baseTypes = declaringTypeHierarchy.BaseTypes;
-                     var baseTypeInterfaces = baseTypes.Length == 0 ?
-                        Empty<MetaDataIndex>.Array :
-                        state.TypeInheritances.GetOrAdd_NotThreadSafe( baseTypes[0].MetaData, mdd => state.CreateTypeHierarchy( mdd ) )[baseTypes[0].Index].Interfaces;
-                     var thisTypeInterfaces = new HashSet<MetaDataIndex>( declaringTypeHierarchy.Interfaces );
-                     thisTypeInterfaces.ExceptWith( baseTypeInterfaces );
+                     //var baseTypes = declaringTypeHierarchy.BaseTypes;
+                     //var baseTypeInterfaces = baseTypes.Length == 0 ?
+                     //   Empty<MetaDataIndex>.Array :
+                     //   state.TypeInheritances.GetOrAdd_NotThreadSafe( baseTypes[0].Index.MetaData, mdd => state.CreateTypeHierarchy( mdd ) )[baseTypes[0].Index.Index].Interfaces;
+                     //var thisTypeInterfaces = new HashSet<MetaDataIndex>( declaringTypeHierarchy.Interfaces );
+                     //thisTypeInterfaces.ExceptWith( baseTypeInterfaces );
 
                      // Iterate directly implemented interfaces, get their methods, and match methods based on signature and name
-                     return thisTypeInterfaces
+                     return // thisTypeInterfaces
+                        declaringTypeHierarchy.Interfaces
                         .Select( iFace => state.GetMatchingMethodDefIndex( thisMDIdx, iFace, true ) )
                         .NotNulls()
                         .ToArray();
@@ -3721,18 +3811,21 @@ namespace CILMerge
          return retVal;
       }
 
-      private static IDictionary<Int32, IList<MethodImplementation>> CreateExplicitImplDictionary( CILMetaData md )
+      private static IDictionary<Int32, IList<MethodImplementation>> CreateExplicitImplDictionary( this CILMinifyState state, CILMetaData md )
       {
-         var interfaceImpls = new Dictionary<Int32, IList<MethodImplementation>>();
-         // TODO method body in MemberRef table!!
-         foreach ( var impl in md.MethodImplementations.TableContents.Where( i => i.MethodBody.Table == Tables.TypeDef ) )
-         {
-            interfaceImpls
-               .GetOrAdd_NotThreadSafe( impl.MethodBody.Index, i => new List<MethodImplementation>() )
-               .Add( impl );
+         return state.ExplicitImpls.GetOrAdd_NotThreadSafe( md, mdd =>
+          {
+             var interfaceImpls = new Dictionary<Int32, IList<MethodImplementation>>();
+             // TODO method body in MemberRef table!!
+             foreach ( var impl in mdd.MethodImplementations.TableContents.Where( i => i.MethodBody.Table == Tables.TypeDef ) )
+             {
+                interfaceImpls
+                   .GetOrAdd_NotThreadSafe( impl.MethodBody.Index, i => new List<MethodImplementation>() )
+                   .Add( impl );
 
-         }
-         return interfaceImpls;
+             }
+             return interfaceImpls;
+          } );
       }
 
       private static MetaDataIndex? ProcessMethodHierarchyTableIndex( this CILMinifyState state, TableIndex methodDefOrRef )
@@ -3749,7 +3842,7 @@ namespace CILMerge
                Boolean isMethodDefIndex;
                var declType = md.ProcessMethodHierarchyDeclaringTypeIndex( mRef.DeclaringType, out isMethodDefIndex );
                retVal = isMethodDefIndex ?
-                  declType :
+                  declType.Value :
                   ( declType.HasValue ?
                      state.GetMatchingMethodDefIndex( md, mRef.Name, mRef.Signature, declType.Value, true ) :
                      null
@@ -3772,7 +3865,8 @@ namespace CILMerge
             case Tables.TypeDef:
             case Tables.TypeRef:
             case Tables.TypeSpec:
-               retVal = md.ProcessTypeHierarchyTableIndex( declaringType );
+               var tIdx = md.ProcessTypeHierarchyTableIndex( declaringType, null );
+               retVal = tIdx.HasValue ? tIdx.Value.Index : (MetaDataIndex?) null;
                break;
             case Tables.ModuleRef:
                throw new NotImplementedException( "ModuleRef as declaring type of member ref." );
@@ -3788,7 +3882,7 @@ namespace CILMerge
          return retVal;
       }
 
-      private static MetaDataIndex? GetMatchingMethodDefIndex( this CILMinifyState state, MetaDataIndex currentMethodIndex, MetaDataIndex typeDef, Boolean matchName )
+      private static MetaDataIndex? GetMatchingMethodDefIndex( this CILMinifyState state, MetaDataIndex currentMethodIndex, TypeMetaDataIndex typeDef, Boolean matchName )
       {
          var currentMD = currentMethodIndex.MetaData;
          var currentMethod = currentMethodIndex.MetaData.MethodDefinitions.TableContents[currentMethodIndex.Index];
@@ -3796,7 +3890,7 @@ namespace CILMerge
             currentMD,
             currentMethod.Name,
             currentMethod.Signature,
-            typeDef,
+            typeDef.Index,
             matchName
             );
       }
@@ -3808,8 +3902,7 @@ namespace CILMerge
             .Where( mDefIdx =>
             {
                var mDef = md.MethodDefinitions.TableContents[mDefIdx];
-               return ( ( matchName && String.Equals( mDef.Name, name ) )
-               || !matchName )
+               return ( !matchName || String.Equals( mDef.Name, name ) )
                && currentMD.SignatureProvider.MatchSignatures( currentMD, signature, md, mDef.Signature, state.CreateSigMatcher() );
             } )
             .FirstOrDefaultCustom( -1 );
@@ -3913,6 +4006,18 @@ namespace CILMerge
 
       private static Boolean MatchResolutionScope( this CILMinifyState state, CILMetaData firstMD, TableIndex? firstIndex, CILMetaData secondMD, TableIndex? secondIndex )
       {
+         if ( firstIndex.HasValue != secondIndex.HasValue || !firstIndex.HasValue )
+         {
+            // Either null + something else, or both nulls
+            if ( firstIndex.HasValue == secondIndex.HasValue )
+            {
+               // Both nulls - 
+            }
+         }
+         else
+         {
+
+         }
          return false;
       }
 
