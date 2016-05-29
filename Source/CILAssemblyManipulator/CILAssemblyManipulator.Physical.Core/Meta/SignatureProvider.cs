@@ -507,7 +507,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          var decomposeContext = new DecomposeSignatureContext();
          var signatureVisitor = new TypeBasedVisitor<AbstractSignature>();
 
-         signatureVisitor.RegisterVisitor( typeof( FieldSignature ), VisitSignatureCast<FieldSignature>( ( sig, cb ) => cb( sig.Type ) ) );
+         signatureVisitor.RegisterSignatureVisitor<FieldSignature>( ( sig, cb ) => cb( sig.Type ) );
          signatureVisitor.RegisterVisitor( typeof( AbstractMethodSignature ), VisitSignatureCast<AbstractMethodSignature>( VisitSignature_AbstractMethod ) );
          signatureVisitor.RegisterVisitor( typeof( MethodDefinitionSignature ), VisitSignatureCast<MethodDefinitionSignature>( VisitSignature_MethodDef ) );
          signatureVisitor.RegisterVisitor( typeof( MethodReferenceSignature ), VisitSignatureCast<MethodReferenceSignature>( VisitSignature_MethodRef ) );
@@ -1234,5 +1234,17 @@ public static partial class E_CILPhysical
    public static IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos( this SignatureProvider provider, AbstractSignature signature )
    {
       return provider.DecomposeSignature( signature ).SelectMany( elem => provider.GetTableIndexInfoFromSignatureElement( elem ) );
+   }
+
+   internal static void RegisterVisitor<TElement, TActualElement>( this TypeBasedVisitor<TElement> visitorAggregator, VisitElementDelegateTyped<TElement, TActualElement> visitor )
+      where TActualElement : TElement
+   {
+      visitorAggregator.RegisterVisitor( typeof( TActualElement ), ( el, cb ) => visitor( (TActualElement) el, cb ) );
+   }
+
+   internal static void RegisterSignatureVisitor<TSignature>( this TypeBasedVisitor<AbstractSignature> visitorAggregator, VisitElementDelegateTyped<AbstractSignature, TSignature> visitor )
+      where TSignature : AbstractSignature
+   {
+      visitorAggregator.RegisterVisitor<AbstractSignature, TSignature>( visitor );
    }
 }
