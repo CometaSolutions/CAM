@@ -51,21 +51,10 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <seealso cref="CustomAttributeArgumentTypeSimple"/>
       CustomAttributeArgumentTypeSimple GetSimpleCATypeOrNull( CustomAttributeArgumentTypeSimpleKind kind );
 
-
-      /// <summary>
-      /// Performs structural match on two signatures.
-      /// </summary>
-      /// <param name="firstMD">The <see cref="CILMetaData"/> containing the <paramref name="firstSignature"/>.</param>
-      /// <param name="firstSignature">The first <see cref="AbstractSignature"/>.</param>
-      /// <param name="secondMD">The <see cref="CILMetaData"/> containing the <paramref name="secondSignature"/>.</param>
-      /// <param name="secondSignature">the second <see cref="AbstractSignature"/>.</param>
-      /// <param name="matcher">The object capturing callbacks to perform non-structural compare.</param>
-      /// <returns>Whether <paramref name="firstSignature"/> and <paramref name="secondSignature"/> match structurally and using the given <paramref name="matcher"/>.</returns>
-      Boolean MatchSignatures( CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher );
    }
 
    /// <summary>
-   /// This type encapsulates callbacks needed for comparing signatures using <see cref="SignatureProvider.MatchSignatures"/> method.
+   /// This type encapsulates callbacks needed for comparing signatures using <see cref="E_CILPhysical.MatchSignatures"/> method.
    /// </summary>
    public struct SignatureMatcher
    {
@@ -98,10 +87,10 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// This delegate contains signature for callbacks used by <see cref="SignatureMatcher"/>.
    /// </summary>
    /// <typeparam name="TItem">The type of the first item index.</typeparam>
-   /// <param name="firstMD">The <see cref="CILMetaData"/> passed as first to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
-   /// <param name="firstIndex">The item within the <see cref="AbstractSignature"/> passed as first to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
-   /// <param name="secondMD">The <see cref="CILMetaData"/> passed as second to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
-   /// <param name="secondIndex">The item within the <see cref="AbstractSignature"/> passed as second to <see cref="SignatureProvider.MatchSignatures"/> method.</param>
+   /// <param name="firstMD">The <see cref="CILMetaData"/> passed as first to <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
+   /// <param name="firstIndex">The item within the <see cref="AbstractSignature"/> passed as first to <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
+   /// <param name="secondMD">The <see cref="CILMetaData"/> passed as second to <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
+   /// <param name="secondIndex">The item within the <see cref="AbstractSignature"/> passed as second to <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
    /// <returns>Whether the <paramref name="firstIndex"/> and <paramref name="secondIndex"/> match.</returns>
    public delegate Boolean SignatureMatcherCallback<TItem>( CILMetaData firstMD, TItem firstIndex, CILMetaData secondMD, TItem secondIndex );
 
@@ -154,10 +143,10 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <remarks>
    /// The methods implementing this should be agnostic to how the hierarchical structure is explored.
    /// This is done by <see cref="VisitElementDelegate{TElement}"/>.
-   /// The <see cref="AcceptElementDelegateWithContext{TElement, TContext}"/> should only capture the functionality that is done for element.
-   /// In other words, <see cref="VisitElementDelegate{TElement}"/> captures how the hierarchical structure is explored, and <see cref="AcceptElementDelegateWithContext{TElement, TContext}"/> captures what is done for nodes of hierarchical structure.
+   /// The <see cref="AcceptElementDelegate{TElement, TContext}"/> should only capture the functionality that is done for element.
+   /// In other words, <see cref="VisitElementDelegate{TElement}"/> captures how the hierarchical structure is explored, and <see cref="AcceptElementDelegate{TElement, TContext}"/> captures what is done for nodes of hierarchical structure.
    /// </remarks>
-   public delegate Boolean AcceptElementDelegateWithContext<in TElement, in TContext>( TElement element, /*AcceptElementCallbackDelegate<Object> nonConformingAcceptCallback,*/ TContext context );
+   public delegate Boolean AcceptElementDelegate<in TElement, in TContext>( TElement element, /*AcceptElementCallbackDelegate<Object> nonConformingAcceptCallback,*/ TContext context );
 
    /// <summary>
    /// This is delegate that captures signature to 'accept', or visit, a single edge (transition between elements) in visitor pattern.
@@ -168,7 +157,7 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <param name="edgeInfo">The domain-specific edge information.</param>
    /// <param name="context">The current context.</param>
    /// <returns><c>true</c> if visiting should be continued, <c>false</c> otherwise.</returns>
-   public delegate Boolean AcceptEdgeDelegateWithContext<in TElement, in TContext>( TElement element, Object edgeInfo, TContext context );
+   public delegate Boolean AcceptEdgeDelegate<in TElement, in TContext>( TElement element, Object edgeInfo, TContext context );
 
    internal class TypeBasedVisitor<TElement>
    {
@@ -246,7 +235,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          VisitElementDelegate<TElement> visitor;
          DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>> edgeDic;
          AcceptEdgeDelegateInformation<TElement, TContext> edgeDelegateInfo = null;
-         AcceptElementDelegateWithContext<TElement, TContext> vertexAcceptor;
+         AcceptElementDelegate<TElement, TContext> vertexAcceptor;
          Boolean hadAcceptor;
          return element != null
             && ( edgeType == null || edgeName == null || ( edgeDic = acceptors.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo, context ) ?? true ) )
@@ -281,13 +270,13 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       private Boolean CheckForTopMostTypeStrategy<TContext>(
          TElement element,
-         DictionaryQuery<Type, AcceptElementDelegateWithContext<TElement, TContext>> acceptorDictionary,
+         DictionaryQuery<Type, AcceptElementDelegate<TElement, TContext>> acceptorDictionary,
          TContext context,
          Type overrideType
          )
       {
          Boolean hadAcceptor;
-         AcceptElementDelegateWithContext<TElement, TContext> acceptor;
+         AcceptElementDelegate<TElement, TContext> acceptor;
          switch ( this.TopMostVisitingStrategy )
          {
             case TopMostTypeVisitingStrategy.IfNotOverridingType:
@@ -339,7 +328,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       private DictionaryWithRoles<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>> EdgeAcceptors { get; }
 
-      public void RegisterAcceptor( Type type, AcceptElementDelegate<TElement> acceptor )
+      public void RegisterVertexAcceptor( Type type, AcceptElementDelegate<TElement> acceptor )
       {
          this.VertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
@@ -369,22 +358,22 @@ namespace CILAssemblyManipulator.Physical.Meta
       internal TypeBasedAcceptor( TypeBasedVisitor<TElement> visitor )
          : base( visitor )
       {
-         this.VertexAcceptors = new Dictionary<Type, AcceptElementDelegateWithContext<TElement, TContext>>().ToDictionaryProxy();
+         this.VertexAcceptors = new Dictionary<Type, AcceptElementDelegate<TElement, TContext>>().ToDictionaryProxy();
          this.EdgeAcceptors = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewDictionary<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>>();
 
          this._acceptorInfo = new AcceptorInformation<TElement, TContext>( this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
       }
 
-      private DictionaryProxy<Type, AcceptElementDelegateWithContext<TElement, TContext>> VertexAcceptors { get; }
+      private DictionaryProxy<Type, AcceptElementDelegate<TElement, TContext>> VertexAcceptors { get; }
 
       private DictionaryWithRoles<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> EdgeAcceptors { get; }
 
-      public void RegisterAcceptor( Type type, AcceptElementDelegateWithContext<TElement, TContext> acceptor )
+      public void RegisterVertexAcceptor( Type type, AcceptElementDelegate<TElement, TContext> acceptor )
       {
          this.VertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
 
-      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegateWithContext<TElement, TContext> enter, AcceptEdgeDelegateWithContext<TElement, TContext> exit )
+      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TContext> enter, AcceptEdgeDelegate<TElement, TContext> exit )
       {
          Boolean success;
          var inner = this.EdgeAcceptors.CQ.TryGetValue( type, out success );
@@ -450,19 +439,19 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
    }
 
-   internal class AcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptElementDelegateWithContext<TElement, TContext>, AcceptEdgeDelegateWithContext<TElement, TContext>, AcceptEdgeDelegateInformation<TElement, TContext>>
+   internal class AcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptElementDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TContext>, AcceptEdgeDelegateInformation<TElement, TContext>>
    {
       public AcceptorInformation(
-         DictionaryQuery<Type, AcceptElementDelegateWithContext<TElement, TContext>> vertexAcceptors,
+         DictionaryQuery<Type, AcceptElementDelegate<TElement, TContext>> vertexAcceptors,
          DictionaryQuery<Type, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> edgeAcceptors
          ) : base( vertexAcceptors, edgeAcceptors )
       {
       }
    }
 
-   internal class AcceptEdgeDelegateInformation<TElement, TContext> : AbstractEdgeDelegateInformation<AcceptEdgeDelegateWithContext<TElement, TContext>>
+   internal class AcceptEdgeDelegateInformation<TElement, TContext> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TContext>>
    {
-      public AcceptEdgeDelegateInformation( AcceptEdgeDelegateWithContext<TElement, TContext> entry, AcceptEdgeDelegateWithContext<TElement, TContext> exit )
+      public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement, TContext> entry, AcceptEdgeDelegate<TElement, TContext> exit )
          : base( entry, exit )
       {
 
@@ -569,11 +558,13 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="simpleCATypes">The supported <see cref="CustomAttributeArgumentTypeSimple"/>. If <c>null</c>, the return value of <see cref="GetDefaultSimpleCATypes"/> will be used.</param>
       /// <param name="signatureTableIndexInfoProviders">The <see cref="SignatureTypeInfo{TFunctionality}"/> functionality. If <c>null</c>, the return value of <see cref="GetDefaultSignatureTableIndexInfoCollectors"/> will be used.</param>
       /// <param name="signatureVisitors">The enumerable of signature visitors.</param>
+      /// <param name="matchers">The enumerable of signature matchers.</param>
       public DefaultSignatureProvider(
          IEnumerable<SimpleTypeSignature> simpleTypeSignatures = null,
          IEnumerable<CustomAttributeArgumentTypeSimple> simpleCATypes = null,
          IEnumerable<SignatureTypeInfo<VisitElementDelegate<SignatureElement>>> signatureVisitors = null,
-         IEnumerable<SignatureTypeInfo<AcceptElementDelegateWithContext<SignatureElement, TableIndexCollectorContext>>> signatureTableIndexInfoProviders = null
+         IEnumerable<SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TableIndexCollectorContext>>> signatureTableIndexInfoProviders = null,
+         IEnumerable<SignatureTypeInfo<SignatureVertexMatchingFunctionality>> matchers = null
          )
       {
          this._simpleTypeSignatures = ( simpleTypeSignatures ?? GetDefaultSimpleTypeSignatures() )
@@ -600,9 +591,23 @@ namespace CILAssemblyManipulator.Physical.Meta
          var tableIndexCollector = new TypeBasedAcceptor<SignatureElement, TableIndexCollectorContext>( visitor );
          foreach ( var tableIndexCollectorInfo in signatureTableIndexInfoProviders ?? GetDefaultSignatureTableIndexInfoCollectors() )
          {
-            tableIndexCollector.RegisterAcceptor( tableIndexCollectorInfo.SignatureElementType, tableIndexCollectorInfo.Functionality );
+            tableIndexCollector.RegisterVertexAcceptor( tableIndexCollectorInfo.SignatureElementType, tableIndexCollectorInfo.Functionality );
          }
          this.RegisterFunctionalityDirect( tableIndexCollector );
+
+         // Signature matching
+         var matcher = new TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>( visitor );
+         foreach ( var matcherInfo in matchers ?? GetDefaultMatchingFunctionality() )
+         {
+            var type = matcherInfo.SignatureElementType;
+            var info = matcherInfo.Functionality;
+            matcher.RegisterVertexAcceptor( type, info.VertexAcceptor );
+            foreach ( var edge in info.Edges )
+            {
+               matcher.RegisterEdgeAcceptor( type, edge.EdgeName, edge.Enter, edge.Exit );
+            }
+         }
+         this.RegisterFunctionalityDirect( matcher );
       }
 
       /// <inheritdoc />
@@ -624,192 +629,15 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <inheritdoc />
       public Boolean MatchSignatures( CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
       {
-         var retVal = ( ( firstSignature == null ) == ( secondSignature == null ) );
-         if ( retVal && firstSignature != null )
-         {
-            retVal = firstSignature.SignatureKind == secondSignature.SignatureKind
-               || (
-                  ( firstSignature.SignatureKind == SignatureKind.MethodDefinition || firstSignature.SignatureKind == SignatureKind.MethodReference )
-                  &&
-                  ( secondSignature.SignatureKind == SignatureKind.MethodDefinition || secondSignature.SignatureKind == SignatureKind.MethodReference )
-                  );
-            if ( retVal )
-            {
-               switch ( firstSignature.SignatureKind )
-               {
-                  case SignatureKind.Field:
-                     retVal = this.MatchFieldSignatures( firstMD, (FieldSignature) firstSignature, secondMD, (FieldSignature) secondSignature, matcher );
-                     break;
-                  case SignatureKind.GenericMethodInstantiation:
-                     retVal = this.MatchGenericMethodSignatures( firstMD, (GenericMethodSignature) firstSignature, secondMD, (GenericMethodSignature) secondSignature, matcher );
-                     break;
-                  case SignatureKind.LocalVariables:
-                     retVal = this.MatchLocalVarsSignatures( firstMD, (LocalVariablesSignature) firstSignature, secondMD, (LocalVariablesSignature) secondSignature, matcher );
-                     break;
-                  case SignatureKind.MethodDefinition:
-                     retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
-                     break;
-                  case SignatureKind.MethodReference:
-                     retVal = this.MatchAbstractMethodSigntures( firstMD, (AbstractMethodSignature) firstSignature, secondMD, (AbstractMethodSignature) secondSignature, matcher );
-                     break;
-                  case SignatureKind.Property:
-                     retVal = this.MatchPropertySignatures( firstMD, (PropertySignature) firstSignature, secondMD, (PropertySignature) secondSignature, matcher );
-                     break;
-                  case SignatureKind.Type:
-                     retVal = this.MatchTypeSignatures( firstMD, (TypeSignature) firstSignature, secondMD, (TypeSignature) secondSignature, matcher );
-                     break;
-                  case SignatureKind.Raw:
-                     retVal = false;
-                     break;
-                  default:
-                     // TODO
-                     retVal = false;
-                     break;
-               }
-            }
-         }
-
-         //var acceptor = new TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>( this.GetFunctionality<TypeBasedVisitor<SignatureElement>>() );
-
-         //// Vertices
-         //acceptor.RegisterSignatureMatcher<CustomModifierSignature>( ( x, y ) => x.Optionality == y.Optionality && this.MatchTypeDefOrRefOrSpec( firstMD, x.CustomModifierType, secondMD, y.CustomModifierType, matcher ) );
-         //acceptor.RegisterSignatureMatcher<ParameterOrLocalSignature>( ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.IsByRef == y.IsByRef );
-         //acceptor.RegisterSignatureMatcher<ParameterSignature>( ( x, y ) => true );
-         //acceptor.RegisterSignatureMatcher<LocalSignature>( ( x, y ) => x.IsPinned == y.IsPinned );
-         //acceptor.RegisterSignatureMatcher<FieldSignature>( ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count );
-         //acceptor.RegisterSignatureMatcher<AbstractMethodSignature>( ( x, y ) => x.MethodSignatureInformation == y.MethodSignatureInformation && x.Parameters.Count == y.Parameters.Count && x.GenericArgumentCount == y.GenericArgumentCount );
-         //acceptor.RegisterSignatureMatcher<PropertySignature>( ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.HasThis == y.HasThis && x.Parameters.Count == y.Parameters.Count );
-         //acceptor.RegisterSignatureMatcher<LocalVariablesSignature>( ( x, y ) => x.Locals.Count == y.Locals.Count );
-         //acceptor.RegisterSignatureMatcher<GenericMethodSignature>( ( x, y ) => x.GenericArguments.Count == y.GenericArguments.Count );
-         //acceptor.RegisterSignatureMatcher<RawSignature>( ( x, y ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes ) );
-         //acceptor.RegisterSignatureMatcher<AbstractArrayTypeSignature>( ( x, y ) => true );
-         //acceptor.RegisterSignatureMatcher<ComplexArrayTypeSignature>( ( x, y ) => Comparers.ComplexArrayInfoEqualityComparer.Equals( x.ComplexArrayInfo, y.ComplexArrayInfo ) );
-         //acceptor.RegisterSignatureMatcher<SimpleArrayTypeSignature>( ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count );
-         //acceptor.RegisterSignatureMatcher<ClassOrValueTypeSignature>( ( x, y ) => x.GenericArguments.Count == y.GenericArguments.Count && x.TypeReferenceKind == y.TypeReferenceKind && this.MatchTypeDefOrRefOrSpec( firstMD, x.Type, secondMD, y.Type, matcher ) );
-         //acceptor.RegisterSignatureMatcher<GenericParameterTypeSignature>( ( x, y ) => x.GenericParameterIndex == y.GenericParameterIndex && x.GenericParameterKind == y.GenericParameterKind );
-         //acceptor.RegisterSignatureMatcher<PointerTypeSignature>( ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count );
-         //acceptor.RegisterSignatureMatcher<FunctionPointerTypeSignature>( ( x, y ) => true );
-         //acceptor.RegisterSignatureMatcher<SimpleTypeSignature>( ( x, y ) => x.SimpleType == y.SimpleType );
-
-         //// Edges
-         //acceptor.RegisterSignatureMatcherTransitionForLists<ParameterOrLocalSignature, CustomModifierSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), sig => sig.CustomModifiers );
-         //acceptor.RegisterSignatureMatcherTransitionForSimple<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), sig => sig.Type );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<FieldSignature, CustomModifierSignature>( nameof( FieldSignature.CustomModifiers ), sig => sig.CustomModifiers );
-         //acceptor.RegisterSignatureMatcherTransitionForSimple<AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), sig => sig.ReturnType );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<AbstractMethodSignature, ParameterSignature>( nameof( AbstractMethodSignature.Parameters ), sig => sig.Parameters );
-         //acceptor.RegisterSignatureMatcherTransitionForSimple<PropertySignature>( nameof( PropertySignature.PropertyType ), sig => sig.PropertyType );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<PropertySignature, ParameterSignature>( nameof( PropertySignature.Parameters ), sig => sig.Parameters );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<LocalVariablesSignature, LocalSignature>( nameof( LocalVariablesSignature.Locals ), sig => sig.Locals );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<GenericMethodSignature, TypeSignature>( nameof( GenericMethodSignature.GenericArguments ), sig => sig.GenericArguments );
-         //acceptor.RegisterSignatureMatcherTransitionForSimple<AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), sig => sig.ArrayType );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<SimpleArrayTypeSignature, CustomModifierSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), sig => sig.CustomModifiers );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<ClassOrValueTypeSignature, TypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), sig => sig.GenericArguments );
-         //acceptor.RegisterSignatureMatcherTransitionForLists<PointerTypeSignature, CustomModifierSignature>( nameof( PointerTypeSignature.CustomModifiers ), sig => sig.CustomModifiers );
-         //acceptor.RegisterSignatureMatcherTransitionForSimple<FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), sig => sig.MethodSignature );
-
-         //var retVal2 = acceptor.AcceptWithContext( firstSignature, new SignatureMatchingContext( secondSignature ) );
-
-         return retVal;
+         var acceptor = this.GetFunctionality<TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>>();
+         return acceptor.AcceptWithContext( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
       }
 
-      private Boolean MatchFieldSignatures( CILMetaData firstMD, FieldSignature first, CILMetaData secondMD, FieldSignature second, SignatureMatcher matcher )
+      private static Boolean MatchTypeDefOrRefOrSpec( SignatureMatchingContext ctx, TableIndex defIdx, TableIndex refIdx )
       {
-         return this.MatchCustomModifiers( firstMD, first.CustomModifiers, secondMD, second.CustomModifiers, matcher )
-            && this.MatchTypeSignatures( firstMD, first.Type, secondMD, second.Type, matcher );
-      }
-
-      private Boolean MatchGenericMethodSignatures( CILMetaData firstMD, GenericMethodSignature first, CILMetaData secondMD, GenericMethodSignature second, SignatureMatcher matcher )
-      {
-         return ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( first.GenericArguments, second.GenericArguments, ( firstG, secondG ) => this.MatchTypeSignatures( firstMD, firstG, secondMD, secondG, matcher ) );
-      }
-
-      private Boolean MatchLocalVarsSignatures( CILMetaData firstMD, LocalVariablesSignature first, CILMetaData secondMD, LocalVariablesSignature second, SignatureMatcher matcher )
-      {
-         return ListEqualityComparer<List<LocalSignature>, LocalSignature>.ListEquality( first.Locals, second.Locals, ( firstL, secondL ) => firstL.IsPinned == secondL.IsPinned && this.MatchParameterSignatures( firstMD, firstL, secondMD, secondL, matcher ) );
-      }
-
-      private Boolean MatchAbstractMethodSigntures( CILMetaData defModule, AbstractMethodSignature methodDef, CILMetaData refModule, AbstractMethodSignature methodRef, SignatureMatcher matcher )
-      {
-         return methodDef.MethodSignatureInformation == methodRef.MethodSignatureInformation
-            && ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.ListEquality( methodDef.Parameters, methodRef.Parameters, ( pDef, pRef ) => this.MatchParameterSignatures( defModule, pDef, refModule, pRef, matcher ) )
-            && this.MatchParameterSignatures( defModule, methodDef.ReturnType, refModule, methodRef.ReturnType, matcher );
-      }
-
-      private Boolean MatchParameterSignatures( CILMetaData defModule, ParameterOrLocalSignature paramDef, CILMetaData refModule, ParameterOrLocalSignature paramRef, SignatureMatcher matcher )
-      {
-         return paramDef.IsByRef == paramRef.IsByRef
-            && this.MatchCustomModifiers( defModule, paramDef.CustomModifiers, refModule, paramRef.CustomModifiers, matcher )
-            && this.MatchTypeSignatures( defModule, paramDef.Type, refModule, paramRef.Type, matcher );
-      }
-
-      private Boolean MatchPropertySignatures( CILMetaData firstMD, PropertySignature first, CILMetaData secondMD, PropertySignature second, SignatureMatcher matcher )
-      {
-         return first.HasThis == second.HasThis
-            && this.MatchTypeSignatures( firstMD, first.PropertyType, secondMD, second.PropertyType, matcher )
-            && ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.ListEquality( first.Parameters, second.Parameters, ( firstP, secondP ) => this.MatchParameterSignatures( firstMD, firstP, secondMD, secondP, matcher ) )
-            && this.MatchCustomModifiers( firstMD, first.CustomModifiers, secondMD, second.CustomModifiers, matcher );
-      }
-
-      private Boolean MatchCustomModifiers( CILMetaData defModule, List<CustomModifierSignature> cmDef, CILMetaData refModule, List<CustomModifierSignature> cmRef, SignatureMatcher matcher )
-      {
-         return ListEqualityComparer<List<CustomModifierSignature>, CustomModifierSignature>.ListEquality( cmDef, cmRef, ( cDef, cRef ) => this.MatchTypeDefOrRefOrSpec( defModule, cDef.CustomModifierType, refModule, cRef.CustomModifierType, matcher ) );
-      }
-
-      private Boolean MatchTypeSignatures( CILMetaData defModule, TypeSignature typeDef, CILMetaData refModule, TypeSignature typeRef, SignatureMatcher matcher )
-      {
-         var retVal = typeDef.TypeSignatureKind == typeRef.TypeSignatureKind;
-         if ( retVal )
-         {
-            switch ( typeDef.TypeSignatureKind )
-            {
-               case TypeSignatureKind.ClassOrValue:
-                  var classDef = (ClassOrValueTypeSignature) typeDef;
-                  var classRef = (ClassOrValueTypeSignature) typeRef;
-                  retVal = classDef.TypeReferenceKind == classRef.TypeReferenceKind
-                     && this.MatchTypeDefOrRefOrSpec( defModule, classDef.Type, refModule, classRef.Type, matcher )
-                     && ListEqualityComparer<List<TypeSignature>, TypeSignature>.ListEquality( classDef.GenericArguments, classRef.GenericArguments, ( gArgDef, gArgRef ) => this.MatchTypeSignatures( defModule, gArgDef, refModule, gArgRef, matcher ) );
-                  break;
-               case TypeSignatureKind.ComplexArray:
-                  var arrayDef = (ComplexArrayTypeSignature) typeDef;
-                  var arrayRef = (ComplexArrayTypeSignature) typeRef;
-                  retVal = Comparers.ComplexArrayInfoEqualityComparer.Equals( arrayDef.ComplexArrayInfo, arrayRef.ComplexArrayInfo )
-                     && this.MatchTypeSignatures( defModule, arrayDef.ArrayType, refModule, arrayRef.ArrayType, matcher );
-                  break;
-               case TypeSignatureKind.FunctionPointer:
-                  retVal = this.MatchAbstractMethodSigntures( defModule, ( (FunctionPointerTypeSignature) typeDef ).MethodSignature, refModule, ( (FunctionPointerTypeSignature) typeRef ).MethodSignature, matcher );
-                  break;
-               case TypeSignatureKind.GenericParameter:
-                  var gDef = (GenericParameterTypeSignature) typeDef;
-                  var gRef = (GenericParameterTypeSignature) typeRef;
-                  retVal = gDef.GenericParameterKind == gRef.GenericParameterKind
-                     && gDef.GenericParameterIndex == gRef.GenericParameterIndex;
-                  break;
-               case TypeSignatureKind.Pointer:
-                  var ptrDef = (PointerTypeSignature) typeDef;
-                  var ptrRef = (PointerTypeSignature) typeRef;
-                  retVal = this.MatchCustomModifiers( defModule, ptrDef.CustomModifiers, refModule, ptrRef.CustomModifiers, matcher )
-                     && this.MatchTypeSignatures( defModule, ptrDef.PointerType, refModule, ptrRef.PointerType, matcher );
-                  break;
-               case TypeSignatureKind.Simple:
-                  retVal = ( (SimpleTypeSignature) typeDef ).SimpleType == ( (SimpleTypeSignature) typeRef ).SimpleType;
-                  break;
-               case TypeSignatureKind.SimpleArray:
-                  var szArrayDef = (SimpleArrayTypeSignature) typeDef;
-                  var szArrayRef = (SimpleArrayTypeSignature) typeRef;
-                  retVal = this.MatchCustomModifiers( defModule, szArrayDef.CustomModifiers, refModule, szArrayRef.CustomModifiers, matcher )
-                     && this.MatchTypeSignatures( defModule, szArrayDef.ArrayType, refModule, szArrayRef.ArrayType, matcher );
-                  break;
-               default:
-                  retVal = false;
-                  break;
-            }
-         }
-
-         return retVal;
-      }
-
-      private Boolean MatchTypeDefOrRefOrSpec( CILMetaData defModule, TableIndex defIdx, CILMetaData refModule, TableIndex refIdx, SignatureMatcher matcher )
-      {
+         var defModule = ctx.FirstMD;
+         var refModule = ctx.SecondMD;
+         var matcher = ctx.SignatureMatcher;
          switch ( defIdx.Table )
          {
             case Tables.TypeDef:
@@ -825,18 +653,20 @@ namespace CILAssemblyManipulator.Physical.Meta
                   && refIdx.Table == Tables.TypeDef
                   && matcher.TypeDefOrRefMatcher( defModule, defIdx, refModule, refIdx )
                   ) || ( refIdx.Table == Tables.TypeRef
-                  && MatchTypeRefs( defModule, defIdx.Index, refModule, refIdx.Index, matcher ) );
+                  && MatchTypeRefs( ctx, defIdx.Index, refIdx.Index ) );
             case Tables.TypeSpec:
-               return refIdx.Table == Tables.TypeSpec && this.MatchTypeSignatures( defModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature, matcher );
+               return refIdx.Table == Tables.TypeSpec && defModule.SignatureProvider.MatchSignatures( defModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature, matcher );
             default:
                return false;
          }
       }
 
-      private Boolean MatchTypeRefs( CILMetaData defModule, Int32 defIdx, CILMetaData refModule, Int32 refIdx, SignatureMatcher matcher )
+      private static Boolean MatchTypeRefs( SignatureMatchingContext ctx, Int32 defIdx, Int32 refIdx )
       {
-         var defTypeRef = defModule.TypeReferences.TableContents[defIdx];
-         var refTypeRef = refModule.TypeReferences.TableContents[refIdx];
+         var firstMD = ctx.FirstMD;
+         var secondMD = ctx.SecondMD;
+         var defTypeRef = firstMD.TypeReferences.TableContents[defIdx];
+         var refTypeRef = secondMD.TypeReferences.TableContents[refIdx];
          var retVal = String.Equals( defTypeRef.Name, refTypeRef.Name )
             && String.Equals( defTypeRef.Namespace, refTypeRef.Namespace );
          if ( retVal )
@@ -847,10 +677,10 @@ namespace CILAssemblyManipulator.Physical.Meta
                && refResScopeNullable.HasValue
                && defResScopeNullable.Value.Table == Tables.TypeRef
                && refResScopeNullable.Value.Table == Tables.TypeRef
-               && MatchTypeRefs( defModule, defResScopeNullable.Value.Index, refModule, refResScopeNullable.Value.Index, matcher )
+               && MatchTypeRefs( ctx, defResScopeNullable.Value.Index, refResScopeNullable.Value.Index )
                ) || ( ( !defResScopeNullable.HasValue || defResScopeNullable.Value.Table != Tables.TypeRef )
                && ( !refResScopeNullable.HasValue || refResScopeNullable.Value.Table != Tables.TypeRef )
-               && matcher.ResolutionScopeMatcher( defModule, defResScopeNullable, refModule, refResScopeNullable )
+               && ctx.SignatureMatcher.ResolutionScopeMatcher( firstMD, defResScopeNullable, secondMD, refResScopeNullable )
                );
          }
 
@@ -911,7 +741,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Returns <see cref="SignatureTypeInfo{TFunctionality}"/> functionality for <see cref="ClassOrValueTypeSignature"/> and <see cref="CustomModifierSignature"/>.
       /// </summary>
       /// <returns>Default <see cref="SignatureTypeInfo{TFunctionality}"/> functionality for <see cref="ClassOrValueTypeSignature"/> and <see cref="CustomModifierSignature"/>.</returns>
-      public static IEnumerable<SignatureTypeInfo<AcceptElementDelegateWithContext<SignatureElement, TableIndexCollectorContext>>> GetDefaultSignatureTableIndexInfoCollectors()
+      public static IEnumerable<SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TableIndexCollectorContext>>> GetDefaultSignatureTableIndexInfoCollectors()
       {
          yield return NewAcceptFunctionality<ClassOrValueTypeSignature, TableIndexCollectorContext>( ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.Type, tIdx => sig.Type = tIdx ) ) );
          yield return NewAcceptFunctionality<CustomModifierSignature, TableIndexCollectorContext>( ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.CustomModifierType, tIdx => sig.CustomModifierType = tIdx ) ) );
@@ -924,7 +754,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       public static IEnumerable<SignatureTypeInfo<VisitElementDelegate<SignatureElement>>> GetDefaultSignatureVisitors()
       {
          yield return NewVisitFunctionality<ParameterOrLocalSignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.CustomModifiers ), sig.CustomModifiers, cb )
+            cb.VisitListEdge( typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.CustomModifiers ), sig.CustomModifiers )
             && cb.VisitSimpleEdge( sig.Type, typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.Type ) )
          );
 
@@ -937,13 +767,13 @@ namespace CILAssemblyManipulator.Physical.Meta
          );
 
          yield return NewVisitFunctionality<FieldSignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( FieldSignature ), nameof( FieldSignature.CustomModifiers ), sig.CustomModifiers, cb )
+            cb.VisitListEdge( typeof( FieldSignature ), nameof( FieldSignature.CustomModifiers ), sig.CustomModifiers )
             && cb.VisitSimpleEdge( sig.Type, typeof( FieldSignature ), nameof( FieldSignature.Type ) )
          );
 
          yield return NewVisitFunctionality<AbstractMethodSignature>( ( sig, cb ) =>
             cb.VisitSimpleEdge( sig.ReturnType, typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.ReturnType ) )
-            && VisitSigElementList( typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.Parameters ), sig.Parameters, cb )
+            && cb.VisitListEdge( typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.Parameters ), sig.Parameters )
          );
 
          yield return NewVisitFunctionality<MethodDefinitionSignature>( ( sig, cb ) =>
@@ -952,21 +782,21 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return NewVisitFunctionality<MethodReferenceSignature>( ( sig, cb ) =>
             cb.VisitBaseType( sig, typeof( AbstractMethodSignature ) )
-            && VisitSigElementList( typeof( MethodReferenceSignature ), nameof( MethodReferenceSignature.VarArgsParameters ), sig.VarArgsParameters, cb )
+            && cb.VisitListEdge( typeof( MethodReferenceSignature ), nameof( MethodReferenceSignature.VarArgsParameters ), sig.VarArgsParameters )
          );
 
          yield return NewVisitFunctionality<PropertySignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( PropertySignature ), nameof( PropertySignature.CustomModifiers ), sig.CustomModifiers, cb )
+            cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.CustomModifiers ), sig.CustomModifiers )
             && cb.VisitSimpleEdge( sig.PropertyType, typeof( PropertySignature ), nameof( PropertySignature.PropertyType ) )
-            && VisitSigElementList( typeof( PropertySignature ), nameof( PropertySignature.Parameters ), sig.Parameters, cb )
+            && cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.Parameters ), sig.Parameters )
          );
 
          yield return NewVisitFunctionality<LocalVariablesSignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( LocalVariablesSignature ), nameof( LocalVariablesSignature.Locals ), sig.Locals, cb )
+            cb.VisitListEdge( typeof( LocalVariablesSignature ), nameof( LocalVariablesSignature.Locals ), sig.Locals )
          );
 
          yield return NewVisitFunctionality<GenericMethodSignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( GenericMethodSignature ), nameof( GenericMethodSignature.GenericArguments ), sig.GenericArguments, cb )
+            cb.VisitListEdge( typeof( GenericMethodSignature ), nameof( GenericMethodSignature.GenericArguments ), sig.GenericArguments )
          );
 
          yield return NewVisitFunctionality<AbstractArrayTypeSignature>( ( sig, cb ) =>
@@ -978,12 +808,12 @@ namespace CILAssemblyManipulator.Physical.Meta
          );
 
          yield return NewVisitFunctionality<SimpleArrayTypeSignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( SimpleArrayTypeSignature ), nameof( SimpleArrayTypeSignature.CustomModifiers ), sig.CustomModifiers, cb )
+            cb.VisitListEdge( typeof( SimpleArrayTypeSignature ), nameof( SimpleArrayTypeSignature.CustomModifiers ), sig.CustomModifiers )
             && cb.VisitBaseType( sig, typeof( AbstractArrayTypeSignature ) )
          );
 
          yield return NewVisitFunctionality<ClassOrValueTypeSignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( ClassOrValueTypeSignature ), nameof( ClassOrValueTypeSignature.GenericArguments ), sig.GenericArguments, cb )
+            cb.VisitListEdge( typeof( ClassOrValueTypeSignature ), nameof( ClassOrValueTypeSignature.GenericArguments ), sig.GenericArguments )
          );
 
          yield return NewVisitFunctionality<FunctionPointerTypeSignature>( ( sig, cb ) =>
@@ -991,22 +821,89 @@ namespace CILAssemblyManipulator.Physical.Meta
          );
 
          yield return NewVisitFunctionality<PointerTypeSignature>( ( sig, cb ) =>
-            VisitSigElementList( typeof( PointerTypeSignature ), nameof( PointerTypeSignature.CustomModifiers ), sig.CustomModifiers, cb )
+            cb.VisitListEdge( typeof( PointerTypeSignature ), nameof( PointerTypeSignature.CustomModifiers ), sig.CustomModifiers )
             && cb.VisitSimpleEdge( sig.PointerType, typeof( PointerTypeSignature ), nameof( PointerTypeSignature.PointerType ) )
          );
       }
 
-      private static Boolean VisitSigElementList<TSigElement>( Type edgeType, String edgeName, List<TSigElement> list, VisitElementCallbackDelegate<SignatureElement> callback )
-         where TSigElement : SignatureElement
+      /// <summary>
+      /// Gets the default functionality about performing signature matching.
+      /// </summary>
+      /// <returns>The default functionality about performing signature matching.</returns>
+      public static IEnumerable<SignatureTypeInfo<SignatureVertexMatchingFunctionality>> GetDefaultMatchingFunctionality()
       {
-         var retVal = true;
-         var max = list.Count;
-         for ( var i = 0; i < max && retVal; ++i )
-         {
-            retVal = callback.VisitCollectionEdge( list[i], edgeType, edgeName, i );
-         }
-         return retVal;
+         yield return NewMatchingFunctionality<CustomModifierSignature>(
+            ( x, y, ctx ) => x.Optionality == y.Optionality && MatchTypeDefOrRefOrSpec( ctx, x.CustomModifierType, y.CustomModifierType )
+            );
+         yield return NewMatchingFunctionality<ParameterOrLocalSignature>(
+            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.IsByRef == y.IsByRef,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<ParameterOrLocalSignature, CustomModifierSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), sig => sig.CustomModifiers ),
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), sig => sig.Type )
+            );
+         yield return NewMatchingFunctionality<ParameterSignature>(
+            ( x, y, ctx ) => true
+            );
+         yield return NewMatchingFunctionality<LocalSignature>(
+            ( x, y, ctx ) => x.IsPinned == y.IsPinned
+            );
+         yield return NewMatchingFunctionality<FieldSignature>(
+            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<FieldSignature, CustomModifierSignature>( nameof( FieldSignature.CustomModifiers ), sig => sig.CustomModifiers ),
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<FieldSignature>( nameof( FieldSignature.Type ), sig => sig.Type )
+            );
+         yield return NewMatchingFunctionality<AbstractMethodSignature>(
+            ( x, y, ctx ) => x.MethodSignatureInformation == y.MethodSignatureInformation && x.Parameters.Count == y.Parameters.Count && x.GenericArgumentCount == y.GenericArgumentCount,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), sig => sig.ReturnType ),
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<AbstractMethodSignature, ParameterSignature>( nameof( AbstractMethodSignature.Parameters ), sig => sig.Parameters )
+            );
+         yield return NewMatchingFunctionality<PropertySignature>(
+            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.HasThis == y.HasThis && x.Parameters.Count == y.Parameters.Count,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<PropertySignature>( nameof( PropertySignature.PropertyType ), sig => sig.PropertyType ),
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<PropertySignature, ParameterSignature>( nameof( PropertySignature.Parameters ), sig => sig.Parameters )
+            );
+         yield return NewMatchingFunctionality<LocalVariablesSignature>(
+            ( x, y, ctx ) => x.Locals.Count == y.Locals.Count,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<LocalVariablesSignature, LocalSignature>( nameof( LocalVariablesSignature.Locals ), sig => sig.Locals )
+            );
+         yield return NewMatchingFunctionality<GenericMethodSignature>(
+            ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<GenericMethodSignature, TypeSignature>( nameof( GenericMethodSignature.GenericArguments ), sig => sig.GenericArguments )
+            );
+         yield return NewMatchingFunctionality<RawSignature>(
+            ( x, y, ctx ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes )
+            );
+         yield return NewMatchingFunctionality<AbstractArrayTypeSignature>(
+            ( x, y, ctx ) => true,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), sig => sig.ArrayType )
+            );
+         yield return NewMatchingFunctionality<ComplexArrayTypeSignature>(
+            ( x, y, ctx ) => Comparers.ComplexArrayInfoEqualityComparer.Equals( x.ComplexArrayInfo, y.ComplexArrayInfo )
+            );
+         yield return NewMatchingFunctionality<SimpleArrayTypeSignature>(
+            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<SimpleArrayTypeSignature, CustomModifierSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), sig => sig.CustomModifiers )
+            );
+         yield return NewMatchingFunctionality<ClassOrValueTypeSignature>(
+            ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count && x.TypeReferenceKind == y.TypeReferenceKind && MatchTypeDefOrRefOrSpec( ctx, x.Type, y.Type ),
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<ClassOrValueTypeSignature, TypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), sig => sig.GenericArguments )
+            );
+         yield return NewMatchingFunctionality<GenericParameterTypeSignature>(
+            ( x, y, ctx ) => x.GenericParameterIndex == y.GenericParameterIndex && x.GenericParameterKind == y.GenericParameterKind
+            );
+         yield return NewMatchingFunctionality<PointerTypeSignature>(
+            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<PointerTypeSignature, CustomModifierSignature>( nameof( PointerTypeSignature.CustomModifiers ), sig => sig.CustomModifiers )
+            );
+         yield return NewMatchingFunctionality<FunctionPointerTypeSignature>(
+            ( x, y, ctx ) => true,
+            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), sig => sig.MethodSignature )
+            );
+         yield return NewMatchingFunctionality<SimpleTypeSignature>(
+            ( x, y, ctx ) => x.SimpleType == y.SimpleType
+            );
       }
+
+
       /// <summary>
       /// Creates a new <see cref="SignatureTypeInfo{TFunctionality}"/> with functionality for visiting signatures according to visitor pattern.
       /// </summary>
@@ -1026,12 +923,145 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <typeparam name="TContext">The type of context.</typeparam>
       /// <param name="acceptor">The acceptor functionality.</param>
       /// <returns>A new instance of <see cref="SignatureTypeInfo{TFunctionality}"/>.</returns>
-      public static SignatureTypeInfo<AcceptElementDelegateWithContext<SignatureElement, TContext>> NewAcceptFunctionality<TSignature, TContext>( AcceptElementDelegateWithContext<TSignature, TContext> acceptor )
+      public static SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TContext>> NewAcceptFunctionality<TSignature, TContext>( AcceptElementDelegate<TSignature, TContext> acceptor )
          where TSignature : SignatureElement
       {
-         return new SignatureTypeInfo<AcceptElementDelegateWithContext<SignatureElement, TContext>>( typeof( TSignature ), ( el, ctx ) => acceptor( (TSignature) el, ctx ) );
+         return new SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TContext>>( typeof( TSignature ), ( el, ctx ) => acceptor( (TSignature) el, ctx ) );
       }
 
+      internal static SignatureTypeInfo<SignatureVertexMatchingFunctionality> NewMatchingFunctionality<TSignature>(
+         EqualityWithContext<TSignature, SignatureMatchingContext> vertexEquality,
+         params SignatureEdgeMatchingFunctionality[] edges
+         )
+         where TSignature : class, SignatureElement
+      {
+         return new SignatureTypeInfo<SignatureVertexMatchingFunctionality>( typeof( TSignature ), SignatureVertexMatchingFunctionality.NewFunctionality( vertexEquality, edges ) );
+      }
+
+   }
+
+   /// <summary>
+   /// This class holds callbacks to match signatures.
+   /// </summary>
+   public class SignatureVertexMatchingFunctionality
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="SignatureVertexMatchingFunctionality"/>.
+      /// </summary>
+      /// <param name="vertexEquality">The callback to match simple properties of </param>
+      /// <param name="edges">The edges.</param>
+      /// <exception cref="ArgumentNullException">If <paramref name="vertexEquality"/> is <c>null</c>.</exception>
+      public SignatureVertexMatchingFunctionality( AcceptElementDelegate<SignatureElement, SignatureMatchingContext> vertexEquality, params SignatureEdgeMatchingFunctionality[] edges )
+      {
+         this.VertexAcceptor = ArgumentValidator.ValidateNotNull( "Vertex equality", vertexEquality );
+         this.Edges = ( edges ?? Empty<SignatureEdgeMatchingFunctionality>.Array ).ToArrayProxy().CQ;
+      }
+
+      /// <summary>
+      /// Gets the callback used to match signature element vertices.
+      /// </summary>
+      /// <value>The callback used to match signature element vertices.</value>
+      public AcceptElementDelegate<SignatureElement, SignatureMatchingContext> VertexAcceptor { get; }
+
+      /// <summary>
+      /// Gets the array of <see cref="SignatureEdgeMatchingFunctionality"/> objects.
+      /// </summary>
+      /// <value>The array of <see cref="SignatureEdgeMatchingFunctionality"/> objects.</value>
+      public ArrayQuery<SignatureEdgeMatchingFunctionality> Edges { get; }
+
+      internal static SignatureVertexMatchingFunctionality NewFunctionality<TSignature>(
+         EqualityWithContext<TSignature, SignatureMatchingContext> vertexEquality,
+         params SignatureEdgeMatchingFunctionality[] edges
+         )
+         where TSignature : class, SignatureElement
+      {
+         return new SignatureVertexMatchingFunctionality(
+            ( el, ctx ) =>
+            {
+               var fromCtx = ctx.GetCurrentElement();
+               TSignature fromCtxTyped;
+               return ReferenceEquals( el, fromCtx )
+               || ( el != null && ( fromCtxTyped = fromCtx as TSignature ) != null
+               && vertexEquality( (TSignature) el, fromCtxTyped, ctx ) );
+            },
+            edges
+            );
+      }
+   }
+
+   /// <summary>
+   /// This class holds callbacks to match the signature element edges.
+   /// </summary>
+   public class SignatureEdgeMatchingFunctionality
+   {
+      /// <summary>
+      /// Creates new instance of <see cref="SignatureEdgeMatchingFunctionality"/>.
+      /// </summary>
+      /// <param name="edgeName">The name of the edge.</param>
+      /// <param name="enter">The callback when entering the edge.</param>
+      /// <param name="exit">The callback when exiting the edge.</param>
+      /// <exception cref="ArgumentNullException">If any of <paramref name="edgeName"/>, <paramref name="enter"/>, or <paramref name="exit"/> is <c>null</c>.</exception>
+      public SignatureEdgeMatchingFunctionality( String edgeName, AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> enter, AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> exit )
+      {
+         this.EdgeName = ArgumentValidator.ValidateNotNull( "Edge name", edgeName );
+         this.Enter = ArgumentValidator.ValidateNotNull( "Enter callback", enter );
+         this.Exit = exit ?? ( new AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext>( ( el, info, ctx ) => { ctx.CurrentElementStack.Pop(); return true; } ) );
+      }
+
+      /// <summary>
+      /// Gets the name of the edge.
+      /// </summary>
+      /// <value>The name of the edge.</value>
+      /// <remarks>
+      /// Typically the name is the name of the property, using the <c>nameof</c> operator.
+      /// </remarks>
+      public String EdgeName { get; }
+
+      /// <summary>
+      /// Gets the callback which is executed when entering the edge.
+      /// </summary>
+      /// <value>The callback which is executed when entering the edge.</value>
+      public AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> Enter { get; }
+
+      /// <summary>
+      /// Gets the callback which is executed when exiting the edge.
+      /// </summary>
+      /// <value>The callback which is executed when exiting the edge.</value>
+      public AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> Exit { get; }
+
+      private static Boolean DefaultEdgeExit( SignatureElement element, Object info, SignatureMatchingContext context )
+      {
+         context.CurrentElementStack.Pop();
+         return true;
+      }
+
+      internal static SignatureEdgeMatchingFunctionality NewFunctionalityForSimpleEdge<TSignature>( String propertyName, Func<TSignature, SignatureElement> getter )
+      {
+         return new SignatureEdgeMatchingFunctionality(
+            propertyName,
+            ( el, info, ctx ) =>
+            {
+               ctx.CurrentElementStack.Push( getter( (TSignature) ctx.GetCurrentElement() ) );
+               return true;
+            },
+            DefaultEdgeExit
+            );
+      }
+
+      internal static SignatureEdgeMatchingFunctionality NewFunctionalityForListEdge<TSignature, TListElement>( String propertyName, Func<TSignature, List<TListElement>> listGetter )
+         where TListElement : SignatureElement
+      {
+         return new SignatureEdgeMatchingFunctionality(
+            propertyName,
+            ( el, info, ctx ) =>
+            {
+               var list = listGetter( (TSignature) ctx.GetCurrentElement() );
+               ctx.CurrentElementStack.Push( list[(Int32) info] );
+               return true;
+            },
+            DefaultEdgeExit
+            );
+      }
    }
 
    /// <summary>
@@ -1092,19 +1122,82 @@ namespace CILAssemblyManipulator.Physical.Meta
 
    }
 
-   internal class SignatureMatchingContext
+   /// <summary>
+   /// This is base class for code using visitor pattern to test whether object hierarchies are equal.
+   /// </summary>
+   /// <typeparam name="TElement">The top-level type of the elements.</typeparam>
+   public class ObjectGraphEqualityContext<TElement>
    {
-
-      public SignatureMatchingContext( SignatureElement startingElement )
+      /// <summary>
+      /// Creates a new instance of <see cref="ObjectGraphEqualityContext{TElement}"/> with given starting element.
+      /// </summary>
+      /// <param name="startingElement">The starting element.</param>
+      public ObjectGraphEqualityContext( TElement startingElement )
       {
-         this.CurrentElementStack = new Stack<SignatureElement>();
+         this.CurrentElementStack = new Stack<TElement>();
          this.CurrentElementStack.Push( startingElement );
       }
 
-      public Stack<SignatureElement> CurrentElementStack { get; }
+      /// <summary>
+      /// Gets the current stack of the objects.
+      /// </summary>
+      /// <value>The current stack of the objects.</value>
+      /// <remarks>
+      /// Whenever visiting other object, on-enter-edge acceptor should push to this stack, and on-exit-edge acceptor should pop from this stack.
+      /// </remarks>
+      public Stack<TElement> CurrentElementStack { get; }
    }
 
-   internal delegate Boolean EqualityWithContext<TItem, TContext>( TItem x, TItem y, TContext context );
+   /// <summary>
+   /// This class captures context when matching two signatures.
+   /// </summary>
+   public class SignatureMatchingContext : ObjectGraphEqualityContext<SignatureElement>
+   {
+      /// <summary>
+      /// Creates a new instance of <see cref="SignatureMatchingContext"/>.
+      /// </summary>
+      /// <param name="startingElement">The starting element, not part of the visited signature.</param>
+      /// <param name="firstMD">The <see cref="CILMetaData"/> holding the visited signature.</param>
+      /// <param name="secondMD">The <see cref="CILMetaData"/> holding the <paramref name="startingElement"/>.</param>
+      /// <param name="signatureMatcher">The <see cref="Meta.SignatureMatcher"/> holding callbacks to match table indices.</param>
+      public SignatureMatchingContext( SignatureElement startingElement, CILMetaData firstMD, CILMetaData secondMD, SignatureMatcher signatureMatcher )
+         : base( startingElement )
+      {
+         this.FirstMD = ArgumentValidator.ValidateNotNull( "First meta data", firstMD );
+         this.SecondMD = ArgumentValidator.ValidateNotNull( "Second meta data", secondMD );
+
+         this.SignatureMatcher = signatureMatcher;
+      }
+
+      /// <summary>
+      /// Gets the <see cref="CILMetaData"/> holding the signature being visited.
+      /// </summary>
+      /// <value>The <see cref="CILMetaData"/> holding the signature being visited.</value>
+      public CILMetaData FirstMD { get; }
+
+      /// <summary>
+      /// Gets the <see cref="CILMetaData"/> holding the signature in <see cref="ObjectGraphEqualityContext{TElement}.CurrentElementStack"/>.
+      /// </summary>
+      /// <value>The <see cref="CILMetaData"/> holding the signature being visited.</value>
+      public CILMetaData SecondMD { get; }
+
+      /// <summary>
+      /// Gets the <see cref="Meta.SignatureMatcher"/> holding callbacks to match table indices.
+      /// </summary>
+      /// <value>The <see cref="Meta.SignatureMatcher"/> holding callbacks to match table indices.</value>
+      public SignatureMatcher SignatureMatcher { get; }
+   }
+
+   /// <summary>
+   /// This delegate represents signature for methods that check for equality for two objects with given context.
+   /// </summary>
+   /// <typeparam name="TItem">The type of objects to check equality for.</typeparam>
+   /// <typeparam name="TContext">The type of context.</typeparam>
+   /// <param name="x">The first object.</param>
+   /// <param name="y">The second object.</param>
+   /// <param name="context">The context.</param>
+   /// <returns><c>true</c> if <paramref name="x"/> is considered to be equal to <paramref name="y"/>; <c>false</c> otherwise.</returns>
+   public delegate Boolean EqualityWithContext<TItem, TContext>( TItem x, TItem y, TContext context );
 }
 
 public static partial class E_CILPhysical
@@ -1315,6 +1408,22 @@ public static partial class E_CILPhysical
       return decomposeContext.Elements;
    }
 
+   /// <summary>
+   /// Performs structural match on two signatures.
+   /// </summary>
+   /// <param name="provider">The <see cref="SignatureProvider"/>.</param>
+   /// <param name="firstMD">The <see cref="CILMetaData"/> containing the <paramref name="firstSignature"/>.</param>
+   /// <param name="firstSignature">The first <see cref="AbstractSignature"/>.</param>
+   /// <param name="secondMD">The <see cref="CILMetaData"/> containing the <paramref name="secondSignature"/>.</param>
+   /// <param name="secondSignature">the second <see cref="AbstractSignature"/>.</param>
+   /// <param name="matcher">The object capturing callbacks to perform non-structural compare.</param>
+   /// <returns>Whether <paramref name="firstSignature"/> and <paramref name="secondSignature"/> match structurally and using the given <paramref name="matcher"/>.</returns>
+   public static Boolean MatchSignatures( this SignatureProvider provider, CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
+   {
+      return provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>>()
+         .AcceptWithContext( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
+   }
+
 
    /// <summary>
    /// Extracts all <see cref="SignatureTableIndexInfo"/> related to a single signature.
@@ -1342,28 +1451,28 @@ public static partial class E_CILPhysical
       visitorAggregator.RegisterVisitor( visitor );
    }
 
-   internal static void RegisterAcceptor<TElement, TContext, TActualElement>( this TypeBasedAcceptor<TElement, TContext> acceptorAggregator, AcceptElementDelegateWithContext<TActualElement, TContext> acceptor )
+   internal static void RegisterAcceptor<TElement, TContext, TActualElement>( this TypeBasedAcceptor<TElement, TContext> acceptorAggregator, AcceptElementDelegate<TActualElement, TContext> acceptor )
       where TActualElement : TElement
    {
-      acceptorAggregator.RegisterAcceptor( typeof( TActualElement ), ( el, ctx ) => acceptor( (TActualElement) el, ctx ) );
+      acceptorAggregator.RegisterVertexAcceptor( typeof( TActualElement ), ( el, ctx ) => acceptor( (TActualElement) el, ctx ) );
    }
 
-   internal static void RegisterSignatureDecomposer<TSignature>( this TypeBasedAcceptor<SignatureElement, DecomposeSignatureContext> acceptorAggregator, AcceptElementDelegateWithContext<TSignature, DecomposeSignatureContext> acceptor )
+   internal static void RegisterSignatureDecomposer<TSignature>( this TypeBasedAcceptor<SignatureElement, DecomposeSignatureContext> acceptorAggregator, AcceptElementDelegate<TSignature, DecomposeSignatureContext> acceptor )
       where TSignature : SignatureElement
    {
       acceptorAggregator.RegisterAcceptor( acceptor );
    }
 
-   internal static void RegisterSignatureMatcher<TSignature>( this TypeBasedAcceptor<SignatureElement, SignatureMatchingContext> acceptorAggregator, Equality<TSignature> acceptor )
+   internal static void RegisterSignatureMatcher<TSignature>( this TypeBasedAcceptor<SignatureElement, SignatureMatchingContext> acceptorAggregator, EqualityWithContext<TSignature, SignatureMatchingContext> acceptor )
       where TSignature : class, SignatureElement
    {
-      acceptorAggregator.RegisterAcceptor( typeof( TSignature ), ( el, ctx ) =>
+      acceptorAggregator.RegisterVertexAcceptor( typeof( TSignature ), ( el, ctx ) =>
       {
          var fromCtx = ctx.GetCurrentElement();
          TSignature fromCtxTyped;
          return ReferenceEquals( el, fromCtx )
          || ( el != null && ( fromCtxTyped = fromCtx as TSignature ) != null
-         && acceptor( (TSignature) el, fromCtxTyped ) );
+         && acceptor( (TSignature) el, fromCtxTyped, ctx ) );
       } );
    }
 
@@ -1433,5 +1542,17 @@ public static partial class E_CILPhysical
    internal static SignatureElement GetCurrentElement( this SignatureMatchingContext ctx )
    {
       return ctx.CurrentElementStack.Peek();
+   }
+
+   internal static Boolean VisitListEdge<TElement, TEdgeElement>( this VisitElementCallbackDelegate<TElement> callback, Type edgeType, String edgeName, List<TEdgeElement> list )
+      where TEdgeElement : TElement
+   {
+      var retVal = true;
+      var max = list.Count;
+      for ( var i = 0; i < max && retVal; ++i )
+      {
+         retVal = callback.VisitCollectionEdge( list[i], edgeType, edgeName, i );
+      }
+      return retVal;
    }
 }
