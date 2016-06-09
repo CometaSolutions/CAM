@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This class provides a way to compare <see cref="DateTime"/>s with truncated precision.

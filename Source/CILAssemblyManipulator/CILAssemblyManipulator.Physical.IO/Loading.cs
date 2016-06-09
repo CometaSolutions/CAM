@@ -25,7 +25,7 @@ using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Crypto;
 using CILAssemblyManipulator.Physical.IO;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.IO;

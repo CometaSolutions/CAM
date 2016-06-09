@@ -19,7 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This class will perform reference equality matching on its target type.

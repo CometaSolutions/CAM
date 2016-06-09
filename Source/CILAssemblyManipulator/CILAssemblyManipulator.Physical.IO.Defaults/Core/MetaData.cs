@@ -29,7 +29,7 @@ using CAMPhysicalR;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;

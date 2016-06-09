@@ -16,8 +16,8 @@
  * limitations under the License. 
  */
 using System;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 using System.Threading;
 

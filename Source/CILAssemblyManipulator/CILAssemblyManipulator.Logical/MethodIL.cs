@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using CILAssemblyManipulator.Logical;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Logical.Implementation;
 

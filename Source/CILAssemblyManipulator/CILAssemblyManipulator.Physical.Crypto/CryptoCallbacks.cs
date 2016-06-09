@@ -17,13 +17,13 @@
  */
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Crypto;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CommonUtils.Numerics;
+using UtilPack.Numerics;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {

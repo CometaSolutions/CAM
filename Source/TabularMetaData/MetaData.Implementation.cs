@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using TabularMetaData.Meta;
-using CommonUtils;
+using UtilPack;
 
 namespace TabularMetaData
 {

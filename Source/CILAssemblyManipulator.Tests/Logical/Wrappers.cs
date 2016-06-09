@@ -17,7 +17,7 @@
  */
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;
-using CommonUtils;
+using UtilPack;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;

@@ -21,7 +21,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This enumeration will tell what type the <see cref="IAbstractLazy{T}"/> actually is.
@@ -101,7 +101,7 @@ namespace CommonUtils
       Boolean IsValueCreated { get; }
 
       /// <summary>
-      /// Gets the <see cref="CommonUtils.LazyKind"/> enumeration telling which lazy type this object really is.
+      /// Gets the <see cref="UtilPack.LazyKind"/> enumeration telling which lazy type this object really is.
       /// </summary>
       LazyKind LazyKind { get; }
 
@@ -181,7 +181,7 @@ namespace CommonUtils
       public abstract Boolean IsValueCreated { get; }
 
       /// <summary>
-      /// Gets the <see cref="CommonUtils.LazyKind"/> enumeration telling which lazy type this object really is.
+      /// Gets the <see cref="UtilPack.LazyKind"/> enumeration telling which lazy type this object really is.
       /// </summary>
       public abstract LazyKind LazyKind { get; }
 

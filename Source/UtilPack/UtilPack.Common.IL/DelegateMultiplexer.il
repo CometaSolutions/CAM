@@ -38,8 +38,8 @@
 //   }
 //}
 
-.class public beforefieldinit CommonUtils.DelegateMultiplexer`2<TKey, ([$DELEGATE_ASSEMBLY$]System.Delegate) TDelegate>
-    extends class CommonUtils.Multiplexer`2<!TKey, !TDelegate>
+.class public beforefieldinit UtilPack.DelegateMultiplexer`2<TKey, ([$DELEGATE_ASSEMBLY$]System.Delegate) TDelegate>
+    extends class UtilPack.Multiplexer`2<!TKey, !TDelegate>
 {
 
 
@@ -54,7 +54,7 @@
 
       IL_0000: ldarg.0
       IL_0001: ldarg.1
-      IL_0002: call instance void class CommonUtils.Multiplexer`2<!TKey, !TDelegate>::.ctor(class [$EQUALITY_COMPARER_ASSEMBLY$]System.Collections.Generic.IEqualityComparer`1<!0>)
+      IL_0002: call instance void class UtilPack.Multiplexer`2<!TKey, !TDelegate>::.ctor(class [$EQUALITY_COMPARER_ASSEMBLY$]System.Collections.Generic.IEqualityComparer`1<!0>)
       IL_0007: ret
    }
 

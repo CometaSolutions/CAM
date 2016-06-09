@@ -23,7 +23,7 @@ using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 //using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
 using CILAssemblyManipulator.Physical.Resolving;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;

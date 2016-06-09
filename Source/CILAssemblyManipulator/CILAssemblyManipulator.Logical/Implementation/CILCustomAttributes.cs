@@ -19,9 +19,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using CollectionsWithRoles.API;
-using CollectionsWithRoles.Implementation;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {

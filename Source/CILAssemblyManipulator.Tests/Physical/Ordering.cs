@@ -35,7 +35,7 @@ using System.Text;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
 using NUnit.Framework;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Tests.Physical;
 
 namespace CILAssemblyManipulator.Tests.Physical

@@ -22,8 +22,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Logical.Implementation;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical

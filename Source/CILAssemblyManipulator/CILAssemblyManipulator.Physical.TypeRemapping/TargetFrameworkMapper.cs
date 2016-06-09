@@ -23,7 +23,7 @@ using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Loading;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.TypeRemapping;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -394,7 +394,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       }
 
       /// <summary>
-      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_TargetFWAssemblies"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_TargetFWAssemblies"/> by calling <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
       /// </summary>
       /// <param name="dic">The dictionary.</param>
       /// <param name="key">The key to dictionary.</param>
@@ -406,7 +406,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       }
 
       /// <summary>
-      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_MDTypes"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_MDTypes"/> by calling <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
       /// </summary>
       /// <param name="dic">The dictionary.</param>
       /// <param name="key">The key to dictionary.</param>
@@ -418,7 +418,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       }
 
       /// <summary>
-      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_ResolvedTargetFWAssemblies"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_ResolvedTargetFWAssemblies"/> by calling <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
       /// </summary>
       /// <param name="dic">The dictionary.</param>
       /// <param name="key">The key to dictionary.</param>
@@ -430,7 +430,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       }
 
       /// <summary>
-      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_ResolvedTargetFWAssembliesInner"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_ResolvedTargetFWAssembliesInner"/> by calling <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
       /// </summary>
       /// <param name="dic">The dictionary.</param>
       /// <param name="key">The key to dictionary.</param>
@@ -442,7 +442,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       }
 
       /// <summary>
-      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_AssemblyReferences"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_AssemblyReferences"/> by calling <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
       /// </summary>
       /// <param name="dic">The dictionary.</param>
       /// <param name="key">The key to dictionary.</param>
@@ -454,7 +454,7 @@ namespace CILAssemblyManipulator.Physical.TypeRemapping
       }
 
       /// <summary>
-      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_AssemblyReferencesInner"/> by calling <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
+      /// Implements <see cref="AbstractTargetFrameworkMapper{TTypesDic, TTargetFWAssembliesDic, TResolvedTargetFWAssembliesDic, TResolvedTargetFWAssembliesDicInner, TAssemblyReferenceDic, TAssemblyReferenceDicInner}.GetOrAdd_AssemblyReferencesInner"/> by calling <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>.
       /// </summary>
       /// <param name="dic">The dictionary.</param>
       /// <param name="key">The key to dictionary.</param>

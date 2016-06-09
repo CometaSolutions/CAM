@@ -30,9 +30,8 @@ using CAMPhysicalIO;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta;
 
-using CollectionsWithRoles.API;
-using CollectionsWithRoles.Implementation;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;

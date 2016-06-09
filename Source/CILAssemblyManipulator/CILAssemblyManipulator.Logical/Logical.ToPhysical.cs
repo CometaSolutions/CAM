@@ -30,8 +30,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CommonUtils;
-using CollectionsWithRoles.API;
+using UtilPack;
+using UtilPack.CollectionsWithRoles;
 using TabularMetaData.Meta;
 
 public static partial class E_CILLogical

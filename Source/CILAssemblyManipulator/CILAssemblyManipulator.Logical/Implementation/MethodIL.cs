@@ -29,7 +29,7 @@ using CILAssemblyManipulator.Physical.IO.Defaults;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical.Implementation

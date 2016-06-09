@@ -15,8 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -650,7 +650,7 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The equality comparer to check whether two instances of <see cref="CustomAttributeTypedArgument"/> are exactly equal.</value>
       /// <remarks>
       /// Two instances of <see cref="CustomAttributeTypedArgument"/> are considered to be equal by this equality comparer when all the properties of the <see cref="CustomAttributeTypedArgument"/> are equal.
-      /// The <see cref="CustomAttributeTypedArgument.Value"/> property is equaled using <see cref="Object.Equals(Object, Object)"/> method, and arrays are equaled recursively using <see cref="E_CommonUtils.ArraysDeepEqualUntyped"/> method.
+      /// The <see cref="CustomAttributeTypedArgument.Value"/> property is equaled using <see cref="Object.Equals(Object, Object)"/> method, and arrays are equaled recursively using default equality comparer.
       /// </remarks>
       public static IEqualityComparer<CustomAttributeTypedArgument> CustomAttributeTypedArgumentEqualityComparer { get; }
 
@@ -1577,10 +1577,10 @@ namespace CILAssemblyManipulator.Physical
       private static Boolean Equality_ComplexArrayTypeSignature_NoReferenceEquals( ComplexArrayTypeSignature x, ComplexArrayTypeSignature y )
       {
          return Equality_AbstractArrayTypeSignature_NoReferenceEquals( x, y )
-            && Equality_ComplexArrayInfo(x.ComplexArrayInfo, y.ComplexArrayInfo);
+            && Equality_ComplexArrayInfo( x.ComplexArrayInfo, y.ComplexArrayInfo );
       }
 
-      private static Boolean Equality_ComplexArrayInfo(ComplexArrayInfo x, ComplexArrayInfo y)
+      private static Boolean Equality_ComplexArrayInfo( ComplexArrayInfo x, ComplexArrayInfo y )
       {
          return ReferenceEquals( x, y )
             || ( x != null && y != null
@@ -2246,10 +2246,10 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeSignature x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + HashCode_ComplexArrayInfo(x.ComplexArrayInfo) ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
+         return x == null ? 0 : ( ( 17 * 23 + HashCode_ComplexArrayInfo( x.ComplexArrayInfo ) ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
       }
 
-      private static Int32 HashCode_ComplexArrayInfo(ComplexArrayInfo x)
+      private static Int32 HashCode_ComplexArrayInfo( ComplexArrayInfo x )
       {
          return x == null ? 0 : ( ( 17 * 23 + x.Rank ) * 23 + ListEqualityComparer<List<Int32>, Int32>.GetHashCode( x.Sizes ) );
       }

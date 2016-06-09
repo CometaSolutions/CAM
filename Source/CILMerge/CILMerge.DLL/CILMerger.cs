@@ -45,7 +45,7 @@ using System.Xml.Linq;
 using System.Xml.XPath;
 using CILAssemblyManipulator.Physical.MResources;
 using CILAssemblyManipulator.Physical.PDB;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 using System.Runtime.InteropServices;
 using System.Diagnostics;

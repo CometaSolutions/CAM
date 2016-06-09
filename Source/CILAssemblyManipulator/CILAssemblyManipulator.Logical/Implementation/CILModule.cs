@@ -20,9 +20,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
-using CollectionsWithRoles.API;
+using UtilPack.CollectionsWithRoles;
 
 #if !CAM_LOGICAL_IS_SL
 using System.Collections.Concurrent;

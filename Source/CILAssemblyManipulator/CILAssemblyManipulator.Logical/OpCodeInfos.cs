@@ -19,7 +19,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using CILAssemblyManipulator.Logical;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical

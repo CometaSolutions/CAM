@@ -27,7 +27,7 @@ using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
-using CommonUtils;
+using UtilPack;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;

@@ -18,7 +18,7 @@
 using System;
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Logical.Implementation;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical

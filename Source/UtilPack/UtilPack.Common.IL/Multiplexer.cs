@@ -21,7 +21,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace CommonUtils
+namespace UtilPack
 {
    ///// <summary>
    ///// This is helper class to hold multiplexed values of <see cref="Multiplexer"/>.

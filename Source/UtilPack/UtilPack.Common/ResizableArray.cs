@@ -15,14 +15,14 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This is helper class to hold an array, which can be resized.
@@ -166,7 +166,7 @@ namespace CommonUtils
    }
 }
 
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    /// <summary>
    /// Helper method to ensure that given <see cref="ResizableArray{T}"/> will have at least <paramref name="currentIndex"/> + <paramref name="amountToAdd"/> elements.

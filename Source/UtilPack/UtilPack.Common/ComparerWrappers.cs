@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// Helper class wrapping a generic <see cref="IEqualityComparer{T}"/>, and implementing both generic <see cref="IEqualityComparer{T}"/> and non-generic <see cref="System.Collections.IEqualityComparer"/>.

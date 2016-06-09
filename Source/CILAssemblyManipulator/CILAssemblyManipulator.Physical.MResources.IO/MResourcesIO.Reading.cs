@@ -20,9 +20,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical.MResources;
-using CollectionsWithRoles.API;
+using UtilPack.CollectionsWithRoles;
 
 namespace CILAssemblyManipulator.Physical.MResources
 {

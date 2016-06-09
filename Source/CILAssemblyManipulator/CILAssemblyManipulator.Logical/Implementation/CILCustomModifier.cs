@@ -17,7 +17,7 @@
  */
 using System;
 using System.Threading;
-using CommonUtils;
+using UtilPack;
 
 namespace CILAssemblyManipulator.Logical.Implementation
 {

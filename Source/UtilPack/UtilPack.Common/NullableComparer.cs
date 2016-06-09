@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This class provides equality comparer functionality for nullable types.

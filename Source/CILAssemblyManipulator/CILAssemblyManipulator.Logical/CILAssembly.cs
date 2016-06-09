@@ -22,8 +22,8 @@ using System.Runtime.Versioning;
 using System.Threading;
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Logical.Implementation;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical

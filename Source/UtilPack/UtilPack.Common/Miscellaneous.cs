@@ -19,10 +19,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 using System.Threading;
 
-namespace CommonUtils
+namespace UtilPack
 {
 
 #if SILVERLIGHT
@@ -95,7 +95,7 @@ namespace CommonUtils
 
 }
 
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    private const Int32 NO_TIMEOUT = -1;
    private const Int32 DEFAULT_TICK = 50;

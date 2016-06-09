@@ -20,12 +20,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 
 /// <summary>
 /// Helper class to contain useful extension methods that should be directly visible to users of this assembly.
 /// </summary>
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    /// <summary>
    /// Writes whole contents of <paramref name="array"/> to <paramref name="stream"/>.

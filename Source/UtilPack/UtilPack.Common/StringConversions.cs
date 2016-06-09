@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This class contains useful methods to convert things to and from strings, including e.g. hexadecimal and base64 conversions.

@@ -1,6 +1,6 @@
 ﻿using CILAssemblyManipulator.Physical;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 /*
 * Copyright 2013 Stanislav Muhametsin. All rights Reserved.
 *
@@ -912,7 +912,7 @@ namespace CILAssemblyManipulator.Physical
 
       static OpCodes()
       {
-         var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
+         var cf = UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
 
          var Pop0 = cf.NewArrayProxyFromParams<StackValueKind>().CQ;
          var Pop1 = cf.NewArrayProxyFromParams( StackValueKind.Value ).CQ;

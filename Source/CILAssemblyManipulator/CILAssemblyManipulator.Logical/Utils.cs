@@ -21,9 +21,9 @@ using CILAssemblyManipulator.Logical.Implementation;
 using System.Text;
 using System.Collections.Generic;
 using CILAssemblyManipulator.Physical;
-using CollectionsWithRoles.API;
+using UtilPack.CollectionsWithRoles;
 using System.Runtime.InteropServices;
-using CommonUtils;
+using UtilPack;
 
 namespace CILAssemblyManipulator.Logical
 {

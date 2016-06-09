@@ -19,7 +19,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// Extension method holder to enumerate graphs as depth first IEnumerables and breadth first IEnumerables. Additionally contains method to enumerate single chain as enumerable.

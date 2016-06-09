@@ -21,8 +21,8 @@ using CAMPhysical::CILAssemblyManipulator.Physical;
 
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,7 +30,7 @@ using System.Text;
 using System.Threading;
 
 using TRVA = System.UInt32;
-using TRVAList = CollectionsWithRoles.API.ArrayQuery<System.Int64>;
+using TRVAList = UtilPack.CollectionsWithRoles.ArrayQuery<System.Int64>;
 
 namespace CILAssemblyManipulator.Physical.IO
 {
@@ -3104,7 +3104,7 @@ public static partial class E_CILPhysical
       {
          array[i] = singleElementReader( stream );
       }
-      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( array ).CQ;
+      return UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( array ).CQ;
    }
 
    //[CLSCompliant( false )]
@@ -3115,7 +3115,7 @@ public static partial class E_CILPhysical
       {
          retVal[i] = singleElementReader( array, ref idx );
       }
-      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( retVal ).CQ;
+      return UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( retVal ).CQ;
    }
 
    /// <summary>
@@ -3140,7 +3140,7 @@ public static partial class E_CILPhysical
    public static SectionHeader ReadSectionHeader( this StreamHelper stream )
    {
       return new SectionHeader(
-         CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( stream.ReadAndCreateArray( 8 ) ).CQ,
+         UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( stream.ReadAndCreateArray( 8 ) ).CQ,
          stream.ReadRVAFromBytes(),
          stream.ReadRVAFromBytes(),
          stream.ReadUInt32LEFromBytes(),
@@ -3506,7 +3506,7 @@ public static partial class E_CILPhysical
 
    private static ArrayQuery<Byte> ReadAndCreateArrayQuery( this StreamHelper stream, UInt32 len )
    {
-      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( stream.ReadAndCreateArray( (Int32) len ) ).CQ;
+      return UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( stream.ReadAndCreateArray( (Int32) len ) ).CQ;
    }
 
    private static ArrayQuery<Byte> ReadMDStreamHeaderName( this StreamHelper stream, Int32 maxLength )
@@ -3520,7 +3520,7 @@ public static partial class E_CILPhysical
       // Skip to next 4-byte boundary
       stream.SkipToNextAlignmentInt32();
 
-      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
+      return UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
 
    }
 

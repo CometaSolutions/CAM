@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 
 namespace CILAssemblyManipulator.Physical.PDB
 {

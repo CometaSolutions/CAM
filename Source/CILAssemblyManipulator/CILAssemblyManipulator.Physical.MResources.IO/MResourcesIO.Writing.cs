@@ -20,8 +20,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CommonUtils;
-using CollectionsWithRoles.API;
+using UtilPack;
+using UtilPack.CollectionsWithRoles;
 using CILAssemblyManipulator.Physical.MResources;
 
 

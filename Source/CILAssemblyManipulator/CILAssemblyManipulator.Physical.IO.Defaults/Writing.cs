@@ -27,14 +27,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 using System.Threading;
 using System.IO;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Meta;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.IO.Defaults;
-using CollectionsWithRoles.API;
+using UtilPack.CollectionsWithRoles;
 using TabularMetaData;
 
 namespace CILAssemblyManipulator.Physical.IO.Defaults
@@ -1186,7 +1186,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
             }
          }
 
-         var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
+         var cf = UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
 
          var range = max - min;
          this._rows = rows;
@@ -3242,7 +3242,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// Creates a dictionary to use for <see cref="TableSerializationBinaryFunctionalityCreationArgs"/>.
       /// </summary>
       /// <param name="mdStreams">The <see cref="WriterMetaDataStreamContainer"/>.</param>
-      /// <returns>The dictionary created from all streams in given <paramref name="mdStreams"/> with <see cref="E_CommonUtils.ToDictionary_Preserve"/> method.</returns>
+      /// <returns>The dictionary created from all streams in given <paramref name="mdStreams"/> with later entries with same name being discarded.</returns>
       protected virtual IDictionary<String, Int32> CreateSerializationCreationArgsStreamDictionary(
          WriterMetaDataStreamContainer mdStreams
          )
@@ -3434,7 +3434,7 @@ public static partial class E_CILPhysical
             ++idx;
          }
       }
-      return CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
+      return UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewArrayProxy( bytez ).CQ;
    }
 
    internal static ArrayQuery<Int32> CreateTableSizeArray( this IEnumerable<TableSerializationLogicalFunctionality> infos, CILMetaData md )

@@ -27,8 +27,8 @@ using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO.Defaults;
 using CILAssemblyManipulator.Physical.Meta;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -2467,7 +2467,7 @@ public static partial class E_CILPhysical
    public static DataReferencesInfo CreateDataReferencesInfo<T>( this ColumnValueStorage<T> valueStorage, Func<T, Int64> converter )
    {
 
-      var cf = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
+      var cf = UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY;
       var dic = new Dictionary<
          Tables,
          ArrayQuery<ArrayQuery<Int64>>

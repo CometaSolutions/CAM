@@ -15,15 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CommonUtils.Numerics;
-using CommonUtils.Numerics.Calculations;
+using UtilPack.Numerics;
+using UtilPack.Numerics.Calculations;
 
-namespace CommonUtils.Numerics.Calculations
+namespace UtilPack.Numerics.Calculations
 {
 #pragma warning disable 1591
    [CLSCompliant( false )]

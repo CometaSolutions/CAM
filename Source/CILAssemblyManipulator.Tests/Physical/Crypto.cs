@@ -16,13 +16,13 @@
  * limitations under the License. 
  */
 using CILAssemblyManipulator.Physical.Crypto;
-using CommonUtils;
+using UtilPack;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CommonUtils.Numerics;
+using UtilPack.Numerics;
 
 namespace CILAssemblyManipulator.Tests.Physical
 {

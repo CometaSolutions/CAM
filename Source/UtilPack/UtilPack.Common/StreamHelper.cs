@@ -15,14 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This class combines together the stream and the accessible buffer to read data into.
@@ -252,7 +252,7 @@ namespace CommonUtils
    }
 }
 
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    /// <summary>
    /// Tries to peek whether the next byte is expected byte. If next byte read is successful, but the byte read differs from expected, stream position is decreased by one.

@@ -15,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// Provides an easy way to create (equality) comparer based on lambdas.
@@ -260,7 +260,7 @@ namespace CommonUtils
    }
 }
 
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    /// <summary>
    /// This is helper method, which checks whether one or both of the given objects are <c>null</c>, and if so, assigns comparison result appropriate to this <see cref="NullSorting"/> enumeration, and returns <c>false</c>.

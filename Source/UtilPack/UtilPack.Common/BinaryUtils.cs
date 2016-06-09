@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This class provides utility methods related to binary operations, which are not sensible to create as extension methods.
@@ -438,10 +438,10 @@ namespace CommonUtils
       /// </summary>
       /// <param name="value">The integer value.</param>
       /// <returns>The amount of bytes needed to encode <paramref name="value"/> using 7-bit encoding.</returns>
-      /// <seealso cref="E_CommonUtils.WriteInt32LEEncoded7Bit"/>
-      /// <seealso cref="E_CommonUtils.WriteInt32BEEncoded7Bit"/>
-      /// <seealso cref="E_CommonUtils.ReadInt32LEEncoded7Bit"/>
-      /// <seealso cref="E_CommonUtils.ReadInt32BEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.WriteInt32LEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.WriteInt32BEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.ReadInt32LEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.ReadInt32BEEncoded7Bit"/>
       public static Int32 Calculate7BitEncodingLength( Int32 value )
       {
          return ( Log2( unchecked((UInt32) value) ) / 7 ) + 1;
@@ -452,10 +452,10 @@ namespace CommonUtils
       /// </summary>
       /// <param name="value">The integer value.</param>
       /// <returns>The amount of bytes needed to encode <paramref name="value"/> using 7-bit encoding.</returns>
-      /// <seealso cref="E_CommonUtils.WriteInt64LEEncoded7Bit"/>
-      /// <seealso cref="E_CommonUtils.WriteInt64BEEncoded7Bit"/>
-      /// <seealso cref="E_CommonUtils.ReadInt64LEEncoded7Bit"/>
-      /// <seealso cref="E_CommonUtils.ReadInt64BEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.WriteInt64LEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.WriteInt64BEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.ReadInt64LEEncoded7Bit"/>
+      /// <seealso cref="E_UtilPack.ReadInt64BEEncoded7Bit"/>
       public static Int32 Calculate7BitEncodingLength( Int64 value )
       {
          return ( Log2( unchecked((UInt64) value) ) / 7 ) + 1;

@@ -17,9 +17,10 @@
  */
 using System;
 using System.Collections.Generic;
-using CollectionsWithRoles.API;
+using UtilPack.CollectionsWithRoles;
+using UtilPack.CollectionsWithRoles.Implementation;
 
-namespace CollectionsWithRoles.Implementation
+namespace UtilPack.CollectionsWithRoles.Implementation
 {
    internal class CollectionsFactoryImpl : CollectionsFactory
    {
@@ -40,7 +41,7 @@ namespace CollectionsWithRoles.Implementation
 
       public virtual DictionaryWithRoles<TKey, TValue, TValueQuery, TValueImmutable> NewDictionary<TKey, TValue, TValueQuery, TValueImmutable>( IDictionary<TKey, TValue> dictionary = null )
          where TValue : Mutable<TValueQuery, TValueImmutable>
-         where TValueQuery : API.MutableQuery<TValueImmutable>
+         where TValueQuery : CollectionsWithRoles.MutableQuery<TValueImmutable>
       {
          var dicIQ = new DictionaryImmutableQueryImpl<TKey, TValue, TValueQuery, TValueImmutable>( dictionary ?? new Dictionary<TKey, TValue>() );
          return new DictionaryWithRolesImpl<TKey, TValue, TValueQuery, TValueImmutable>( new DictionaryQueryOfMutablesImpl<TKey, TValue, TValueQuery, TValueImmutable>( dicIQ, new DictionaryQueryOfQueriesImpl<TKey, TValue, TValueQuery, TValueImmutable>( dicIQ ) ) );
@@ -123,14 +124,5 @@ namespace CollectionsWithRoles.Implementation
       #endregion
    }
 
-   /// <summary>
-   /// Class that exposes the <see cref="CollectionsFactory"/> singleton.
-   /// </summary>
-   public static class CollectionsFactorySingleton
-   {
-      /// <summary>
-      /// Provides access to singleton <see cref="CollectionsFactory"/> implementation.
-      /// </summary>
-      public static readonly CollectionsFactory DEFAULT_COLLECTIONS_FACTORY = new CollectionsFactoryImpl();
-   }
+
 }

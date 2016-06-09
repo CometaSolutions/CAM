@@ -31,7 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 using System.IO;
 using CILAssemblyManipulator.Logical;
 using System.Threading;
@@ -174,7 +174,7 @@ namespace CILAssemblyManipulator.Logical
       }
 
       /// <summary>
-      /// This method uses <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{T,U}(IDictionary{T,U}, T, Func{T,U})"/> extension method to get or load <see cref="LogicalAssemblyCreationResult"/> from dictionary.
+      /// This method uses <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{T,U}(IDictionary{T,U}, T, Func{T,U})"/> extension method to get or load <see cref="LogicalAssemblyCreationResult"/> from dictionary.
       /// </summary>
       /// <param name="resource">The key to dictionary.</param>
       /// <param name="factory">The factory callback for dictionary.</param>
@@ -206,7 +206,7 @@ namespace CILAssemblyManipulator.Logical
       }
 
       /// <summary>
-      /// This method uses <see cref="E_CommonUtils.GetOrAdd_WithLock{T,U}(IDictionary{T, U}, T, Func{T,U}, Object)"/> extension method to get or load <see cref="LogicalAssemblyCreationResult"/> from dictionary.
+      /// This method uses <see cref="E_UtilPack.GetOrAdd_WithLock{T,U}(IDictionary{T, U}, T, Func{T,U}, Object)"/> extension method to get or load <see cref="LogicalAssemblyCreationResult"/> from dictionary.
       /// </summary>
       /// <param name="resource">The key to dictionary.</param>
       /// <param name="factory">The factory callback for dictionary.</param>

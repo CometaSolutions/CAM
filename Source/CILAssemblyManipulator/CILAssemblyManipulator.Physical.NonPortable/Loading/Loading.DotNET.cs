@@ -33,7 +33,7 @@ using CAMPhysicalIO::CILAssemblyManipulator.Physical.Loading;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Crypto;
 using CILAssemblyManipulator.Physical.Loading;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

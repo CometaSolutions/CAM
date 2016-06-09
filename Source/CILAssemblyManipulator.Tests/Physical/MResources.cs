@@ -22,7 +22,7 @@ using CAMPhysicalM;
 using CAMPhysicalM::CILAssemblyManipulator.Physical.MResources;
 
 using CILAssemblyManipulator.Physical.MResources;
-using CommonUtils;
+using UtilPack;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;

@@ -24,7 +24,7 @@ using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Structural;
 using CILAssemblyManipulator.Tests.Logical;
 using CILAssemblyManipulator.Physical.IO;
-using CommonUtils;
+using UtilPack;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;

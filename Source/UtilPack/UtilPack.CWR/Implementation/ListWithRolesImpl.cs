@@ -17,9 +17,9 @@
  */
 using System;
 using System.Collections.Generic;
-using CollectionsWithRoles.API;
+using UtilPack.CollectionsWithRoles;
 
-namespace CollectionsWithRoles.Implementation
+namespace UtilPack.CollectionsWithRoles.Implementation
 {
    internal class ListWithRolesImpl<TValue, TValueQuery, TValueImmutable> : CollectionWithRolesImpl<IList<TValue>, ListQueryOfMutables<TValue, TValueQuery, TValueImmutable>, ListQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable>, ListQueryOfQueries<TValueQuery, TValueImmutable>, ListQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, ListWithRoles<TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>

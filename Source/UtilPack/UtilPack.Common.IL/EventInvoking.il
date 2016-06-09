@@ -107,7 +107,7 @@
    //   return result;
    //}
 
-.class public auto ansi abstract sealed beforefieldinit E_CommonUtils
+.class public auto ansi abstract sealed beforefieldinit E_UtilPack
    extends [$OBJECT_ASSEMBLY$]System.Object
 {
 .method public hidebysig static 

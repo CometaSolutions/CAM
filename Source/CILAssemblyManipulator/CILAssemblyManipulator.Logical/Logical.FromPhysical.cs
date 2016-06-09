@@ -30,7 +30,7 @@ using CILAssemblyManipulator.Physical.IO;
 
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Physical;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.IO;

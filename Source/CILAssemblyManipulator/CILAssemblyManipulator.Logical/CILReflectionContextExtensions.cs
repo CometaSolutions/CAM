@@ -21,8 +21,8 @@ using System.IO;
 using System.Linq;
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Logical.Implementation;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 using System.Threading;
 

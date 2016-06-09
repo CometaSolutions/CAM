@@ -23,7 +23,7 @@ using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.IO;
 using CILAssemblyManipulator.Physical.Crypto;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.IO;

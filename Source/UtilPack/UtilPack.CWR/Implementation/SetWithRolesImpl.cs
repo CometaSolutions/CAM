@@ -18,10 +18,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 
-namespace CollectionsWithRoles.Implementation
+namespace UtilPack.CollectionsWithRoles.Implementation
 {
    internal class SetWithRolesImpl<TValue, TValueQuery, TValueImmutable> : CollectionWithRolesImpl<ISet<TValue>, SetQueryOfMutables<TValue, TValueQuery, TValueImmutable>, SetQueryOfMutablesImpl<TValue, TValueQuery, TValueImmutable>, SetQueryOfQueries<TValueQuery, TValueImmutable>, SetQuery<TValueImmutable>, TValue, TValueQuery, TValueImmutable>, SetWithRoles<TValue, TValueQuery, TValueImmutable>
       where TValue : Mutable<TValueQuery, TValueImmutable>

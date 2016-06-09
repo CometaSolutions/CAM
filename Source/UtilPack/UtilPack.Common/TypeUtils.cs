@@ -20,9 +20,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    /// <summary>
    /// Returns generic definition of <paramref name="type"/> if <see cref="System.Type.IsGenericType"/> returns <c>true</c> for <paramref name="type"/>.
@@ -574,7 +574,7 @@ public static partial class E_CommonUtils
    /// <param name="types">The types to check.</param>
    /// <returns>Only bottom-most types in type hierarchy of <paramref name="types"/>.</returns>
    /// <remarks>
-   /// This method uses <see cref="E_CommonUtils.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
+   /// This method uses <see cref="E_UtilPack.IsAssignableFrom_IgnoreGenericArgumentsForGenericTypes"/> to check whether one type is assignable from another.
    /// </remarks>
    public static Type[] GetBottomTypes( this IEnumerable<Type> types )
    {

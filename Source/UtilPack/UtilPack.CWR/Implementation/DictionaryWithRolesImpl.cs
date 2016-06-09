@@ -19,10 +19,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 
-namespace CollectionsWithRoles.Implementation
+namespace UtilPack.CollectionsWithRoles.Implementation
 {
    [DebuggerDisplay( "Count = {_state.dictionary.Count}" ), DebuggerTypeProxy( typeof( DictionaryWithRolesDebugView<,,,> ) )]
    internal class DictionaryWithRolesImpl<TKey, TValue, TValueQuery, TValueImmutable> : CollectionMutableImpl<IDictionary<TKey, TValue>, KeyValuePair<TKey, TValue>, DictionaryQueryOfMutables<TKey, TValue, TValueQuery, TValueImmutable>, DictionaryQueryOfMutablesImpl<TKey, TValue, TValueQuery, TValueImmutable>>, DictionaryWithRoles<TKey, TValue, TValueQuery, TValueImmutable>

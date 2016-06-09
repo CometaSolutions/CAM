@@ -23,7 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// Helper class to easily verify whether some method parameter is <c>null</c> or empty.

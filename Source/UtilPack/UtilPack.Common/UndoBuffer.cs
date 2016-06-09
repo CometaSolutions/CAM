@@ -20,9 +20,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using CommonUtils;
+using UtilPack;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This undo buffer implementation only stores whatever undo units your application uses.
@@ -597,7 +597,7 @@ namespace CommonUtils
    }
 }
 
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    /// <summary>
    /// Helper method to check whether given <see cref="UndoUnitBuffer{T}"/> can perform an undo operation.

@@ -32,7 +32,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using CILAssemblyManipulator.Physical.PDB;
-using CommonUtils;
+using UtilPack;
 
 namespace CILMerge
 {

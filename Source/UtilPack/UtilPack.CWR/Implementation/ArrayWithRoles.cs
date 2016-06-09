@@ -19,11 +19,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System.Diagnostics;
 
-namespace CollectionsWithRoles.Implementation
+namespace UtilPack.CollectionsWithRoles.Implementation
 {
 
    [DebuggerDisplay( "Count = {_state.array.Length}" ), DebuggerTypeProxy( typeof( ArrayMutableDebugView<,,> ) )]

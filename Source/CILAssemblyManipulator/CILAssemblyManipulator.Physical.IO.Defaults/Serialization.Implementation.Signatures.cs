@@ -25,7 +25,7 @@ using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 using CAMPhysicalIO;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 using System;
 using System.Collections.Generic;

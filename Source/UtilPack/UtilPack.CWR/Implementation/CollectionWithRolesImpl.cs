@@ -20,12 +20,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 
-namespace CollectionsWithRoles.Implementation
+namespace UtilPack.CollectionsWithRoles.Implementation
 {
-   [DebuggerDisplay( "Count = {_state.collection.Count}" ), DebuggerTypeProxy( typeof( CollectionMutableDebugView<,,,> ) )]
+   [DebuggerDisplay( "Count = {CQImpl.Count}" ), DebuggerTypeProxy( typeof( CollectionMutableDebugView<,,,> ) )]
    internal class CollectionMutableImpl<TCollection, TValue, TCollectionQuery, TCollectionQueryImpl> : CollectionMutable<TValue, TCollectionQuery>
       where TCollection : class, ICollection<TValue>
       where TCollectionQuery : class, CollectionQuery<TValue>

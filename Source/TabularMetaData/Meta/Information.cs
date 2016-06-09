@@ -15,9 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-using CollectionsWithRoles.API;
-using CollectionsWithRoles.Implementation;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;

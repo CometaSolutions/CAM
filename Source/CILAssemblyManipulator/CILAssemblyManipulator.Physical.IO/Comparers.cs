@@ -20,8 +20,8 @@ using CAMPhysical;
 using CAMPhysical::CILAssemblyManipulator.Physical;
 
 using CILAssemblyManipulator.Physical.IO;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;

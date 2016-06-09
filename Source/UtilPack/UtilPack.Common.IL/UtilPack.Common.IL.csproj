@@ -6,7 +6,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{50b4b609-aea4-47dc-b608-9364d0b6c06b}</ProjectGuid>
+    <ProjectGuid>{50B4B609-AEA4-47DC-B608-9364D0B6C06B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>UtilPack</RootNamespace>
@@ -63,6 +63,8 @@
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="Assemblies.xml" />
+    <Compile Include="Assemblies.il" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Multiplexer.cs" />
     <Compile Include="DelegateMultiplexer.il" />

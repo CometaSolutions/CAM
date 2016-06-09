@@ -24,9 +24,8 @@ using CAMPhysical::CILAssemblyManipulator.Physical.Meta;
 using CAMPhysicalR;
 using CAMPhysicalR::CILAssemblyManipulator.Physical.Resolving;
 
-using CollectionsWithRoles.API;
-using CollectionsWithRoles.Implementation;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.Linq;

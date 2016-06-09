@@ -19,7 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This is delegate used in equality comparisons when getting hash code is not required.

@@ -21,7 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using CommonUtils.Numerics;
+using UtilPack.Numerics;
 
 namespace CILAssemblyManipulator.Tests.UtilPack
 {

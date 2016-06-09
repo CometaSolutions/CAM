@@ -18,12 +18,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CommonUtils;
+using UtilPack;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
-   /// This is enumeration to use when deciding how to handle duplicate key values in <see cref="E_CommonUtils.ToDictionary"/> method.
+   /// This is enumeration to use when deciding how to handle duplicate key values in <see cref="E_UtilPack.ToDictionary"/> method.
    /// </summary>
    public enum CollectionOverwriteStrategy
    {
@@ -72,7 +72,7 @@ namespace CommonUtils
    }
 }
 
-public static partial class E_CommonUtils
+public static partial class E_UtilPack
 {
    /// <summary>
    /// Gets or adds value from <paramref name="dictionary"/> given a <paramref name="key"/>, using <paramref name="valueFactory"/> as value factory. Not threadsafe.

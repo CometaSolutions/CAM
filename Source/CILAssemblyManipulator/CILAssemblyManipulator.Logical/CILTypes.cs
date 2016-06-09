@@ -20,9 +20,8 @@ using System.Collections.Generic;
 using System.Linq;
 using CILAssemblyManipulator.Logical;
 using CILAssemblyManipulator.Logical.Implementation;
-using CollectionsWithRoles.API;
-using CommonUtils;
-using CollectionsWithRoles.Implementation;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 using CILAssemblyManipulator.Physical;
 
 namespace CILAssemblyManipulator.Logical

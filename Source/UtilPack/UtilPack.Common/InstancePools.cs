@@ -21,7 +21,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// This is common interface for classes providing instance pool functionality for types which are reference types.

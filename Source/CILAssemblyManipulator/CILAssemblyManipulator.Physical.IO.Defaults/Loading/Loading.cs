@@ -31,7 +31,7 @@ using CAMPhysicalIO::CILAssemblyManipulator.Physical.Loading;
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Crypto;
 using CILAssemblyManipulator.Physical.IO;
-using CommonUtils;
+using UtilPack;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -255,7 +255,7 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <param name="factory">The factory to create value, if needed.</param>
       /// <returns>The existing or created <see cref="CILMetaData"/>.</returns>
       /// <remarks>
-      /// This method uses <see cref="E_CommonUtils.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/> method to get or create the <see cref="CILMetaData"/>.
+      /// This method uses <see cref="M:E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/> method to get or create the <see cref="CILMetaData"/>.
       /// </remarks>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetOrAddFromCache"/>
       protected override CILMetaData GetOrAddFromCache( String resource, Func<String, CILMetaData> factory )
@@ -316,7 +316,7 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <param name="factory">The factory to create value, if needed.</param>
       /// <returns>The existing or created <see cref="CILMetaData"/>.</returns>
       /// <remarks>
-      /// This method uses <see cref="E_CommonUtils.GetOrAdd_WithLock{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue}, object)"/> method to get or create the <see cref="CILMetaData"/>.
+      /// This method uses <see cref="M:E_UtilPack.GetOrAdd_WithLock{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue}, object)"/> method to get or create the <see cref="CILMetaData"/>.
       /// </remarks>
       /// <seealso cref="AbstractCILMetaDataLoader{TDictionary}.GetOrAddFromCache"/>
       protected override CILMetaData GetOrAddFromCache( String resource, Func<String, CILMetaData> factory )

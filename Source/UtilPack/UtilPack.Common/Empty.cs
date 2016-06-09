@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace CommonUtils
+namespace UtilPack
 {
    /// <summary>
    /// Helper class to provide easy access to cached empty array and <see cref="IEnumerable{T}"/>.

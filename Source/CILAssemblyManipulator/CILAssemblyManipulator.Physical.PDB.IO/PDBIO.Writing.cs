@@ -35,7 +35,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical.PDB;
 using TStreamInfo = System.Tuple<System.Int32, System.Int32[]>;
 using TSourceHeaderInfo = System.Tuple<System.Int32, System.Int32, System.Int32, CILAssemblyManipulator.Physical.PDB.PDBSource>;

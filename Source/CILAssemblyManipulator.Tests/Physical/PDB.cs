@@ -38,7 +38,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical.IO;
 using CAMPhysicalIO::CILAssemblyManipulator.Physical.IO;
 using System.Diagnostics.SymbolStore;

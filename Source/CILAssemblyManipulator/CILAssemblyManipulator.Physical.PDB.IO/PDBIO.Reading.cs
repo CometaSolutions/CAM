@@ -20,7 +20,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using CommonUtils;
+using UtilPack;
 using CILAssemblyManipulator.Physical.IO; // Only for compressed integers.
 
 namespace CILAssemblyManipulator.Physical.PDB

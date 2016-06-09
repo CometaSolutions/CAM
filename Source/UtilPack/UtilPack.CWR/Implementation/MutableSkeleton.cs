@@ -17,10 +17,10 @@
  */
 using System;
 using System.Diagnostics;
-using CollectionsWithRoles.API;
-using CommonUtils;
+using UtilPack.CollectionsWithRoles;
+using UtilPack;
 
-namespace CollectionsWithRoles.Implementation
+namespace UtilPack.CollectionsWithRoles.Implementation
 {
    /// <summary>
    /// This is skeleton implementation for any <c>command</c> role to be used with collections that support Command-Query Separation.

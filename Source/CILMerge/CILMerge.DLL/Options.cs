@@ -21,7 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using CILAssemblyManipulator.Physical;
-using CommonUtils;
+using UtilPack;
 using CILMerge;
 
 namespace CILMerge
