@@ -60,10 +60,10 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml" />
-    <Reference Include="CommonUtils" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+    <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
     </Reference>
-    <Reference Include="CollectionsWithRoles" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+    <Reference Include="CollectionsWithRoles_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
     </Reference>
     <Reference Include="TabularMetaData_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
@@ -129,13 +129,13 @@
       <Project>{F8BA1950-209D-477F-83D6-3F969C0CBEE6}</Project>
       <Name>CILAssemblyManipulator.Physical.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\..\UtilPack\CollectionsWithRoles\UtilPack.CWR.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
-      <Name>CollectionsWithRoles</Name>
+      <Name>UtilPack.CWR</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\..\UtilPack\CommonUtils\UtilPack.Common.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
-      <Name>CommonUtils</Name>
+      <Name>UtilPack.Common</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -86,13 +86,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\UtilPack\CollectionsWithRoles\CollectionsWithRoles.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\..\UtilPack\CollectionsWithRoles\UtilPack.CWR.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
-      <Name>CollectionsWithRoles</Name>
+      <Name>UtilPack.CWR</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\UtilPack\CommonUtils\CommonUtils.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\..\UtilPack\CommonUtils\UtilPack.Common.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
-      <Name>CommonUtils</Name>
+      <Name>UtilPack.Common</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\TabularMetaData\TabularMetaData.csproj">
       <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>

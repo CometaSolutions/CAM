@@ -63,9 +63,9 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- A reference to the entire .NET Framework is automatically included -->
-    <ProjectReference Include="..\CommonUtils\CommonUtils.csproj">
+    <ProjectReference Include="..\CommonUtils\UtilPack.Common.csproj">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
-      <Name>CommonUtils</Name>
+      <Name>UtilPack.Common</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
