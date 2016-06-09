@@ -63,7 +63,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    public abstract class BlockDigestAlgorithmWithMessageLength : AbstractDisposable, BlockDigestAlgorithm
    {
 
-      private static readonly LocklessInstancePoolForClasses<ResizableArray<Byte>> Arrays = new LocklessInstancePoolForClasses<ResizableArray<Byte>>();
+      private static readonly DefaultLocklessInstancePoolForClasses<ResizableArray<Byte>> Arrays = new DefaultLocklessInstancePoolForClasses<ResizableArray<Byte>>();
 
       private readonly Byte[] _block;
       private UInt64 _count;

@@ -1508,7 +1508,7 @@ namespace CILMerge
             };
 
             // Locals signature might change -> so create a copy
-            var locals = this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx )?.CreateDeepCopy() ?? new LocalVariablesSignature();
+            var locals = this._targetModule.SignatureProvider.CreateCopy( this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx ), true ) ?? new LocalVariablesSignature();
             var originalLocalCount = locals.Locals.Count;
 
             // TODO this could be generalized as appending IL from one method at the end of the another method.
@@ -1650,7 +1650,7 @@ namespace CILMerge
             var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
             if ( sourceSig != null && sourceSig.Locals.Count > 0 )
             {
-               targetLocals.Locals.AddRange( sourceSig.CreateDeepCopy( tIdx => thisMappings[tIdx] ).Locals );
+               targetLocals.Locals.AddRange( inputModule.SignatureProvider.CreateCopy( sourceSig, true, tIdx => thisMappings[tIdx] ).Locals );
             }
 
          }
@@ -2228,12 +2228,13 @@ namespace CILMerge
          var targetModule = this._targetModule;
          // FieldDef
          var fDefs = targetModule.FieldDefinitions.TableContents;
+         var sp = targetModule.SignatureProvider;
          for ( var i = 0; i < fDefs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Field, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            fDefs[i].Signature = inputModule.FieldDefinitions.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            fDefs[i].Signature = sp.CreateCopy( inputModule.FieldDefinitions.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // MethodDef
@@ -2248,7 +2249,7 @@ namespace CILMerge
                var thisMappings = this._tableIndexMappings[inputModule];
                var inputMethodDef = inputModule.MethodDefinitions.TableContents[inputInfo.Item2];
                var targetMethodDef = mDefs[i];
-               targetMethodDef.Signature = inputMethodDef.Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+               targetMethodDef.Signature = sp.CreateCopy( inputMethodDef.Signature, true, tIdx => thisMappings[tIdx] );
 
                // Create IL
                // IL tokens reference only TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
@@ -2285,7 +2286,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MemberRef, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            mRefs[i].Signature = inputModule.MemberReferences.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            mRefs[i].Signature = sp.CreateCopy( inputModule.MemberReferences.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // StandaloneSignature
@@ -2298,7 +2299,7 @@ namespace CILMerge
             {
                var inputModule = inputInfo.Item1;
                var thisMappings = this._tableIndexMappings[inputModule];
-               sSigs[i].Signature = inputModule.StandaloneSignatures.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+               sSigs[i].Signature = sp.CreateCopy( inputModule.StandaloneSignatures.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
             }
          }
 
@@ -2309,7 +2310,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Property, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            pDefs[i].Signature = inputModule.PropertyDefinitions.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            pDefs[i].Signature = sp.CreateCopy( inputModule.PropertyDefinitions.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // TypeSpec
@@ -2319,7 +2320,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.TypeSpec, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            tSpecs[i].Signature = inputModule.TypeSpecifications.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            tSpecs[i].Signature = sp.CreateCopy( inputModule.TypeSpecifications.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // MethodSpecification
@@ -2329,7 +2330,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MethodSpec, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            mSpecs[i].Signature = inputModule.MethodSpecifications.TableContents[inputInfo.Item2].Signature.CreateDeepCopy( tIdx => thisMappings[tIdx] );
+            mSpecs[i].Signature = sp.CreateCopy( inputModule.MethodSpecifications.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they are processed in ConstructTheRestOfTheTables method

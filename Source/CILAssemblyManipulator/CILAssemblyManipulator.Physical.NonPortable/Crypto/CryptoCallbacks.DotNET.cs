@@ -87,8 +87,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
 
       private Boolean _canUseManagedCryptoAlgorithms;
       private Boolean _canUseCNGCryptoAlgorithms;
-      private readonly LocklessInstancePoolForClasses<SHA1> _sha1Pool;
-      private readonly LocklessInstancePoolForClasses<Byte[]> _bytesPool;
+      private readonly DefaultLocklessInstancePoolForClasses<SHA1> _sha1Pool;
+      private readonly DefaultLocklessInstancePoolForClasses<Byte[]> _bytesPool;
 
       /// <summary>
       /// Creates a new instance of <see cref="CryptoCallbacksDotNET"/>.
@@ -97,8 +97,8 @@ namespace CILAssemblyManipulator.Physical.Crypto
       {
          this._canUseManagedCryptoAlgorithms = true;
          this._canUseCNGCryptoAlgorithms = true;
-         this._sha1Pool = new LocklessInstancePoolForClasses<SHA1>();
-         this._bytesPool = new LocklessInstancePoolForClasses<Byte[]>();
+         this._sha1Pool = new DefaultLocklessInstancePoolForClasses<SHA1>();
+         this._bytesPool = new DefaultLocklessInstancePoolForClasses<Byte[]>();
       }
 
       /// <inheritdoc />

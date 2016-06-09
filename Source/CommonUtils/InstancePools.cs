@@ -24,56 +24,23 @@ using System.Threading;
 namespace CommonUtils
 {
    /// <summary>
-   /// This class implements semantics of containing multiple instances of some type, with methods for taking and returning instances.
-   /// This class is fully threadsafe and does not use locks in its implementation.
-   /// The type must be class or interface.
+   /// This is common interface for classes providing instance pool functionality for types which are reference types.
    /// </summary>
-   /// <typeparam name="TInstance">The type of the instances to hold.</typeparam>
-   public class LocklessInstancePoolForClasses<TInstance>
+   /// <typeparam name="TInstance"></typeparam>
+   public interface LocklessInstancePoolForClasses<TInstance>
       where TInstance : class
    {
-      private InstanceHolder<TInstance> _firstInstance;
-
-      /// <summary>
-      /// Creates new instance of <see cref="LocklessInstancePoolForClasses{TInstance}"/>.
-      /// </summary>
-      public LocklessInstancePoolForClasses()
-      {
-         this._firstInstance = null;
-      }
-
       /// <summary>
       /// Takes an existing instance from this pool and returns it, or returns <c>null</c> if no existing instance is available.
       /// </summary>
       /// <returns>An existing instance of <typeparamref name="TInstance"/>, or <c>null</c> if no existing instance is available.</returns>
-      public TInstance TakeInstance()
-      {
-         InstanceHolder<TInstance> result;
-         do
-         {
-            result = this._firstInstance;
-         } while ( result != null && !Object.ReferenceEquals( result, Interlocked.CompareExchange( ref this._firstInstance, result.Next, result ) ) );
-
-         return result == null ? null : result.Instance;
-      }
+      TInstance TakeInstance();
 
       /// <summary>
       /// Returns an existing instance to this pool. Nothing is done if <paramref name="instance"/> is <c>null</c>.
       /// </summary>
       /// <param name="instance">The instance to return to this pool.</param>
-      public void ReturnInstance( TInstance instance )
-      {
-         if ( instance != null )
-         {
-            InstanceHolder<TInstance> first;
-            var instanceInfo = new InstanceHolder<TInstance>( instance );
-            do
-            {
-               first = this._firstInstance;
-               instanceInfo.Next = first;
-            } while ( !Object.ReferenceEquals( first, Interlocked.CompareExchange( ref this._firstInstance, instanceInfo, first ) ) );
-         }
-      }
+      void ReturnInstance( TInstance instance );
    }
 
    /// <summary>
@@ -82,19 +49,55 @@ namespace CommonUtils
    /// The type must be class or interface.
    /// </summary>
    /// <typeparam name="TInstance">The type of the instances to hold.</typeparam>
-   /// <remarks>
-   /// One should use <see cref="LocklessInstancePoolForClasses{TInstance}"/> if <typeparamref name="TInstance"/> is known at compile time never to be a struct.
-   /// This class is a bit slower than <see cref="LocklessInstancePoolForClasses{TInstance}"/> and contains different API.
-   /// </remarks>
-   public class LocklessInstancePoolGeneric<TInstance>
+   public sealed class DefaultLocklessInstancePoolForClasses<TInstance> : LocklessInstancePoolForClasses<TInstance>
+      where TInstance : class
    {
-      private InstanceHolder<TInstance> _firstInstance;
+      private readonly LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<TInstance>> _pool;
+
+      /// <summary>
+      /// Creates new instance of <see cref="DefaultLocklessInstancePoolForClasses{TInstance}"/>.
+      /// </summary>
+      public DefaultLocklessInstancePoolForClasses()
+      {
+         this._pool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<TInstance>>();
+      }
+
+      /// <inheritdoc />
+      public TInstance TakeInstance()
+      {
+         var retVal = this._pool.TakeInstance();
+         return retVal == null ? null : retVal.Instance;
+      }
+
+      /// <inheritdoc />
+      public void ReturnInstance( TInstance instance )
+      {
+         if ( instance != null )
+         {
+            this._pool.ReturnInstance( new InstanceHolder<TInstance>( instance ) );
+         }
+      }
+   }
+
+   /// <summary>
+   /// This class implements semantics of containing multiple instances of some type, with methods for taking and returning instances.
+   /// This class is fully threadsafe and does not use locks in its implementation.
+   /// </summary>
+   /// <typeparam name="TInstance">The type of the instances to hold.</typeparam>
+   /// <remarks>
+   /// One should use <see cref="DefaultLocklessInstancePoolForClasses{TInstance}"/> if <typeparamref name="TInstance"/> is known at compile time never to be a struct.
+   /// This class is a bit slower than <see cref="DefaultLocklessInstancePoolForClasses{TInstance}"/> and contains different API.
+   /// </remarks>
+   public sealed class LocklessInstancePoolGeneric<TInstance>
+   {
+      private readonly LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<TInstance>> _pool;
 
       /// <summary>
       /// Creates new instance of <see cref="LocklessInstancePoolGeneric{TInstance}"/>.
       /// </summary>
       public LocklessInstancePoolGeneric()
       {
+         this._pool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<TInstance>>();
       }
 
       /// <summary>
@@ -104,11 +107,7 @@ namespace CommonUtils
       /// <returns><c>true</c> if an instance was acquired successfully; <c>false</c> otherwise.</returns>
       public Boolean TryTake( out TInstance item )
       {
-         InstanceHolder<TInstance> result;
-         do
-         {
-            result = this._firstInstance;
-         } while ( result != null && !Object.ReferenceEquals( result, System.Threading.Interlocked.CompareExchange( ref this._firstInstance, result.Next, result ) ) );
+         var result = this._pool.TakeInstance();
          var retVal = result != null;
          item = retVal ? result.Instance : default( TInstance );
          return retVal;
@@ -135,17 +134,11 @@ namespace CommonUtils
       /// <param name="item">The instance to return.</param>
       public void ReturnInstance( TInstance item )
       {
-         var itemHolder = new InstanceHolder<TInstance>( item );
-         InstanceHolder<TInstance> first;
-         do
-         {
-            first = this._firstInstance;
-            itemHolder.Next = first;
-         } while ( !Object.ReferenceEquals( first, System.Threading.Interlocked.CompareExchange( ref this._firstInstance, itemHolder, first ) ) );
+         this._pool.ReturnInstance( new InstanceHolder<TInstance>( item ) );
       }
    }
 
-   internal sealed class InstanceHolder<TInstance>
+   internal sealed class InstanceHolder<TInstance> : InstanceWithNextInfo<InstanceHolder<TInstance>>
    {
       private readonly TInstance _instance;
       private InstanceHolder<TInstance> _next;
@@ -163,7 +156,7 @@ namespace CommonUtils
          }
       }
 
-      internal InstanceHolder<TInstance> Next
+      public InstanceHolder<TInstance> Next
       {
          get
          {
@@ -174,5 +167,62 @@ namespace CommonUtils
             Interlocked.Exchange( ref this._next, value );
          }
       }
+   }
+
+   /// <summary>
+   /// This class acts as instance pool for types, which can hold their 'next' value.
+   /// </summary>
+   /// <typeparam name="TInstance">The type of instances.</typeparam>
+   public sealed class LocklessInstancePoolForClassesNoHeapAllocations<TInstance> : LocklessInstancePoolForClasses<TInstance>
+      where TInstance : class, InstanceWithNextInfo<TInstance>
+   {
+      private TInstance _firstInstance;
+
+      /// <summary>
+      /// Creates a new instance of <see cref="LocklessInstancePoolForClassesNoHeapAllocations{TInstance}"/>
+      /// </summary>
+      public LocklessInstancePoolForClassesNoHeapAllocations()
+      {
+         this._firstInstance = null;
+      }
+
+      /// <inheritdoc />
+      public TInstance TakeInstance()
+      {
+         TInstance result;
+         do
+         {
+            result = this._firstInstance;
+         } while ( result != null && !Object.ReferenceEquals( result, Interlocked.CompareExchange( ref this._firstInstance, result.Next, result ) ) );
+
+         return result;
+      }
+
+      /// <inheritdoc />
+      public void ReturnInstance( TInstance instance )
+      {
+         if ( instance != null )
+         {
+            TInstance first;
+            do
+            {
+               first = this._firstInstance;
+               instance.Next = first;
+            } while ( !Object.ReferenceEquals( first, Interlocked.CompareExchange( ref this._firstInstance, instance, first ) ) );
+         }
+      }
+   }
+
+   /// <summary>
+   /// This inteface captures constraints required for <see cref="LocklessInstancePoolForClassesNoHeapAllocations{TInstance}"/>
+   /// </summary>
+   /// <typeparam name="TInstance">The type of instance.</typeparam>
+   public interface InstanceWithNextInfo<TInstance>
+   {
+      /// <summary>
+      /// Gets or sets the instance next in chain.
+      /// </summary>
+      /// <value>The instance next in chain.</value>
+      TInstance Next { get; set; }
    }
 }

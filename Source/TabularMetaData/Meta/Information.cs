@@ -133,13 +133,8 @@ namespace TabularMetaData.Meta
       /// <returns>The <see cref="MetaDataTableInformation"/> instances. The order does not matter.</returns>
       public IEnumerable<MetaDataTableInformation> GetAllSupportedTableInformations()
       {
-         foreach ( var tableInfo in this.GetTableInfos() )
-         {
-            if ( tableInfo != null )
-            {
-               yield return tableInfo;
-            }
-         }
+         return this.GetTableInfos()
+            .Where( t => t != null );
       }
 
       /// <summary>

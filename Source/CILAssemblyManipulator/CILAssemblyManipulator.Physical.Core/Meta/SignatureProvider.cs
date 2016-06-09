@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using TabularMetaData.Meta;
 
 namespace CILAssemblyManipulator.Physical.Meta
@@ -128,7 +129,7 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <seealso cref="TypeBasedVisitor{TElement}"/>
    public delegate Boolean VisitElementCallbackDelegate<in TElement>( TElement element, Type edgeType, String edgeName, Object edgeInfo, Type overrideType = null );
 
-   internal delegate Boolean AcceptElementDelegate<in TElement>( TElement element );
+   internal delegate Boolean AcceptVertexDelegate<in TElement>( TElement element );
 
    internal delegate Boolean AcceptEdgeDelegate<in TElement>( TElement element, Object edgeInfo );
 
@@ -143,10 +144,10 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <remarks>
    /// The methods implementing this should be agnostic to how the hierarchical structure is explored.
    /// This is done by <see cref="VisitElementDelegate{TElement}"/>.
-   /// The <see cref="AcceptElementDelegate{TElement, TContext}"/> should only capture the functionality that is done for element.
-   /// In other words, <see cref="VisitElementDelegate{TElement}"/> captures how the hierarchical structure is explored, and <see cref="AcceptElementDelegate{TElement, TContext}"/> captures what is done for nodes of hierarchical structure.
+   /// The <see cref="AcceptVertexDelegate{TElement, TContext}"/> should only capture the functionality that is done for element.
+   /// In other words, <see cref="VisitElementDelegate{TElement}"/> captures how the hierarchical structure is explored, and <see cref="AcceptVertexDelegate{TElement, TContext}"/> captures what is done for nodes of hierarchical structure.
    /// </remarks>
-   public delegate Boolean AcceptElementDelegate<in TElement, in TContext>( TElement element, /*AcceptElementCallbackDelegate<Object> nonConformingAcceptCallback,*/ TContext context );
+   public delegate Boolean AcceptVertexDelegate<in TElement, in TContext>( TElement element, TContext context );
 
    /// <summary>
    /// This is delegate that captures signature to 'accept', or visit, a single edge (transition between elements) in visitor pattern.
@@ -159,22 +160,135 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <returns><c>true</c> if visiting should be continued, <c>false</c> otherwise.</returns>
    public delegate Boolean AcceptEdgeDelegate<in TElement, in TContext>( TElement element, Object edgeInfo, TContext context );
 
-   internal class TypeBasedVisitor<TElement>
-   {
+#pragma warning disable 1591
+   public delegate Boolean AcceptVertexExplicitDelegate<TElement, TContext>( TElement element, TContext context, AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptor );
 
-      public TypeBasedVisitor( TopMostTypeVisitingStrategy strategy = TopMostTypeVisitingStrategy.Never )
+   public delegate Boolean AcceptVertexExplicitCallbackDelegate<in TElement, in TContext>( TElement element, TContext context );//, Type edgeType, String edgeName, Object edgeInfo );
+
+   internal delegate Boolean AcceptVertexExplicitDelegateTyped<TElement, TContext, in TActualElement>( TActualElement element, TContext context, AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptor )
+      where TActualElement : TElement;
+
+
+   public class VisitorVertexInfo<TElement>
+   {
+      public VisitorVertexInfo( Type type, params VisitorEdgeInfo<TElement>[] edges )
       {
-         this.TopMostVisitingStrategy = strategy;
-         this.VisitorDictionary = new Dictionary<Type, VisitElementDelegate<TElement>>();
+         this.Type = ArgumentValidator.ValidateNotNull( "Type", type );
+         this.Edges = ( edges ?? Empty<VisitorEdgeInfo<TElement>>.Array ).Where( e => e != null ).ToArrayProxy().CQ;
+      }
+      public Type Type { get; }
+
+      public ArrayQuery<VisitorEdgeInfo<TElement>> Edges { get; }
+   }
+
+   public class VisitorEdgeInfo<TElement>
+   {
+      public VisitorEdgeInfo( Type type, String name, VisitElementDelegate<TElement> del )
+      {
+         this.Type = ArgumentValidator.ValidateNotNull( "Type", type );
+         this.Name = name;
+         this.Delegate = ArgumentValidator.ValidateNotNull( "Delegate", del );
       }
 
-      private IDictionary<Type, VisitElementDelegate<TElement>> VisitorDictionary { get; }
+      public Type Type { get; }
 
-      public TopMostTypeVisitingStrategy TopMostVisitingStrategy { get; }
+      public String Name { get; }
 
-      public void RegisterVisitor( Type elementType, VisitElementDelegate<TElement> visitor )
+      public VisitElementDelegate<TElement> Delegate { get; }
+
+      public static VisitorEdgeInfo<TElement> CreatePropertyEdge<TActualElement>( String name, VisitElementDelegateTyped<TElement, TActualElement> typedDelegate )
+         where TActualElement : TElement
       {
-         this.VisitorDictionary[elementType] = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
+         return new VisitorEdgeInfo<TElement>( typeof( TActualElement ), name, typedDelegate.AsVisitElementDelegate() );
+      }
+
+      public static VisitorEdgeInfo<TElement> CreateBaseTypeEdge<TActualElement, TBaseType>()
+         where TActualElement : TBaseType
+         where TBaseType : TElement
+      {
+         return new VisitorEdgeInfo<TElement>( typeof( TBaseType ), null, ( sig, cb ) => cb.VisitBaseType( sig, typeof( TBaseType ) ) );
+      }
+   }
+
+   internal class TypeBasedVisitor<TElement>
+   {
+      //private struct CurrentTraversalInfo
+      //{
+      //   public CurrentTraversalInfo( TElement element )
+      //      : this( 0, element, null, null, null, null )
+      //   {
+
+      //   }
+
+      //   public CurrentTraversalInfo( Int32 depth, TElement element, Type overrideType, Type edgeType, String edgeName, Object edgeInfo )
+      //   {
+      //      this.Depth = depth;
+      //      this.Element = element;
+      //      this.OverrideType = overrideType;
+      //      this.EdgeType = edgeType;
+      //      this.EdgeName = edgeName;
+      //      this.EdgeInfo = edgeInfo;
+      //   }
+
+      //   public TElement Element { get; }
+
+      //   public Type OverrideType { get; }
+
+      //   public Type EdgeType { get; }
+
+      //   public String EdgeName { get; }
+
+      //   public Object EdgeInfo { get; }
+
+      //   public Int32 Depth { get; }
+      //}
+
+      //private sealed class FullTraversalInfo : InstanceWithNextInfo<FullTraversalInfo>
+      //{
+      //   private FullTraversalInfo _next;
+
+      //   public FullTraversalInfo()
+      //   {
+      //      this.Stack = new Stack<CurrentTraversalInfo>( 0x10 );
+      //      this.Callback = ( el, eType, eName, eInfo, oType ) =>
+      //      {
+      //         this.Stack.Push( new CurrentTraversalInfo( this.CurrentDepth, el, oType, eType, eName, eInfo ) );
+      //         return true;
+      //      };
+      //   }
+
+      //   public Stack<CurrentTraversalInfo> Stack { get; }
+
+      //   public VisitElementCallbackDelegate<TElement> Callback { get; }
+
+      //   public Int32 CurrentDepth { get; set; }
+
+      //   public FullTraversalInfo Next
+      //   {
+      //      get
+      //      {
+      //         return this._next;
+      //      }
+      //      set
+      //      {
+      //         Interlocked.Exchange( ref this._next, value );
+      //      }
+      //   }
+      //}
+
+      //private static readonly LocklessInstancePoolForClassesNoHeapAllocations<FullTraversalInfo> StaticState = new LocklessInstancePoolForClassesNoHeapAllocations<FullTraversalInfo>();
+
+      public TypeBasedVisitor()
+      {
+         this.VerticeInfos = new Dictionary<Type, VisitorVertexInfo<TElement>>();
+      }
+
+      private IDictionary<Type, VisitorVertexInfo<TElement>> VerticeInfos { get; }
+
+
+      public void RegisterVisitor( Type elementType, VisitorVertexInfo<TElement> visitor )
+      {
+         this.VerticeInfos[elementType] = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
       }
 
       public Boolean Visit(
@@ -182,12 +296,72 @@ namespace CILAssemblyManipulator.Physical.Meta
          AcceptorInformation<TElement> acceptors
          )
       {
+         // Unwinding recursion is reaaalllyy problematic because of exit-edge functionality.
+
+         //var state = StaticState.TakeInstance();
+         //try
+         //{
+         //   Stack<CurrentTraversalInfo> stack;
+         //   if ( state == null )
+         //   {
+         //      state = new FullTraversalInfo();
+         //      stack = state.Stack;
+         //   }
+         //   else
+         //   {
+         //      stack = state.Stack;
+         //      stack.Clear();
+         //   }
+
+         //   stack.Push( new CurrentTraversalInfo( element ) );
+         //   var callback = state.Callback;
+         //   var shouldContinue = true;
+
+         //   while ( shouldContinue && stack.Count > 0 )
+         //   {
+         //      var current = stack.Pop();
+         //      var oldCount = stack.Count;
+         //      var currentDepth = current.Depth;
+         //      state.CurrentDepth = currentDepth + 1;
+         //      var overrideType = current.OverrideType;
+         //      var elType = overrideType ?? current.Element.GetType();
+         //      var edgeType = current.EdgeType;
+         //      var edgeName = current.EdgeName;
+         //      var edgeInfo = current.EdgeInfo;
+
+         //      DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>> edgeDic;
+         //      AcceptEdgeDelegateInformation<TElement> edgeDelegateInfo = null;
+         //      AcceptElementDelegate<TElement> vertexAcceptor;
+         //      Boolean hadAcceptor;
+
+         //      shouldContinue = element != null
+         //      && ( edgeType == null || edgeName == null || ( edgeDic = acceptors.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo ) ?? true ) )
+         //      && this.CheckForTopMostTypeStrategy( element, acceptors.VertexAcceptors, overrideType )
+         //      && ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( elType, out hadAcceptor ) ) == null || vertexAcceptor( element ) )
+         //      && this.VisitEdges( element, elType, callback );
+
+         //      if (oldCount == stack.Count)
+         //      {
+         //         // We didn't add any new vertices on this round, so this is terminal vertex
+         //         // We need to exit 1..n edges
+         //      }
+         //      //&& ( edgeDelegateInfo?.Exit( element, edgeInfo ) ?? true );
+         //   }
+
+         //   return shouldContinue;
+
+         //}
+         //finally
+         //{
+         //   StaticState.ReturnInstance( state );
+         //}
+
          VisitElementCallbackDelegate<TElement> callback = null;
          callback = ( el, edgeType, edgeName, edgeInfo, type ) => this.VisitElementWithNoContext( el, acceptors, callback, edgeType, edgeName, edgeInfo, type );
          return this.VisitElementWithNoContext( element, acceptors, callback, null, null, null, null );
       }
 
-      public Boolean VisitWithContext<TContext>(
+      public Boolean Visit<TContext>(
          TElement element,
          AcceptorInformation<TElement, TContext> acceptors,
          TContext context
@@ -196,6 +370,21 @@ namespace CILAssemblyManipulator.Physical.Meta
          VisitElementCallbackDelegate<TElement> callback = null;
          callback = ( el, edgeType, edgeName, edgeInfo, type ) => this.VisitElementWithContext( el, acceptors, context, callback, edgeType, edgeName, edgeInfo, type );
          return this.VisitElementWithContext( element, acceptors, context, callback, null, null, null, null );
+      }
+
+      // TODO parametrize what to return when vertex type not found.
+      public Boolean VisitExplicit<TContext>(
+         TElement element,
+         ExplicitAcceptorInformation<TElement, TContext> acceptors,
+         TContext context
+         )
+      {
+         VisitElementCallbackDelegate<TElement> callback = null;
+         AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptorCallback = null;
+         acceptorCallback = ( el, ctx ) => el == null || this.VisitElementWithContext( el, acceptors, context, callback, acceptorCallback, null, null, null, null ); // this.VisitEdges( el, el.GetType(), callback );
+         callback = ( el, edgeType, edgeName, edgeInfo, type ) => this.VisitElementWithContext( el, acceptors, context, callback, acceptorCallback, edgeType, edgeName, edgeInfo, type );
+
+         return this.VisitElementWithContext( element, acceptors, context, callback, acceptorCallback, null, null, null, null );
       }
 
       private Boolean VisitElementWithNoContext(
@@ -208,16 +397,15 @@ namespace CILAssemblyManipulator.Physical.Meta
          Type overrideType
          )
       {
-         VisitElementDelegate<TElement> visitor;
          DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>> edgeDic;
          AcceptEdgeDelegateInformation<TElement> edgeDelegateInfo = null;
-         AcceptElementDelegate<TElement> vertexAcceptor;
+         AcceptVertexDelegate<TElement> vertexAcceptor;
          Boolean hadAcceptor;
          return element != null
             && ( edgeType == null || edgeName == null || ( edgeDic = acceptors.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo ) ?? true ) )
-            && this.CheckForTopMostTypeStrategy( element, acceptors.VertexAcceptors, overrideType )
-            && ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element ) )
-            && ( !this.VisitorDictionary.TryGetValue( overrideType ?? element.GetType(), out visitor ) || visitor( element, callback ) )
+            && this.CheckForTopMostTypeStrategy( element, acceptors, overrideType )
+            && ( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
+            && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
             && ( edgeDelegateInfo?.Exit( element, edgeInfo ) ?? true );
       }
 
@@ -232,28 +420,67 @@ namespace CILAssemblyManipulator.Physical.Meta
          Type overrideType
          )
       {
-         VisitElementDelegate<TElement> visitor;
          DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>> edgeDic;
          AcceptEdgeDelegateInformation<TElement, TContext> edgeDelegateInfo = null;
-         AcceptElementDelegate<TElement, TContext> vertexAcceptor;
+         AcceptVertexDelegate<TElement, TContext> vertexAcceptor;
          Boolean hadAcceptor;
          return element != null
             && ( edgeType == null || edgeName == null || ( edgeDic = acceptors.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo, context ) ?? true ) )
-            && this.CheckForTopMostTypeStrategy( element, acceptors.VertexAcceptors, context, overrideType )
-            && ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context ) )
-            && ( !this.VisitorDictionary.TryGetValue( overrideType ?? element.GetType(), out visitor ) || visitor( element, callback ) )
+            && this.CheckForTopMostTypeStrategy( element, acceptors, context, overrideType )
+            && ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
+            && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
             && ( edgeDelegateInfo?.Exit( element, edgeInfo, context ) ?? true );
+      }
+
+      private Boolean VisitElementWithContext<TContext>(
+         TElement element,
+         ExplicitAcceptorInformation<TElement, TContext> acceptors,
+         TContext context,
+         VisitElementCallbackDelegate<TElement> callback,
+         AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptorCallback,
+         Type edgeType,
+         String edgeName,
+         Object edgeInfo,
+         Type overrideType
+         )
+      {
+         DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>> edgeDic;
+         AcceptEdgeDelegateInformation<TElement, TContext> edgeDelegateInfo = null;
+         AcceptVertexExplicitDelegate<TElement, TContext> vertexAcceptor;
+         Boolean hadAcceptor;
+         return element != null
+            && ( edgeType == null || edgeName == null || ( edgeDic = acceptors.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo, context ) ?? true ) )
+            && this.CheckForTopMostTypeStrategy( element, acceptors, context, overrideType, acceptorCallback )
+            && ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context, acceptorCallback ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context, acceptorCallback ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
+                                                                                                                                                                                                    // && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
+            && ( edgeDelegateInfo?.Exit( element, edgeInfo, context ) ?? true );
+      }
+
+      private Boolean VisitEdges( TElement element, Type type, VisitElementCallbackDelegate<TElement> callback )
+      {
+         VisitorVertexInfo<TElement> info;
+         var retVal = true;
+         if ( this.VerticeInfos.TryGetValue( type, out info ) )
+         {
+            var edges = info.Edges;
+            for ( var i = 0; i < edges.Count && retVal; ++i )
+            {
+               retVal = edges[i].Delegate( element, callback );
+            }
+         }
+         return retVal;
       }
 
       private Boolean CheckForTopMostTypeStrategy(
          TElement element,
-         DictionaryQuery<Type, AcceptElementDelegate<TElement>> acceptorDictionary,
+         AcceptorInformation<TElement> info,
          Type overrideType
          )
       {
          Boolean hadAcceptor;
-         AcceptElementDelegate<TElement> acceptor;
-         switch ( this.TopMostVisitingStrategy )
+         AcceptVertexDelegate<TElement> acceptor;
+         var acceptorDictionary = info.VertexAcceptors;
+         switch ( info.TopMostVisitingStrategy )
          {
             case TopMostTypeVisitingStrategy.IfNotOverridingType:
                return overrideType != null
@@ -270,14 +497,15 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       private Boolean CheckForTopMostTypeStrategy<TContext>(
          TElement element,
-         DictionaryQuery<Type, AcceptElementDelegate<TElement, TContext>> acceptorDictionary,
+         AcceptorInformation<TElement, TContext> info,
          TContext context,
          Type overrideType
          )
       {
          Boolean hadAcceptor;
-         AcceptElementDelegate<TElement, TContext> acceptor;
-         switch ( this.TopMostVisitingStrategy )
+         AcceptVertexDelegate<TElement, TContext> acceptor;
+         var acceptorDictionary = info.VertexAcceptors;
+         switch ( info.TopMostVisitingStrategy )
          {
             case TopMostTypeVisitingStrategy.IfNotOverridingType:
                return overrideType != null
@@ -287,6 +515,32 @@ namespace CILAssemblyManipulator.Physical.Meta
             case TopMostTypeVisitingStrategy.Always:
                return ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
                   || acceptor( element, context );
+            default:
+               return true;
+         }
+      }
+
+      private Boolean CheckForTopMostTypeStrategy<TContext>(
+         TElement element,
+         ExplicitAcceptorInformation<TElement, TContext> info,
+         TContext context,
+         Type overrideType,
+         AcceptVertexExplicitCallbackDelegate<TElement, TContext> callback
+         )
+      {
+         Boolean hadAcceptor;
+         AcceptVertexExplicitDelegate<TElement, TContext> acceptor;
+         var acceptorDictionary = info.VertexAcceptors;
+         switch ( info.TopMostVisitingStrategy )
+         {
+            case TopMostTypeVisitingStrategy.IfNotOverridingType:
+               return overrideType != null
+                  || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
+                  || acceptor( element, context, callback );
+
+            case TopMostTypeVisitingStrategy.Always:
+               return ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
+                  || acceptor( element, context, callback );
             default:
                return true;
          }
@@ -315,20 +569,20 @@ namespace CILAssemblyManipulator.Physical.Meta
    {
       private readonly AcceptorInformation<TElement> _acceptorInfo;
 
-      internal TypeBasedAcceptor( TypeBasedVisitor<TElement> visitor )
+      internal TypeBasedAcceptor( TypeBasedVisitor<TElement> visitor, TopMostTypeVisitingStrategy topMostVisitingStrategy, Boolean continueOnMissingVertex )
          : base( visitor )
       {
-         this.VertexAcceptors = new Dictionary<Type, AcceptElementDelegate<TElement>>().ToDictionaryProxy();
+         this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement>>().ToDictionaryProxy();
          this.EdgeAcceptors = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewDictionary<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>>();
 
-         this._acceptorInfo = new AcceptorInformation<TElement>( this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
+         this._acceptorInfo = new AcceptorInformation<TElement>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
       }
 
-      private DictionaryProxy<Type, AcceptElementDelegate<TElement>> VertexAcceptors { get; }
+      private DictionaryProxy<Type, AcceptVertexDelegate<TElement>> VertexAcceptors { get; }
 
       private DictionaryWithRoles<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>> EdgeAcceptors { get; }
 
-      public void RegisterVertexAcceptor( Type type, AcceptElementDelegate<TElement> acceptor )
+      public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement> acceptor )
       {
          this.VertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
@@ -354,23 +608,33 @@ namespace CILAssemblyManipulator.Physical.Meta
    internal class TypeBasedAcceptor<TElement, TContext> : AbstractTypeBasedAcceptor<TElement>
    {
       private readonly AcceptorInformation<TElement, TContext> _acceptorInfo;
+      private readonly ExplicitAcceptorInformation<TElement, TContext> _explicitAcceptorInfo;
 
-      internal TypeBasedAcceptor( TypeBasedVisitor<TElement> visitor )
+      internal TypeBasedAcceptor( TypeBasedVisitor<TElement> visitor, TopMostTypeVisitingStrategy topMostVisitingStrategy, Boolean continueOnMissingVertex )
          : base( visitor )
       {
-         this.VertexAcceptors = new Dictionary<Type, AcceptElementDelegate<TElement, TContext>>().ToDictionaryProxy();
+         this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement, TContext>>().ToDictionaryProxy();
+         this.ExplicitVertexAcceptors = new Dictionary<Type, AcceptVertexExplicitDelegate<TElement, TContext>>().ToDictionaryProxy();
          this.EdgeAcceptors = CollectionsWithRoles.Implementation.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewDictionary<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>>();
 
-         this._acceptorInfo = new AcceptorInformation<TElement, TContext>( this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
+         this._acceptorInfo = new AcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
+         this._explicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
       }
 
-      private DictionaryProxy<Type, AcceptElementDelegate<TElement, TContext>> VertexAcceptors { get; }
+      private DictionaryProxy<Type, AcceptVertexDelegate<TElement, TContext>> VertexAcceptors { get; }
+
+      private DictionaryProxy<Type, AcceptVertexExplicitDelegate<TElement, TContext>> ExplicitVertexAcceptors { get; }
 
       private DictionaryWithRoles<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> EdgeAcceptors { get; }
 
-      public void RegisterVertexAcceptor( Type type, AcceptElementDelegate<TElement, TContext> acceptor )
+      public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement, TContext> acceptor )
       {
          this.VertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
+      }
+
+      public void RegisterExplicitVertexAcceptor( Type type, AcceptVertexExplicitDelegate<TElement, TContext> acceptor )
+      {
+         this.ExplicitVertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
 
       public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TContext> enter, AcceptEdgeDelegate<TElement, TContext> exit )
@@ -385,9 +649,14 @@ namespace CILAssemblyManipulator.Physical.Meta
          inner[edgeName] = new AcceptEdgeDelegateInformation<TElement, TContext>( enter, exit );
       }
 
-      public Boolean AcceptWithContext( TElement element, TContext context )
+      public Boolean Accept( TElement element, TContext context )
       {
-         return this.Visitor.VisitWithContext( element, this._acceptorInfo, context );
+         return this.Visitor.Visit( element, this._acceptorInfo, context );
+      }
+
+      public Boolean AcceptExplicit( TElement element, TContext context )
+      {
+         return this.Visitor.VisitExplicit( element, this._explicitAcceptorInfo, context );
       }
    }
 
@@ -395,10 +664,14 @@ namespace CILAssemblyManipulator.Physical.Meta
       where TEdgeInfo : AbstractEdgeDelegateInformation<TEdgeDelegate>
    {
       public AbstractAcceptorInformation(
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
          DictionaryQuery<Type, TVertexDelegate> vertexAcceptors,
          DictionaryQuery<Type, DictionaryQuery<String, TEdgeInfo>> edgeAcceptors
          )
       {
+         this.TopMostVisitingStrategy = topMostVisitingStrategy;
+         this.ContinueOnMissingVertex = continueOnMissingVertex;
          this.VertexAcceptors = ArgumentValidator.ValidateNotNull( "Vertex acceptors", vertexAcceptors );
          this.EdgeAcceptors = ArgumentValidator.ValidateNotNull( "Edge acceptors", edgeAcceptors );
       }
@@ -406,14 +679,20 @@ namespace CILAssemblyManipulator.Physical.Meta
       public DictionaryQuery<Type, TVertexDelegate> VertexAcceptors { get; }
 
       public DictionaryQuery<Type, DictionaryQuery<String, TEdgeInfo>> EdgeAcceptors { get; }
+
+      public TopMostTypeVisitingStrategy TopMostVisitingStrategy { get; }
+
+      public Boolean ContinueOnMissingVertex { get; }
    }
 
-   internal class AcceptorInformation<TElement> : AbstractAcceptorInformation<AcceptElementDelegate<TElement>, AcceptEdgeDelegate<TElement>, AcceptEdgeDelegateInformation<TElement>>
+   internal class AcceptorInformation<TElement> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement>, AcceptEdgeDelegateInformation<TElement>>
    {
       public AcceptorInformation(
-         DictionaryQuery<Type, AcceptElementDelegate<TElement>> vertexAcceptors,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         DictionaryQuery<Type, AcceptVertexDelegate<TElement>> vertexAcceptors,
          DictionaryQuery<Type, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>> edgeAcceptors
-         ) : base( vertexAcceptors, edgeAcceptors )
+         ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
       }
 
@@ -439,12 +718,14 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
    }
 
-   internal class AcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptElementDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TContext>, AcceptEdgeDelegateInformation<TElement, TContext>>
+   internal class AcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TContext>, AcceptEdgeDelegateInformation<TElement, TContext>>
    {
       public AcceptorInformation(
-         DictionaryQuery<Type, AcceptElementDelegate<TElement, TContext>> vertexAcceptors,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         DictionaryQuery<Type, AcceptVertexDelegate<TElement, TContext>> vertexAcceptors,
          DictionaryQuery<Type, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> edgeAcceptors
-         ) : base( vertexAcceptors, edgeAcceptors )
+         ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
       }
    }
@@ -453,6 +734,19 @@ namespace CILAssemblyManipulator.Physical.Meta
    {
       public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement, TContext> entry, AcceptEdgeDelegate<TElement, TContext> exit )
          : base( entry, exit )
+      {
+
+      }
+   }
+
+   internal class ExplicitAcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptVertexExplicitDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TContext>, AcceptEdgeDelegateInformation<TElement, TContext>>
+   {
+      public ExplicitAcceptorInformation(
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         DictionaryQuery<Type, AcceptVertexExplicitDelegate<TElement, TContext>> vertexAcceptors,
+         DictionaryQuery<Type, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> edgeAcceptors
+         ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
 
       }
@@ -559,12 +853,14 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="signatureTableIndexInfoProviders">The <see cref="SignatureTypeInfo{TFunctionality}"/> functionality. If <c>null</c>, the return value of <see cref="GetDefaultSignatureTableIndexInfoCollectors"/> will be used.</param>
       /// <param name="signatureVisitors">The enumerable of signature visitors.</param>
       /// <param name="matchers">The enumerable of signature matchers.</param>
+      /// <param name="cloners">The enumerable of signature cloners.</param>
       public DefaultSignatureProvider(
          IEnumerable<SimpleTypeSignature> simpleTypeSignatures = null,
          IEnumerable<CustomAttributeArgumentTypeSimple> simpleCATypes = null,
-         IEnumerable<SignatureTypeInfo<VisitElementDelegate<SignatureElement>>> signatureVisitors = null,
-         IEnumerable<SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TableIndexCollectorContext>>> signatureTableIndexInfoProviders = null,
-         IEnumerable<SignatureTypeInfo<SignatureVertexMatchingFunctionality>> matchers = null
+         IEnumerable<SignatureTypeInfo<VisitorVertexInfo<SignatureElement>>> signatureVisitors = null,
+         IEnumerable<SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>>> signatureTableIndexInfoProviders = null,
+         IEnumerable<SignatureTypeInfo<SignatureVertexMatchingFunctionality>> matchers = null,
+         IEnumerable<SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>>> cloners = null
          )
       {
          this._simpleTypeSignatures = ( simpleTypeSignatures ?? GetDefaultSimpleTypeSignatures() )
@@ -575,7 +871,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             .ToDictionary_Overwrite( s => s.SimpleType, s => s );
 
          // Signature visitor
-         var visitor = new TypeBasedVisitor<SignatureElement>( TopMostTypeVisitingStrategy.IfNotOverridingType );
+         var visitor = new TypeBasedVisitor<SignatureElement>();
          foreach ( var visitorInfo in signatureVisitors ?? GetDefaultSignatureVisitors() )
          {
             visitor.RegisterVisitor( visitorInfo.SignatureElementType, visitorInfo.Functionality );
@@ -583,12 +879,12 @@ namespace CILAssemblyManipulator.Physical.Meta
          this.RegisterFunctionalityDirect( visitor );
 
          // Signature acceptor: decomposing
-         var decomposer = new TypeBasedAcceptor<SignatureElement, DecomposeSignatureContext>( visitor );
+         var decomposer = new TypeBasedAcceptor<SignatureElement, DecomposeSignatureContext>( visitor, TopMostTypeVisitingStrategy.IfNotOverridingType, true );
          decomposer.RegisterSignatureDecomposer<SignatureElement>( ( el, ctx ) => ctx.AddElement( el ) );
          this.RegisterFunctionalityDirect( decomposer );
 
          // Signature acceptor: table index collector
-         var tableIndexCollector = new TypeBasedAcceptor<SignatureElement, TableIndexCollectorContext>( visitor );
+         var tableIndexCollector = new TypeBasedAcceptor<SignatureElement, TableIndexCollectorContext>( visitor, TopMostTypeVisitingStrategy.Never, true );
          foreach ( var tableIndexCollectorInfo in signatureTableIndexInfoProviders ?? GetDefaultSignatureTableIndexInfoCollectors() )
          {
             tableIndexCollector.RegisterVertexAcceptor( tableIndexCollectorInfo.SignatureElementType, tableIndexCollectorInfo.Functionality );
@@ -596,7 +892,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          this.RegisterFunctionalityDirect( tableIndexCollector );
 
          // Signature matching
-         var matcher = new TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>( visitor );
+         var matcher = new TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
          foreach ( var matcherInfo in matchers ?? GetDefaultMatchingFunctionality() )
          {
             var type = matcherInfo.SignatureElementType;
@@ -608,6 +904,14 @@ namespace CILAssemblyManipulator.Physical.Meta
             }
          }
          this.RegisterFunctionalityDirect( matcher );
+
+         // Signature cloning
+         var cloner = new TypeBasedAcceptor<SignatureElement, CopyingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
+         foreach ( var clonerInfo in cloners ?? GetDefaultCopyingFunctionality() )
+         {
+            cloner.RegisterExplicitVertexAcceptor( clonerInfo.SignatureElementType, clonerInfo.Functionality );
+         }
+         this.RegisterFunctionalityDirect( cloner );
       }
 
       /// <inheritdoc />
@@ -630,7 +934,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       public Boolean MatchSignatures( CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
       {
          var acceptor = this.GetFunctionality<TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>>();
-         return acceptor.AcceptWithContext( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
+         return acceptor.Accept( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
       }
 
       private static Boolean MatchTypeDefOrRefOrSpec( SignatureMatchingContext ctx, TableIndex defIdx, TableIndex refIdx )
@@ -741,7 +1045,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Returns <see cref="SignatureTypeInfo{TFunctionality}"/> functionality for <see cref="ClassOrValueTypeSignature"/> and <see cref="CustomModifierSignature"/>.
       /// </summary>
       /// <returns>Default <see cref="SignatureTypeInfo{TFunctionality}"/> functionality for <see cref="ClassOrValueTypeSignature"/> and <see cref="CustomModifierSignature"/>.</returns>
-      public static IEnumerable<SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TableIndexCollectorContext>>> GetDefaultSignatureTableIndexInfoCollectors()
+      public static IEnumerable<SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>>> GetDefaultSignatureTableIndexInfoCollectors()
       {
          yield return NewAcceptFunctionality<ClassOrValueTypeSignature, TableIndexCollectorContext>( ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.Type, tIdx => sig.Type = tIdx ) ) );
          yield return NewAcceptFunctionality<CustomModifierSignature, TableIndexCollectorContext>( ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.CustomModifierType, tIdx => sig.CustomModifierType = tIdx ) ) );
@@ -751,78 +1055,78 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Gets enumerable of visitor functionalities for default signatures.
       /// </summary>
       /// <returns>The enumerable of visitor functionalities for default signatures.</returns>
-      public static IEnumerable<SignatureTypeInfo<VisitElementDelegate<SignatureElement>>> GetDefaultSignatureVisitors()
+      public static IEnumerable<SignatureTypeInfo<VisitorVertexInfo<SignatureElement>>> GetDefaultSignatureVisitors()
       {
-         yield return NewVisitFunctionality<ParameterOrLocalSignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.CustomModifiers ), sig.CustomModifiers )
-            && cb.VisitSimpleEdge( sig.Type, typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.Type ) )
+         yield return NewVisitFunctionality<ParameterOrLocalSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.CustomModifiers ), sig.CustomModifiers ) ),
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.Type ) ) )
          );
 
-         yield return NewVisitFunctionality<ParameterSignature>( ( sig, cb ) =>
-            cb.VisitBaseType( sig, typeof( ParameterOrLocalSignature ) )
+         yield return NewVisitFunctionality<ParameterSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreateBaseTypeEdge<ParameterSignature, ParameterOrLocalSignature>()
          );
 
-         yield return NewVisitFunctionality<LocalSignature>( ( sig, cb ) =>
-            cb.VisitBaseType( sig, typeof( ParameterOrLocalSignature ) )
+         yield return NewVisitFunctionality<LocalSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreateBaseTypeEdge<LocalSignature, ParameterOrLocalSignature>()
          );
 
-         yield return NewVisitFunctionality<FieldSignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( FieldSignature ), nameof( FieldSignature.CustomModifiers ), sig.CustomModifiers )
-            && cb.VisitSimpleEdge( sig.Type, typeof( FieldSignature ), nameof( FieldSignature.Type ) )
+         yield return NewVisitFunctionality<FieldSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<FieldSignature>( nameof( FieldSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( FieldSignature ), nameof( FieldSignature.CustomModifiers ), sig.CustomModifiers ) ),
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<FieldSignature>( nameof( FieldSignature.Type ), ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, typeof( FieldSignature ), nameof( FieldSignature.Type ) ) )
          );
 
-         yield return NewVisitFunctionality<AbstractMethodSignature>( ( sig, cb ) =>
-            cb.VisitSimpleEdge( sig.ReturnType, typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.ReturnType ) )
-            && cb.VisitListEdge( typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.Parameters ), sig.Parameters )
+         yield return NewVisitFunctionality<AbstractMethodSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.ReturnType, typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.ReturnType ) ) ),
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.Parameters ), ( sig, cb ) => cb.VisitListEdge( typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.Parameters ), sig.Parameters ) )
          );
 
-         yield return NewVisitFunctionality<MethodDefinitionSignature>( ( sig, cb ) =>
-            cb.VisitBaseType( sig, typeof( AbstractMethodSignature ) )
+         yield return NewVisitFunctionality<MethodDefinitionSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreateBaseTypeEdge<MethodDefinitionSignature, AbstractMethodSignature>()
          );
 
-         yield return NewVisitFunctionality<MethodReferenceSignature>( ( sig, cb ) =>
-            cb.VisitBaseType( sig, typeof( AbstractMethodSignature ) )
-            && cb.VisitListEdge( typeof( MethodReferenceSignature ), nameof( MethodReferenceSignature.VarArgsParameters ), sig.VarArgsParameters )
+         yield return NewVisitFunctionality<MethodReferenceSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreateBaseTypeEdge<MethodReferenceSignature, AbstractMethodSignature>(),
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<MethodReferenceSignature>( nameof( MethodReferenceSignature.VarArgsParameters ), ( sig, cb ) => cb.VisitListEdge( typeof( MethodReferenceSignature ), nameof( MethodReferenceSignature.VarArgsParameters ), sig.VarArgsParameters ) )
          );
 
-         yield return NewVisitFunctionality<PropertySignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.CustomModifiers ), sig.CustomModifiers )
-            && cb.VisitSimpleEdge( sig.PropertyType, typeof( PropertySignature ), nameof( PropertySignature.PropertyType ) )
-            && cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.Parameters ), sig.Parameters )
+         yield return NewVisitFunctionality<PropertySignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<PropertySignature>( nameof( PropertySignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.CustomModifiers ), sig.CustomModifiers ) ),
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<PropertySignature>( nameof( PropertySignature.PropertyType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.PropertyType, typeof( PropertySignature ), nameof( PropertySignature.PropertyType ) ) ),
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<PropertySignature>( nameof( PropertySignature.Parameters ), ( sig, cb ) => cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.Parameters ), sig.Parameters ) )
          );
 
-         yield return NewVisitFunctionality<LocalVariablesSignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( LocalVariablesSignature ), nameof( LocalVariablesSignature.Locals ), sig.Locals )
+         yield return NewVisitFunctionality<LocalVariablesSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<LocalVariablesSignature>( nameof( LocalVariablesSignature.Locals ), ( sig, cb ) => cb.VisitListEdge( typeof( LocalVariablesSignature ), nameof( LocalVariablesSignature.Locals ), sig.Locals ) )
          );
 
-         yield return NewVisitFunctionality<GenericMethodSignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( GenericMethodSignature ), nameof( GenericMethodSignature.GenericArguments ), sig.GenericArguments )
+         yield return NewVisitFunctionality<GenericMethodSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<GenericMethodSignature>( nameof( GenericMethodSignature.GenericArguments ), ( sig, cb ) => cb.VisitListEdge( typeof( GenericMethodSignature ), nameof( GenericMethodSignature.GenericArguments ), sig.GenericArguments ) )
          );
 
-         yield return NewVisitFunctionality<AbstractArrayTypeSignature>( ( sig, cb ) =>
-            cb.VisitSimpleEdge( sig.ArrayType, typeof( AbstractArrayTypeSignature ), nameof( AbstractArrayTypeSignature.ArrayType ) )
+         yield return NewVisitFunctionality<AbstractArrayTypeSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.ArrayType, typeof( AbstractArrayTypeSignature ), nameof( AbstractArrayTypeSignature.ArrayType ) ) )
          );
 
-         yield return NewVisitFunctionality<ComplexArrayTypeSignature>( ( sig, cb ) =>
-            cb.VisitBaseType( sig, typeof( AbstractArrayTypeSignature ) )
+         yield return NewVisitFunctionality<ComplexArrayTypeSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreateBaseTypeEdge<ComplexArrayTypeSignature, AbstractArrayTypeSignature>()
          );
 
-         yield return NewVisitFunctionality<SimpleArrayTypeSignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( SimpleArrayTypeSignature ), nameof( SimpleArrayTypeSignature.CustomModifiers ), sig.CustomModifiers )
-            && cb.VisitBaseType( sig, typeof( AbstractArrayTypeSignature ) )
+         yield return NewVisitFunctionality<SimpleArrayTypeSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<SimpleArrayTypeSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( SimpleArrayTypeSignature ), nameof( SimpleArrayTypeSignature.CustomModifiers ), sig.CustomModifiers ) ),
+            VisitorEdgeInfo<SignatureElement>.CreateBaseTypeEdge<SimpleArrayTypeSignature, AbstractArrayTypeSignature>()
          );
 
-         yield return NewVisitFunctionality<ClassOrValueTypeSignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( ClassOrValueTypeSignature ), nameof( ClassOrValueTypeSignature.GenericArguments ), sig.GenericArguments )
+         yield return NewVisitFunctionality<ClassOrValueTypeSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<ClassOrValueTypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), ( sig, cb ) => cb.VisitListEdge( typeof( ClassOrValueTypeSignature ), nameof( ClassOrValueTypeSignature.GenericArguments ), sig.GenericArguments ) )
          );
 
-         yield return NewVisitFunctionality<FunctionPointerTypeSignature>( ( sig, cb ) =>
-            cb.VisitSimpleEdge( sig.MethodSignature, typeof( FunctionPointerTypeSignature ), nameof( FunctionPointerTypeSignature.MethodSignature ) )
+         yield return NewVisitFunctionality<FunctionPointerTypeSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), ( sig, cb ) => cb.VisitSimpleEdge( sig.MethodSignature, typeof( FunctionPointerTypeSignature ), nameof( FunctionPointerTypeSignature.MethodSignature ) ) )
          );
 
-         yield return NewVisitFunctionality<PointerTypeSignature>( ( sig, cb ) =>
-            cb.VisitListEdge( typeof( PointerTypeSignature ), nameof( PointerTypeSignature.CustomModifiers ), sig.CustomModifiers )
-            && cb.VisitSimpleEdge( sig.PointerType, typeof( PointerTypeSignature ), nameof( PointerTypeSignature.PointerType ) )
+         yield return NewVisitFunctionality<PointerTypeSignature>(
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<PointerTypeSignature>( nameof( PointerTypeSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( PointerTypeSignature ), nameof( PointerTypeSignature.CustomModifiers ), sig.CustomModifiers ) ),
+            VisitorEdgeInfo<SignatureElement>.CreatePropertyEdge<PointerTypeSignature>( nameof( PointerTypeSignature.PointerType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.PointerType, typeof( PointerTypeSignature ), nameof( PointerTypeSignature.PointerType ) ) )
          );
       }
 
@@ -855,6 +1159,12 @@ namespace CILAssemblyManipulator.Physical.Meta
             ( x, y, ctx ) => x.MethodSignatureInformation == y.MethodSignatureInformation && x.Parameters.Count == y.Parameters.Count && x.GenericArgumentCount == y.GenericArgumentCount,
             SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), sig => sig.ReturnType ),
             SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<AbstractMethodSignature, ParameterSignature>( nameof( AbstractMethodSignature.Parameters ), sig => sig.Parameters )
+            );
+         yield return NewMatchingFunctionality<MethodDefinitionSignature>(
+            null
+            );
+         yield return NewMatchingFunctionality<MethodReferenceSignature>(
+            null
             );
          yield return NewMatchingFunctionality<PropertySignature>(
             ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.HasThis == y.HasThis && x.Parameters.Count == y.Parameters.Count,
@@ -903,6 +1213,158 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
+      /// <summary>
+      /// Returns cloning functionality for default signature types.
+      /// </summary>
+      /// <returns>The cloning functionality for default signature types.</returns>
+      public static IEnumerable<SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>>> GetDefaultCopyingFunctionality()
+      {
+         yield return NewCopyingFunctionality<CustomModifierSignature>( ( sig, ctx, cb ) => new CustomModifierSignature()
+         {
+            Optionality = sig.Optionality,
+            CustomModifierType = ctx.TableIndexTransformer?.Invoke( sig.CustomModifierType ) ?? sig.CustomModifierType
+         } );
+         yield return NewCopyingFunctionality<ParameterSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new ParameterSignature( sig.CustomModifiers.Count )
+            {
+               IsByRef = sig.IsByRef,
+               Type = ctx.CloneSingle( sig.Type, cb )
+            };
+            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<LocalSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new LocalSignature( sig.CustomModifiers.Count )
+            {
+               IsByRef = sig.IsByRef,
+               Type = ctx.CloneSingle( sig.Type, cb ),
+               IsPinned = sig.IsPinned
+            };
+            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<FieldSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new FieldSignature( sig.CustomModifiers.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               Type = ctx.CloneSingle( sig.Type, cb )
+            };
+            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<MethodDefinitionSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new MethodDefinitionSignature( sig.Parameters.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               GenericArgumentCount = sig.GenericArgumentCount,
+               MethodSignatureInformation = sig.MethodSignatureInformation,
+               ReturnType = ctx.CloneSingle( sig.ReturnType, cb )
+            };
+            ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<MethodReferenceSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new MethodReferenceSignature( sig.Parameters.Count, sig.VarArgsParameters.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               GenericArgumentCount = sig.GenericArgumentCount,
+               MethodSignatureInformation = sig.MethodSignatureInformation,
+               ReturnType = ctx.CloneSingle( sig.ReturnType, cb )
+            };
+            ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
+            ctx.CloneList( retVal.VarArgsParameters, sig.VarArgsParameters, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<PropertySignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new PropertySignature( sig.CustomModifiers.Count, sig.Parameters.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               HasThis = sig.HasThis,
+               PropertyType = ctx.CloneSingle( sig.PropertyType, cb ),
+            };
+            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+            ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<LocalVariablesSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new LocalVariablesSignature( sig.Locals.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy()
+            };
+            ctx.CloneList( retVal.Locals, sig.Locals, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<GenericMethodSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new GenericMethodSignature( sig.GenericArguments.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy()
+            };
+            ctx.CloneList( retVal.GenericArguments, sig.GenericArguments, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<RawSignature>( ( sig, ctx, cb ) => new RawSignature()
+         {
+            Bytes = sig.Bytes.CreateBlockCopy()
+         } );
+         yield return NewCopyingFunctionality<ComplexArrayTypeSignature>( ( sig, ctx, cb ) => new ComplexArrayTypeSignature()
+         {
+            ExtraData = sig.ExtraData.CreateBlockCopy(),
+            ArrayType = ctx.CloneSingle( sig.ArrayType, cb ),
+            ComplexArrayInfo = new ComplexArrayInfo( sig.ComplexArrayInfo )
+         } );
+         yield return NewCopyingFunctionality<SimpleArrayTypeSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new SimpleArrayTypeSignature( sig.CustomModifiers.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               ArrayType = ctx.CloneSingle( sig.ArrayType, cb )
+            };
+            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<ClassOrValueTypeSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new ClassOrValueTypeSignature( sig.GenericArguments.Count )
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               Type = ctx.TableIndexTransformer?.Invoke( sig.Type ) ?? sig.Type,
+               TypeReferenceKind = sig.TypeReferenceKind
+            };
+            ctx.CloneList( retVal.GenericArguments, sig.GenericArguments, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<GenericParameterTypeSignature>( ( sig, ctx, cb ) => new GenericParameterTypeSignature()
+         {
+            ExtraData = sig.ExtraData.CreateBlockCopy(),
+            GenericParameterIndex = sig.GenericParameterIndex,
+            GenericParameterKind = sig.GenericParameterKind
+         } );
+         yield return NewCopyingFunctionality<FunctionPointerTypeSignature>( ( sig, ctx, cb ) => new FunctionPointerTypeSignature()
+         {
+            ExtraData = sig.ExtraData.CreateBlockCopy(),
+            MethodSignature = ctx.CloneSingle( sig.MethodSignature, cb )
+         } );
+         yield return NewCopyingFunctionality<PointerTypeSignature>( ( sig, ctx, cb ) =>
+         {
+            var retVal = new PointerTypeSignature()
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               PointerType = ctx.CloneSingle( sig.PointerType, cb )
+            };
+            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+            return retVal;
+         } );
+         yield return NewCopyingFunctionality<SimpleTypeSignature>( ( sig, ctx, cb ) => sig );
+      }
+
 
       /// <summary>
       /// Creates a new <see cref="SignatureTypeInfo{TFunctionality}"/> with functionality for visiting signatures according to visitor pattern.
@@ -910,10 +1372,15 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <typeparam name="TSignature">The type of the signature element.</typeparam>
       /// <param name="functionality">The visitor functionality.</param>
       /// <returns>A new instance of <see cref="SignatureTypeInfo{TFunctionality}"/>.</returns>
-      public static SignatureTypeInfo<VisitElementDelegate<SignatureElement>> NewVisitFunctionality<TSignature>( VisitElementDelegateTyped<SignatureElement, TSignature> functionality )
+      public static SignatureTypeInfo<VisitorVertexInfo<SignatureElement>> NewVisitFunctionality<TSignature>(
+         params VisitorEdgeInfo<SignatureElement>[] functionality
+         )
          where TSignature : SignatureElement
       {
-         return new SignatureTypeInfo<VisitElementDelegate<SignatureElement>>( typeof( TSignature ), functionality.AsVisitElementDelegate() );
+         return new SignatureTypeInfo<VisitorVertexInfo<SignatureElement>>( typeof( TSignature ), new VisitorVertexInfo<SignatureElement>(
+            typeof( TSignature ),
+            functionality
+            ) );
       }
 
       /// <summary>
@@ -923,10 +1390,10 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <typeparam name="TContext">The type of context.</typeparam>
       /// <param name="acceptor">The acceptor functionality.</param>
       /// <returns>A new instance of <see cref="SignatureTypeInfo{TFunctionality}"/>.</returns>
-      public static SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TContext>> NewAcceptFunctionality<TSignature, TContext>( AcceptElementDelegate<TSignature, TContext> acceptor )
+      public static SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TContext>> NewAcceptFunctionality<TSignature, TContext>( AcceptVertexDelegate<TSignature, TContext> acceptor )
          where TSignature : SignatureElement
       {
-         return new SignatureTypeInfo<AcceptElementDelegate<SignatureElement, TContext>>( typeof( TSignature ), ( el, ctx ) => acceptor( (TSignature) el, ctx ) );
+         return new SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TContext>>( typeof( TSignature ), ( el, ctx ) => acceptor( (TSignature) el, ctx ) );
       }
 
       internal static SignatureTypeInfo<SignatureVertexMatchingFunctionality> NewMatchingFunctionality<TSignature>(
@@ -936,6 +1403,19 @@ namespace CILAssemblyManipulator.Physical.Meta
          where TSignature : class, SignatureElement
       {
          return new SignatureTypeInfo<SignatureVertexMatchingFunctionality>( typeof( TSignature ), SignatureVertexMatchingFunctionality.NewFunctionality( vertexEquality, edges ) );
+      }
+
+      internal static SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>> NewCopyingFunctionality<TSignature>(
+         CopySignatureDelegate<TSignature> functionality
+         )
+         where TSignature : class, SignatureElement
+      {
+         return new SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>>( typeof( TSignature ), ( el, ctx, cb ) =>
+         {
+            var result = functionality( (TSignature) el, ctx, cb );
+            ctx.CurrentObject = result;
+            return true;
+         } );
       }
 
    }
@@ -951,7 +1431,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="vertexEquality">The callback to match simple properties of </param>
       /// <param name="edges">The edges.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="vertexEquality"/> is <c>null</c>.</exception>
-      public SignatureVertexMatchingFunctionality( AcceptElementDelegate<SignatureElement, SignatureMatchingContext> vertexEquality, params SignatureEdgeMatchingFunctionality[] edges )
+      public SignatureVertexMatchingFunctionality( AcceptVertexDelegate<SignatureElement, SignatureMatchingContext> vertexEquality, params SignatureEdgeMatchingFunctionality[] edges )
       {
          this.VertexAcceptor = ArgumentValidator.ValidateNotNull( "Vertex equality", vertexEquality );
          this.Edges = ( edges ?? Empty<SignatureEdgeMatchingFunctionality>.Array ).ToArrayProxy().CQ;
@@ -961,7 +1441,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Gets the callback used to match signature element vertices.
       /// </summary>
       /// <value>The callback used to match signature element vertices.</value>
-      public AcceptElementDelegate<SignatureElement, SignatureMatchingContext> VertexAcceptor { get; }
+      public AcceptVertexDelegate<SignatureElement, SignatureMatchingContext> VertexAcceptor { get; }
 
       /// <summary>
       /// Gets the array of <see cref="SignatureEdgeMatchingFunctionality"/> objects.
@@ -978,11 +1458,16 @@ namespace CILAssemblyManipulator.Physical.Meta
          return new SignatureVertexMatchingFunctionality(
             ( el, ctx ) =>
             {
-               var fromCtx = ctx.GetCurrentElement();
-               TSignature fromCtxTyped;
-               return ReferenceEquals( el, fromCtx )
-               || ( el != null && ( fromCtxTyped = fromCtx as TSignature ) != null
-               && vertexEquality( (TSignature) el, fromCtxTyped, ctx ) );
+               var retVal = vertexEquality == null;
+               if ( !retVal )
+               {
+                  var fromCtx = ctx.GetCurrentElement();
+                  TSignature fromCtxTyped;
+                  retVal = ReferenceEquals( el, fromCtx )
+                  || ( el != null && ( fromCtxTyped = fromCtx as TSignature ) != null
+                  && vertexEquality( (TSignature) el, fromCtxTyped, ctx ) );
+               }
+               return retVal;
             },
             edges
             );
@@ -1198,6 +1683,23 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <param name="context">The context.</param>
    /// <returns><c>true</c> if <paramref name="x"/> is considered to be equal to <paramref name="y"/>; <c>false</c> otherwise.</returns>
    public delegate Boolean EqualityWithContext<TItem, TContext>( TItem x, TItem y, TContext context );
+
+   public class CopyingContext
+   {
+      public CopyingContext( Boolean isDeep, Func<TableIndex, TableIndex> tableIndexTransformer )
+      {
+         this.IsDeepCopy = isDeep;
+         this.TableIndexTransformer = tableIndexTransformer;
+      }
+
+      public Object CurrentObject { get; set; }
+
+      public Boolean IsDeepCopy { get; }
+
+      public Func<TableIndex, TableIndex> TableIndexTransformer { get; }
+   }
+
+   internal delegate TSignature CopySignatureDelegate<TSignature>( TSignature signature, CopyingContext context, AcceptVertexExplicitCallbackDelegate<SignatureElement, CopyingContext> callback );
 }
 
 public static partial class E_CILPhysical
@@ -1404,7 +1906,7 @@ public static partial class E_CILPhysical
    {
       var decomposer = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, DecomposeSignatureContext>>();
       var decomposeContext = new DecomposeSignatureContext();
-      decomposer.AcceptWithContext( signature, decomposeContext );
+      decomposer.Accept( signature, decomposeContext );
       return decomposeContext.Elements;
    }
 
@@ -1421,7 +1923,7 @@ public static partial class E_CILPhysical
    public static Boolean MatchSignatures( this SignatureProvider provider, CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
    {
       return provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, SignatureMatchingContext>>()
-         .AcceptWithContext( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
+         .Accept( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
    }
 
 
@@ -1435,29 +1937,52 @@ public static partial class E_CILPhysical
    {
       var collector = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, TableIndexCollectorContext>>();
       var collectorContext = new TableIndexCollectorContext();
-      collector.AcceptWithContext( signature, collectorContext );
+      collector.Accept( signature, collectorContext );
       return collectorContext.Elements;
    }
 
-   internal static void RegisterVisitor<TElement, TActualElement>( this TypeBasedVisitor<TElement> visitorAggregator, VisitElementDelegateTyped<TElement, TActualElement> visitor )
-      where TActualElement : TElement
+   /// <summary>
+   /// Creates a new instance of signature of given type, which will contain a shallow or deep copy of this signature.
+   /// </summary>
+   /// <typeparam name="TSignature">The type of signature reference.</typeparam>
+   /// <param name="provider">The <see cref="SignatureProvider"/>.</param>
+   /// <param name="sig">The <see cref="AbstractSignature"/>.</param>
+   /// <param name="tableIndexTranslator">Optional callback to translate table indices of <see cref="CustomModifierSignature.CustomModifierType"/> and <see cref="ClassOrValueTypeSignature.Type"/> properties while copying.</param>
+   /// <param name="isDeep">Whether the copy is deep.</param>
+   /// <returns>A new instance of <typeparamref name="TSignature"/>, which has all of its contents deeply copied from given signature.</returns>
+   /// <exception cref="NullReferenceException">If <paramref name="sig"/> is <c>null</c>.</exception>
+   /// <exception cref="NotSupportedException">If <see cref="AbstractSignature.SignatureKind"/> returns any other value than what the <see cref="SignatureKind"/> enumeration has.</exception>
+   public static TSignature CreateCopy<TSignature>( this SignatureProvider provider, TSignature sig, Boolean isDeep, Func<TableIndex, TableIndex> tableIndexTranslator = null )
+      where TSignature : AbstractSignature
    {
-      visitorAggregator.RegisterVisitor( typeof( TActualElement ), ( el, cb ) => visitor( (TActualElement) el, cb ) );
+      var acceptor = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, CopyingContext>>();
+      var ctx = new CopyingContext( isDeep, tableIndexTranslator );
+      if ( !acceptor.AcceptExplicit( sig, ctx ) )
+      {
+         throw new NotSupportedException( "Could not find functionality to copy signature or part of it." );
+      }
+      return (TSignature) ctx.CurrentObject;
    }
 
-   internal static void RegisterSignatureVisitor<TSignature>( this TypeBasedVisitor<SignatureElement> visitorAggregator, VisitElementDelegateTyped<SignatureElement, TSignature> visitor )
-      where TSignature : SignatureElement
-   {
-      visitorAggregator.RegisterVisitor( visitor );
-   }
+   //internal static void RegisterVisitor<TElement, TActualElement>( this TypeBasedVisitor<TElement> visitorAggregator, VisitElementDelegateTyped<TElement, TActualElement> visitor )
+   //   where TActualElement : TElement
+   //{
+   //   visitorAggregator.RegisterVisitor( typeof( TActualElement ), ( el, cb ) => visitor( (TActualElement) el, cb ) );
+   //}
 
-   internal static void RegisterAcceptor<TElement, TContext, TActualElement>( this TypeBasedAcceptor<TElement, TContext> acceptorAggregator, AcceptElementDelegate<TActualElement, TContext> acceptor )
+   //internal static void RegisterSignatureVisitor<TSignature>( this TypeBasedVisitor<SignatureElement> visitorAggregator, VisitElementDelegateTyped<SignatureElement, TSignature> visitor )
+   //   where TSignature : SignatureElement
+   //{
+   //   visitorAggregator.RegisterVisitor( visitor );
+   //}
+
+   internal static void RegisterAcceptor<TElement, TContext, TActualElement>( this TypeBasedAcceptor<TElement, TContext> acceptorAggregator, AcceptVertexDelegate<TActualElement, TContext> acceptor )
       where TActualElement : TElement
    {
       acceptorAggregator.RegisterVertexAcceptor( typeof( TActualElement ), ( el, ctx ) => acceptor( (TActualElement) el, ctx ) );
    }
 
-   internal static void RegisterSignatureDecomposer<TSignature>( this TypeBasedAcceptor<SignatureElement, DecomposeSignatureContext> acceptorAggregator, AcceptElementDelegate<TSignature, DecomposeSignatureContext> acceptor )
+   internal static void RegisterSignatureDecomposer<TSignature>( this TypeBasedAcceptor<SignatureElement, DecomposeSignatureContext> acceptorAggregator, AcceptVertexDelegate<TSignature, DecomposeSignatureContext> acceptor )
       where TSignature : SignatureElement
    {
       acceptorAggregator.RegisterAcceptor( acceptor );
@@ -1517,6 +2042,11 @@ public static partial class E_CILPhysical
    {
       return ( el, cb ) => typed( (TActualElement) el, cb );
    }
+   internal static AcceptVertexExplicitDelegate<TElement, TContext> AsAcceptVertexExplicitDelegate<TElement, TContext, TActualElement>( this AcceptVertexExplicitDelegateTyped<TElement, TContext, TActualElement> typed )
+      where TActualElement : TElement
+   {
+      return ( el, ctx, cb ) => typed( (TActualElement) el, ctx, cb );
+   }
 
    internal static Boolean VisitBaseType<TElement>( this VisitElementCallbackDelegate<TElement> callback, TElement element, Type baseType )
    {
@@ -1555,4 +2085,43 @@ public static partial class E_CILPhysical
       }
       return retVal;
    }
+
+   internal static TSignature CloneSingle<TSignature>( this CopyingContext context, TSignature signature, AcceptVertexExplicitCallbackDelegate<SignatureElement, CopyingContext> callback )
+      where TSignature : class, SignatureElement
+   {
+      if ( signature != null && context.IsDeepCopy )
+      {
+         callback( signature, context );
+         return (TSignature) context.CurrentObject;
+      }
+      else
+      {
+         return signature;
+      }
+   }
+
+   internal static void CloneList<TSignature>( this CopyingContext context, List<TSignature> listToWrite, List<TSignature> listToRead, AcceptVertexExplicitCallbackDelegate<SignatureElement, CopyingContext> callback )
+      where TSignature : class, SignatureElement
+   {
+      if ( context.IsDeepCopy )
+      {
+         var max = listToRead.Count;
+         for ( var i = 0; i < max; ++i )
+         {
+            var cur = listToRead[i];
+            var curCopy = context.CloneSingle( cur, callback );
+            listToWrite.Add( curCopy );
+         }
+      }
+      else
+      {
+         listToWrite.AddRange( listToRead );
+      }
+   }
+
+   //internal static TSignature Clone<TSignature>( this CloneSignature callback, TSignature signature, Func<TableIndex, TableIndex> tableIndexTransform )
+   //   where TSignature : class, SignatureElement
+   //{
+   //   return (TSignature) callback( signature, tableIndexTransform, callback );
+   //}
 }

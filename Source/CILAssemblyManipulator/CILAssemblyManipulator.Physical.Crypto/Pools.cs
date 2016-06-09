@@ -24,6 +24,7 @@ using System.Text;
 
 namespace CILAssemblyManipulator.Physical.Crypto
 {
+
    /// <summary>
    /// 
    /// </summary>
@@ -39,14 +40,15 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public InstancePoolUser( Func<TInstance> factory )
       {
          this.Factory = ArgumentValidator.ValidateNotNull( "Factory", factory );
-         this.Pool = new LocklessInstancePoolForClasses<TInstance>();
+         this.Pool = new DefaultLocklessInstancePoolForClasses<TInstance>();
       }
 
       /// <summary>
       /// 
       /// </summary>
       /// <param name="action"></param>
-      protected void UseInstance( Action<TInstance> action )
+      /// <param name="finallyAction"></param>
+      protected void UseInstance( Action<TInstance> action, Action<TInstance> finallyAction = null )
       {
          var instance = this.Pool.TakeInstance();
          try
@@ -59,7 +61,26 @@ namespace CILAssemblyManipulator.Physical.Crypto
          }
          finally
          {
+            this.UseInstance_Finally( finallyAction, instance );
+         }
+      }
+
+      private void UseInstance_Finally( Action<TInstance> finallyAction, TInstance instance )
+      {
+         if ( finallyAction == null )
+         {
             this.Pool.ReturnInstance( instance );
+         }
+         else
+         {
+            try
+            {
+               finallyAction( instance );
+            }
+            finally
+            {
+               this.Pool.ReturnInstance( instance );
+            }
          }
       }
 
@@ -89,7 +110,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       /// <summary>
       /// 
       /// </summary>
-      protected LocklessInstancePoolForClasses<TInstance> Pool { get; }
+      protected DefaultLocklessInstancePoolForClasses<TInstance> Pool { get; }
 
       /// <summary>
       /// 
@@ -104,7 +125,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
    public class HashAlgorithmInstancePoolUser<THashAlgorithm> : InstancePoolUser<THashAlgorithm>
       where THashAlgorithm : class, BlockDigestAlgorithm
    {
-      private readonly LocklessInstancePoolForClasses<Byte[]> _byteArrays = new LocklessInstancePoolForClasses<Byte[]>();
+      private readonly DefaultLocklessInstancePoolForClasses<Byte[]> _byteArrays = new DefaultLocklessInstancePoolForClasses<Byte[]>();
 
       /// <summary>
       /// 
@@ -113,7 +134,7 @@ namespace CILAssemblyManipulator.Physical.Crypto
       public HashAlgorithmInstancePoolUser( Func<THashAlgorithm> factory )
          : base( factory )
       {
-         this._byteArrays = new LocklessInstancePoolForClasses<Byte[]>();
+         this._byteArrays = new DefaultLocklessInstancePoolForClasses<Byte[]>();
       }
 
       /// <summary>
