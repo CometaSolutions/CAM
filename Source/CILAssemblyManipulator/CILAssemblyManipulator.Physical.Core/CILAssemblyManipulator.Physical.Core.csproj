@@ -57,11 +57,11 @@
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\UtilPack\CollectionsWithRoles\UtilPack.CWR.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\..\UtilPack\UtilPack.CWR\UtilPack.CWR.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>UtilPack.CWR</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\UtilPack\CommonUtils\UtilPack.Common.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\..\UtilPack\UtilPack.Common\UtilPack.Common.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>UtilPack.Common</Name>
     </ProjectReference>

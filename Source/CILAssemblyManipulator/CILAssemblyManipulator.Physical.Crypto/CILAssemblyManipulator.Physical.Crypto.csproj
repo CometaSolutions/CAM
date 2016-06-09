@@ -76,7 +76,7 @@
       <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
       <Name>CILAssemblyManipulator.Physical.Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\UtilPack\CommonUtils\UtilPack.Common.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+    <ProjectReference Include="..\..\UtilPack\UtilPack.Common\UtilPack.Common.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>UtilPack.Common</Name>
     </ProjectReference>
