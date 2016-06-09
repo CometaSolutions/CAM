@@ -11,7 +11,7 @@
   
   <!-- Projects to build, in build order -->
   <ItemGroup>
-    <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/CollectionsWithRoles/UtilPack.CWR.csproj" />
+    <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.CWR/UtilPack.CWR.csproj" />
   </ItemGroup>
   
   <Target Name="Build">

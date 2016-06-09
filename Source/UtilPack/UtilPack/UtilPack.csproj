@@ -89,8 +89,9 @@
   <Target Name="AfterBuild">
     <ItemGroup>
       <ProjectToMerge Include="@(IntermediateAssembly)" />
-      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CommonUtils.dll" />
-      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)CollectionsWithRoles.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)UtilPack.Common.IL.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)UtilPack.Common.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)UtilPack.CWR.dll" />
     </ItemGroup>
     <!-- TODO Output logging info when all projects have XML document files -->
     <CILMerge.MSBuild.CILMergeTask

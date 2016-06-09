@@ -70,8 +70,8 @@
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
     <!-- Make these different names from ProjectReferences in Include attribute, so that 'go to definition' would work properly in IDE. -->
-    <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    <Reference Include="UtilPack_Common_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)UtilPack.Common.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

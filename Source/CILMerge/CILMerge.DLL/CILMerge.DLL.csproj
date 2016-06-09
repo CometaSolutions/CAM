@@ -60,11 +60,11 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml" />
-    <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    <Reference Include="UtilPack_Common_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)UtilPack.Common.dll</HintPath>
     </Reference>
-    <Reference Include="CollectionsWithRoles_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    <Reference Include="UtilPack_CWR_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)UtilPack.CWR.dll</HintPath>
     </Reference>
     <Reference Include="TabularMetaData_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)..\SL\TabularMetaData.dll</HintPath>

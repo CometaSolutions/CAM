@@ -67,11 +67,11 @@
     <Reference Include="UtilPack" Condition=" '$(UseUtilpackReference)' != '' ">
       <HintPath>$(OutputPath)UtilPack.dll</HintPath>
     </Reference>
-    <Reference Include="CommonUtils_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CommonUtils.dll</HintPath>
+    <Reference Include="UtilPack_Common_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)UtilPack.Common.dll</HintPath>
     </Reference>
-    <Reference Include="CollectionsWithRoles_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
-      <HintPath>$(OutputPath)CollectionsWithRoles.dll</HintPath>
+    <Reference Include="UtilPack_CWR_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)UtilPack.CWR.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />

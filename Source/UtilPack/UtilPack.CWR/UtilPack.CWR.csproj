@@ -9,8 +9,8 @@
     <ProjectGuid>{7F7EBFB0-2BF4-44D8-B96F-ACCC5F99F529}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CollectionsWithRoles</RootNamespace>
-    <AssemblyName>CollectionsWithRoles</AssemblyName>
+    <RootNamespace>UtilPack.CollectionsWithRoles</RootNamespace>
+    <AssemblyName>UtilPack.CWR</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
     <DefaultLanguage>en-US</DefaultLanguage>
