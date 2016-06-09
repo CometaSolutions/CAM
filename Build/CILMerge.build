@@ -9,11 +9,11 @@
   
   <!-- Projects to build, in build order -->
   <ItemGroup>
-    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj">
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/UtilPack/CollectionsWithRoles/CollectionsWithRoles.csproj">
       <MergeProjectConfiguration>$(CILMergeConfiguration)_SL</MergeProjectConfiguration>
       <MergeProjectTargets>Build</MergeProjectTargets>
     </CILMergeProject>
-    <CILMergeProject Include="$(CILMergeBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj">
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/UtilPack/CollectionsWithRoles/CollectionsWithRoles.csproj">
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
       <MergeProjectTargets>Build</MergeProjectTargets>
     </CILMergeProject>

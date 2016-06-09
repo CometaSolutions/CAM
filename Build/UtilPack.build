@@ -11,7 +11,7 @@
   
   <!-- Projects to build, in build order -->
   <ItemGroup>
-    <UtilpackProject Include="$(UtilPackBaseDir)/Source/CollectionsWithRoles/CollectionsWithRoles.csproj" />
+    <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/CollectionsWithRoles/CollectionsWithRoles.csproj" />
   </ItemGroup>
   
   <Target Name="Build">
@@ -22,7 +22,7 @@
     <MSBuild Projects="@(UtilpackProject)" Targets="$(UtilPackBuildTargets)" Properties="Configuration=$(UtilPackConfiguration);Platform=$(UtilPackPlatform)" />
     
     <!-- Build merged DLL -->
-    <MSBuild Projects="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.csproj" Targets="$(UtilPackMergeTargets)" Properties="Configuration=$(UtilPackConfiguration);Platform=$(UtilPackPlatform)" />
+    <MSBuild Projects="$(UtilPackBaseDir)/Source/UtilPack/UtilPack/UtilPack.csproj" Targets="$(UtilPackMergeTargets)" Properties="Configuration=$(UtilPackConfiguration);Platform=$(UtilPackPlatform)" />
   </Target>
 
 </Project>

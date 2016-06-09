@@ -56,11 +56,11 @@
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup> -->
   <ItemGroup>
-    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\CollectionsWithRoles\CollectionsWithRoles.csproj">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\UtilPack\CollectionsWithRoles\CollectionsWithRoles.csproj">
       <Project>{7f7ebfb0-2bf4-44d8-b96f-accc5f99f529}</Project>
       <Name>CollectionsWithRoles</Name>
     </ProjectReference>
-    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\CommonUtils\CommonUtils.csproj">
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\UtilPack\CommonUtils\CommonUtils.csproj">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>CommonUtils</Name>
     </ProjectReference>
