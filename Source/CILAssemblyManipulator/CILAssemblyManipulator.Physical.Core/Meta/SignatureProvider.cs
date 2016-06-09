@@ -1955,13 +1955,22 @@ public static partial class E_CILPhysical
    public static TSignature CreateCopy<TSignature>( this SignatureProvider provider, TSignature sig, Boolean isDeep, Func<TableIndex, TableIndex> tableIndexTranslator = null )
       where TSignature : AbstractSignature
    {
-      var acceptor = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, CopyingContext>>();
-      var ctx = new CopyingContext( isDeep, tableIndexTranslator );
-      if ( !acceptor.AcceptExplicit( sig, ctx ) )
+      TSignature retVal;
+      if ( sig == null )
       {
-         throw new NotSupportedException( "Could not find functionality to copy signature or part of it." );
+         retVal = sig;
       }
-      return (TSignature) ctx.CurrentObject;
+      else
+      {
+         var acceptor = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, CopyingContext>>();
+         var ctx = new CopyingContext( isDeep, tableIndexTranslator );
+         if ( !acceptor.AcceptExplicit( sig, ctx ) )
+         {
+            throw new NotSupportedException( "Could not find functionality to copy signature or part of it." );
+         }
+         retVal = (TSignature) ctx.CurrentObject;
+      }
+      return retVal;
    }
 
    //internal static void RegisterVisitor<TElement, TActualElement>( this TypeBasedVisitor<TElement> visitorAggregator, VisitElementDelegateTyped<TElement, TActualElement> visitor )
