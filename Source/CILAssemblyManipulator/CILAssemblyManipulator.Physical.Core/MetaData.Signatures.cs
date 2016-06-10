@@ -2729,7 +2729,7 @@ public static partial class E_CILPhysical
 
    private static CustomAttributeArgumentType TypeSignatureToCustomAttributeArgumentType( this CILMetaData md, TypeSignature type, Func<TableIndex, CustomAttributeArgumentTypeEnum> enumFactory, Boolean acceptArray )
    {
-      var sigProvider = md.SignatureProvider;
+      var sigProvider = md.GetSignatureProvider();
       switch ( type.TypeSignatureKind )
       {
          case TypeSignatureKind.Simple:

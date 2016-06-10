@@ -1071,7 +1071,7 @@ public static partial class E_CILStructural
          } ) );
 
          // Op codes
-         var ocp = state.MetaData.OpCodeProvider;
+         var ocp = state.MetaData.GetOpCodeProvider();
          ilP.OpCodes.AddRange( il.OpCodes.Select( o =>
          {
             if ( o == null )
@@ -1189,10 +1189,10 @@ public static partial class E_CILStructural
                return clazzP;
             case TypeStructureSignatureKind.ComplexArray:
                var cArray = (ComplexArrayTypeStructureSignature) sig;
-               var cArrayP = new ComplexArrayTypeSignature( )
+               var cArrayP = new ComplexArrayTypeSignature()
                {
                   ArrayType = state.CreatePhysicalTypeSignature( cArray.ArrayType ),
-                  ComplexArrayInfo = new ComplexArrayInfo(cArray.ComplexArrayInfo)
+                  ComplexArrayInfo = new ComplexArrayInfo( cArray.ComplexArrayInfo )
                };
                return cArrayP;
             case TypeStructureSignatureKind.FunctionPointer:
@@ -1216,7 +1216,7 @@ public static partial class E_CILStructural
                state.AddPhysicalCustomMods( ptrP.CustomModifiers, ptr.CustomModifiers );
                return ptrP;
             case TypeStructureSignatureKind.Simple:
-               return state.MetaData.SignatureProvider.GetSimpleTypeSignature( ( (SimpleTypeStructureSignature) sig ).SimpleType );
+               return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( ( (SimpleTypeStructureSignature) sig ).SimpleType );
             case TypeStructureSignatureKind.SimpleArray:
                var array = (SimpleArrayTypeStructureSignature) sig;
                var arrayP = new SimpleArrayTypeSignature( array.CustomModifiers.Count )

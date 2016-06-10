@@ -978,7 +978,7 @@ public static partial class E_CILLogical
       var dynamicBranchInfos = ilState.DynamicOpCodeInfos;
       var pOpCodes = physicalIL.OpCodes;
       var branchCodeIndices = new List<Int32>();
-      var ocp = state.MetaData.OpCodeProvider;
+      var ocp = state.MetaData.GetOpCodeProvider();
 
       // I have a gut feeling that jumps fitting into SByte are much more common than the ones that would require longer, Int32 format
       // Therefore whenever encountering dynamic branch or leave, use short form as a guess
@@ -1161,7 +1161,7 @@ public static partial class E_CILLogical
       var dynIndices = state.DynamicOpCodeInfos;
       var currentOpCodeIndex = dynIndices[startingOpCodeIndex];
       var pOpCodes = state.PhysicalIL.OpCodes;
-      var ocp = state.ModuleState.MetaData.OpCodeProvider;
+      var ocp = state.ModuleState.MetaData.GetOpCodeProvider();
       for ( var idx = 0; idx < startingOpCodeIndex; ++idx )
       {
          var currentDynamicIndex = dynIndices[idx];
@@ -1371,41 +1371,41 @@ public static partial class E_CILLogical
                switch ( tc )
                {
                   case CILTypeCode.Boolean:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Boolean );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.Boolean );
                   case CILTypeCode.Byte:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U1 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.U1 );
                   case CILTypeCode.Char:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Char );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.Char );
                   case CILTypeCode.Double:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.R8 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.R8 );
                   case CILTypeCode.Int16:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I2 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.I2 );
                   case CILTypeCode.Int32:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I4 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.I4 );
                   case CILTypeCode.Int64:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I8 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.I8 );
                   case CILTypeCode.IntPtr:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.I );
                   case CILTypeCode.SystemObject:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Object );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.Object );
                   case CILTypeCode.SByte:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.I1 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.I1 );
                   case CILTypeCode.Single:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.R4 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.R4 );
                   case CILTypeCode.String:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.String );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.String );
                   case CILTypeCode.TypedByRef:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.TypedByRef );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.TypedByRef );
                   case CILTypeCode.UInt16:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U2 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.U2 );
                   case CILTypeCode.UInt32:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U4 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.U4 );
                   case CILTypeCode.UInt64:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U8 );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.U8 );
                   case CILTypeCode.UIntPtr:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.U );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.U );
                   case CILTypeCode.Void:
-                     return state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Void );
+                     return state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.Void );
                   default:
                      var gArgs = t.GenericArguments;
                      var classOrValue = new ClassOrValueTypeSignature( gArgs.Count )
@@ -1466,7 +1466,7 @@ public static partial class E_CILLogical
          new ParameterSignature()
          {
             IsByRef = false,
-            Type = state.MetaData.SignatureProvider.GetSimpleTypeSignature( SimpleTypeSignatureKind.Void )
+            Type = state.MetaData.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.Void )
          } :
          state.CreateParameterSignature( m.ReturnParameter );
       sig.Parameters.AddRange( method.Parameters.Select( p => state.CreateParameterSignature( p ) ) );
@@ -1677,7 +1677,7 @@ public static partial class E_CILLogical
       }
       else
       {
-         var sigProvider = state.MetaData.SignatureProvider;
+         var sigProvider = state.MetaData.GetSignatureProvider();
          switch ( type.TypeCode )
          {
             case CILTypeCode.Boolean:

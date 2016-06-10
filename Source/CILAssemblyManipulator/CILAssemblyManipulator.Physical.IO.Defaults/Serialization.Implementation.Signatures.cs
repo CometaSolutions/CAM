@@ -1459,7 +1459,7 @@ public static partial class E_CILPhysical
          throw new InvalidOperationException( "Custom attribute constructor has different amount of parameters than supplied custom attribute data (custom attribute at index " + caIdx + ", ctor: " + ctor + ")." );
       }
 
-      var sigProvider = md.SignatureProvider;
+      var sigProvider = md.GetSignatureProvider();
 
       // Prolog
       info

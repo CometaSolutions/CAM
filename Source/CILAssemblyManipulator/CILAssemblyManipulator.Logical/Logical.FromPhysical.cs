@@ -1102,7 +1102,7 @@ public static partial class E_CILLogical
                case TypeSignatureKind.ComplexArray:
                   var thisArray = (ComplexArrayTypeSignature) thisSignature;
                   var declaringArray = (ComplexArrayTypeSignature) declaringTypeSignature;
-                  retVal = Comparers.ComplexArrayInfoEqualityComparer.Equals(thisArray.ComplexArrayInfo, declaringArray.ComplexArrayInfo)
+                  retVal = Comparers.ComplexArrayInfoEqualityComparer.Equals( thisArray.ComplexArrayInfo, declaringArray.ComplexArrayInfo )
                      && this.MatchTypeSignatures( thisArray.ArrayType, declaringTypeCreationResult, declaringArray.ArrayType );
                   break;
                case TypeSignatureKind.FunctionPointer:
@@ -2327,7 +2327,7 @@ public static partial class E_CILLogical
          var labelByteOffsets = new Dictionary<ILLabel, Int32>();
          var curByteOffset = 0;
          var md = state.MetaData;
-         var ocp = md.OpCodeProvider;
+         var ocp = md.GetOpCodeProvider();
          var methodSpecs = md.MethodSpecifications.TableContents;
 
          for ( var codeIdx = 0; codeIdx < physOpCodes.Count; ++codeIdx )

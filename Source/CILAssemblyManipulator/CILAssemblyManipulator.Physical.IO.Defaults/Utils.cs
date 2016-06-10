@@ -121,7 +121,7 @@ public static partial class E_CILPhysical
       Boolean retVal;
       if ( il != null )
       {
-         var ocp = md.OpCodeProvider;
+         var ocp = md.GetOpCodeProvider();
          ilCodeByteCount = ocp.GetILByteCount( il.OpCodes );
 
          var lIdx = il.LocalsSignatureIndex;

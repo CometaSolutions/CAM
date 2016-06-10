@@ -160,6 +160,17 @@ public static partial class E_CILPhysical
 #pragma warning restore 1591
 {
    /// <summary>
+   /// Gets the <see cref="ResolvingProvider"/> for this <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <returns>The <see cref="ResolvingProvider"/>.</returns>
+   /// <seealso cref="ResolvingProvider"/>
+   public static ResolvingProvider GetResolvingProvider( this CILMetaData md )
+   {
+      return md.GetFunctionality<ResolvingProvider>();
+   }
+
+   /// <summary>
    /// Helper method to resolve all custom attributes of given <see cref="CILMetaData"/> using <see cref="ResolveCustomAttributeSignature"/>.
    /// </summary>
    /// <param name="md">This <see cref="CILMetaData"/>.</param>
@@ -188,7 +199,7 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If this <see cref="CILMetaData"/> is <c>null</c>.</exception>
    public static Boolean ResolveCustomAttributeSignature( this CILMetaData md, Int32 rowIndex )
    {
-      return ( (CILAssemblyManipulator.Physical.CILMetaData) md ).ResolvingProvider.Resolve( Tables.CustomAttribute, rowIndex, 0 );
+      return md.GetResolvingProvider().Resolve( Tables.CustomAttribute, rowIndex, 0 );
    }
 
    /// <summary>
@@ -200,7 +211,7 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If this <see cref="CILMetaData"/> is <c>null</c>.</exception>
    public static Boolean ResolveSecurityDeclaration( this CILMetaData md, Int32 rowIndex )
    {
-      return ( (CILAssemblyManipulator.Physical.CILMetaData) md ).ResolvingProvider.Resolve( Tables.DeclSecurity, rowIndex, 0 );
+      return md.GetResolvingProvider().Resolve( Tables.DeclSecurity, rowIndex, 0 );
    }
 
    /// <summary>
@@ -210,7 +221,7 @@ public static partial class E_CILPhysical
    /// <exception cref="NullReferenceException">If this <see cref="CILMetaData"/> is <c>null</c>.</exception>
    public static void ResolveEverything( this CILMetaData md )
    {
-      var resolver = ( (CILAssemblyManipulator.Physical.CILMetaData) md ).ResolvingProvider;
+      var resolver = md.GetResolvingProvider();
       foreach ( var table in md.GetAllTables() )
       {
          var tableEnum = (Tables) table.GetTableIndex();

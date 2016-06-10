@@ -1490,7 +1490,7 @@ namespace CILMerge
       private void MergeStaticCtors()
       {
          var targetModule = this._targetModule;
-         var targetOCP = targetModule.OpCodeProvider;
+         var targetOCP = targetModule.GetOpCodeProvider();
          foreach ( var kvp in this._multipleStaticCtorInfo )
          {
             // Get target static ctor IL
@@ -1508,7 +1508,7 @@ namespace CILMerge
             };
 
             // Locals signature might change -> so create a copy
-            var locals = this._targetModule.SignatureProvider.CreateCopy( this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx ), true ) ?? new LocalVariablesSignature();
+            var locals = this._targetModule.GetSignatureProvider().CreateCopy( this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx ), true ) ?? new LocalVariablesSignature();
             var originalLocalCount = locals.Locals.Count;
 
             // TODO this could be generalized as appending IL from one method at the end of the another method.
@@ -1528,7 +1528,7 @@ namespace CILMerge
             var originalCodeOffsets = new Int32[inputs.Sum( i =>
             {
                var md = i.Item1;
-               var ocp = md.OpCodeProvider;
+               var ocp = md.GetOpCodeProvider();
                return ocp.GetILByteCount( md.MethodDefinitions.TableContents[i.Item2].IL.OpCodes );
             } )];
             var blocks = new Int32[inputs.Count + 1];
@@ -1612,7 +1612,7 @@ namespace CILMerge
             var localCount = targetLocals.Locals.Count;
             var targetCodes = targetIL.OpCodes;
             var thisMappings = this._tableIndexMappings[inputModule];
-            var inputOCP = inputModule.OpCodeProvider;
+            var inputOCP = inputModule.GetOpCodeProvider();
 
             // Op Codes
             var sourceByteOffset = 0;
@@ -1650,7 +1650,7 @@ namespace CILMerge
             var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
             if ( sourceSig != null && sourceSig.Locals.Count > 0 )
             {
-               targetLocals.Locals.AddRange( inputModule.SignatureProvider.CreateCopy( sourceSig, true, tIdx => thisMappings[tIdx] ).Locals );
+               targetLocals.Locals.AddRange( inputModule.GetSignatureProvider().CreateCopy( sourceSig, true, tIdx => thisMappings[tIdx] ).Locals );
             }
 
          }
@@ -1700,7 +1700,7 @@ namespace CILMerge
             if ( newLocalIndex >= 0 )
             {
                var newOpCodeKind = GetOptimalLocalsCode( codeValue, newLocalIndex );
-               var ocp = this._targetModule.OpCodeProvider;
+               var ocp = this._targetModule.GetOpCodeProvider();
                switch ( ocp.GetCodeFor( newOpCodeKind ).OperandType )
                {
                   case OperandType.InlineNone:
@@ -1716,7 +1716,7 @@ namespace CILMerge
          // Then, check op codes that branch, or return
          if ( newLocalIndex == -1 )
          {
-            var newOpCodeInfo = this._targetModule.OpCodeProvider.GetCodeFor( newCode.OpCodeID );
+            var newOpCodeInfo = this._targetModule.GetOpCodeProvider().GetCodeFor( newCode.OpCodeID );
             switch ( newOpCodeInfo.OperandType )
             {
                case OperandType.ShortInlineBrTarget:
@@ -1811,7 +1811,7 @@ namespace CILMerge
          )
       {
          var curBlockOffset = 0;
-         var targetOCP = this._targetModule.OpCodeProvider;
+         var targetOCP = this._targetModule.GetOpCodeProvider();
          for ( var i = 0; i < opCodes.Count; ++i )
          {
             // Not needed - there is always a block for the last 'Ret' code.
@@ -2020,7 +2020,7 @@ namespace CILMerge
                               var mDef = moduleContainingMethodDef.MethodDefinitions.TableContents[mi];
                               return !mDef.Attributes.IsCompilerControlled()
                                  && String.Equals( mRefName, mDef.Name )
-                                 && this._targetModule.SignatureProvider.MatchSignatures( moduleContainingMethodDef, mDef.Signature, md, mRef.Signature, this._signatureMatcher );
+                                 && this._targetModule.GetSignatureProvider().MatchSignatures( moduleContainingMethodDef, mDef.Signature, md, mRef.Signature, this._signatureMatcher );
                            } )
                            .FirstOrDefaultCustom( -1 );
                         if ( targetMRefIndex >= 0 )
@@ -2228,7 +2228,7 @@ namespace CILMerge
          var targetModule = this._targetModule;
          // FieldDef
          var fDefs = targetModule.FieldDefinitions.TableContents;
-         var sp = targetModule.SignatureProvider;
+         var sp = targetModule.GetSignatureProvider();
          for ( var i = 0; i < fDefs.Count; ++i )
          {
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Field, i )];
@@ -3696,7 +3696,7 @@ namespace CILMerge
                break;
             case Tables.TypeRef:
                CILMetaData otherMD; Int32 typeDefIdx;
-               var resolver = ( (CAMPhysicalR::CILAssemblyManipulator.Physical.CILMetaData) md ).ResolvingProvider.Resolver;
+               var resolver = md.GetResolvingProvider().Resolver;
                if ( resolver != null && resolver.TryResolveTypeDefOrRefOrSpec( md, typeDefOrRefOrSpec, out otherMD, out typeDefIdx ) )
                {
                   retVal = new TypeMetaDataIndex( new MetaDataIndex( otherMD, typeDefIdx ) );
@@ -3904,7 +3904,7 @@ namespace CILMerge
             {
                var mDef = md.MethodDefinitions.TableContents[mDefIdx];
                return ( !matchName || String.Equals( mDef.Name, name ) )
-               && currentMD.SignatureProvider.MatchSignatures( currentMD, signature, md, mDef.Signature, state.CreateSigMatcher() );
+               && currentMD.GetSignatureProvider().MatchSignatures( currentMD, signature, md, mDef.Signature, state.CreateSigMatcher() );
             } )
             .FirstOrDefaultCustom( -1 );
          return idx == -1 ? (MetaDataIndex?) null : new MetaDataIndex( md, idx );
@@ -4044,7 +4044,7 @@ namespace CILMerge
          // Walk through methods and collect all tokens (TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables).
          var allTableIndices = new Dictionary<Tables, HashSet<Int32>>();
          var tableIndicesThisRound = new HashSet<TableIndex>();
-         var sigProvider = md.SignatureProvider;
+         var sigProvider = md.GetSignatureProvider();
          var fDefs = md.FieldDefinitions.TableContents;
          var mDefs = md.MethodDefinitions.TableContents;
          var tSpecs = md.TypeSpecifications.TableContents;

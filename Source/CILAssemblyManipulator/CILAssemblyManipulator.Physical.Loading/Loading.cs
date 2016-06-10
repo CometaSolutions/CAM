@@ -254,7 +254,7 @@ namespace CILAssemblyManipulator.Physical.Loading
       /// <param name="factory">The factory callback if the key is not present.</param>
       /// <returns>The value, either the one existing in cache, or returned by <paramref name="factory"/>.</returns>
       /// <remarks>
-      /// The purpose of this method is to customize whether <see cref="E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>, <see cref="E_UtilPack.GetOrAdd_WithLock{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue}, object)"/>, or <see cref="M:System.Collections.Concurrent.ConcurrentDictionary{TKey, TValue}.GetOrAdd(TKey, Func{TKey, TValue})"/> is used to obtain the value from the cache.
+      /// The purpose of this method is to customize whether <see cref="M:E_UtilPack.GetOrAdd_NotThreadSafe{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue})"/>, <see cref="M:E_UtilPack.GetOrAdd_WithLock{TKey, TValue}(IDictionary{TKey, TValue}, TKey, Func{TKey, TValue}, object)"/>, or <see cref="M:System.Collections.Concurrent.ConcurrentDictionary{TKey, TValue}.GetOrAdd(TKey, Func{TKey, TValue})"/> is used to obtain the value from the cache.
       /// </remarks>
       protected abstract CILMetaData GetOrAddFromCache( String resource, Func<String, CILMetaData> factory );
 
@@ -327,7 +327,7 @@ namespace CILAssemblyManipulator.Physical.Loading
       private String ModuleInfoFactory( String resource, CILMetaData md )
       {
          this.AfterModuleLoad( resource, md );
-         var resolver = ( (CAMPhysicalR::CILAssemblyManipulator.Physical.CILMetaData) md ).ResolvingProvider.Resolver;
+         var resolver = md.GetResolvingProvider().Resolver;
          resolver.AssemblyReferenceResolveEvent += this._resolver_AssemblyReferenceResolveEvent;
          resolver.ModuleReferenceResolveEvent += this._resolver_ModuleReferenceResolveEvent;
          return resource;

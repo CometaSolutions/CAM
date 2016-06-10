@@ -728,7 +728,7 @@ public static partial class E_CILStructural
       }
 
       // IL
-      var ocp = md.OpCodeProvider;
+      var ocp = md.GetOpCodeProvider();
       var operandless = new Dictionary<OpCodeID, OpCodeStructureSimple>();
       for ( var i = 0; i < mDefs.Count; ++i )
       {
@@ -877,7 +877,7 @@ public static partial class E_CILStructural
             break;
          case TypeSignatureKind.ComplexArray:
             var cArray = (ComplexArrayTypeSignature) sig;
-            var cClone = new ComplexArrayTypeStructureSignature( )
+            var cClone = new ComplexArrayTypeStructureSignature()
             {
                ComplexArrayInfo = new ComplexArrayInfo( cArray.ComplexArrayInfo ),
                ArrayType = state.CreateTypeStructureSignature( cArray.ArrayType )

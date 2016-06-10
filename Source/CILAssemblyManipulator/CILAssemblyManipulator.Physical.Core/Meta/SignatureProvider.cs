@@ -305,7 +305,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   ) || ( refIdx.Table == Tables.TypeRef
                   && MatchTypeRefs( ctx, defIdx.Index, refIdx.Index ) );
             case Tables.TypeSpec:
-               return refIdx.Table == Tables.TypeSpec && defModule.SignatureProvider.MatchSignatures( defModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature, matcher );
+               return refIdx.Table == Tables.TypeSpec && defModule.GetSignatureProvider().MatchSignatures( defModule, defModule.TypeSpecifications.TableContents[defIdx.Index].Signature, refModule, refModule.TypeSpecifications.TableContents[refIdx.Index].Signature, matcher );
             default:
                return false;
          }

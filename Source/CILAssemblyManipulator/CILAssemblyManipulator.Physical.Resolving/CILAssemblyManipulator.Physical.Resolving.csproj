@@ -99,7 +99,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MetaData.cs" />
     <Compile Include="MetaDataResolver.cs" />
     <Compile Include="MetaDataResolver.Default.cs" />
     <Compile Include="MetaDataResolver.Events.cs" />

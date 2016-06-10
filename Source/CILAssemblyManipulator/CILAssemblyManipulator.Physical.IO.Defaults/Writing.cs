@@ -1596,7 +1596,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       {
          const Int32 USER_STRING_MASK = 0x70 << 24;
          var codeID = codeInfo.OpCodeID;
-         var ocp = this._md.OpCodeProvider;
+         var ocp = this._md.GetOpCodeProvider();
          var ocpInfo = ocp.GetInfoFor( codeID );
          ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) ocp ).WriteOpCode( ocpInfo, array, idx );
          idx += ocpInfo.CodeSize;

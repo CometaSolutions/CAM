@@ -36,12 +36,15 @@ using System.Linq;
 using System.Text;
 using TabularMetaData;
 using TabularMetaData.Meta;
+using UtilPack.CollectionsWithRoles;
+using UtilPack.Extension;
 
 namespace CILAssemblyManipulator.Physical
 {
-   internal sealed class CILMetadataImpl : TabularMetaDataWithSchemaImpl, CILMetaData, CAMPhysicalR::CILAssemblyManipulator.Physical.CILMetaData
+   internal sealed class CILMetadataImpl : TabularMetaDataWithSchemaImpl, CILMetaData
    {
 
+      private readonly SelfDescribingExtensionByCompositionProvider<Object> _extensionProvider;
 #pragma warning disable 618
 
       internal CILMetadataImpl(
@@ -51,6 +54,8 @@ namespace CILAssemblyManipulator.Physical
          )
          : base( tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.CreateDefault(), CILMetaDataTableInformationProviderFactory.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
       {
+         this._extensionProvider = new DefaultSelfDescribingExtensionByCompositionProvider<Object>();
+
          MetaDataTableInformation[] defaultTableInfos = null;
          this.ModuleDefinitions = CreateFixedMDTable<ModuleDefinition>( Tables.Module, sizes, infos, ref defaultTableInfos );
          this.TypeReferences = CreateFixedMDTable<TypeReference>( Tables.TypeRef, sizes, infos, ref defaultTableInfos );
@@ -98,11 +103,25 @@ namespace CILAssemblyManipulator.Physical
          this.MethodSpecifications = CreateFixedMDTable<MethodSpecification>( Tables.MethodSpec, sizes, infos, ref defaultTableInfos );
          this.GenericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos );
 
-         this.OpCodeProvider = tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.DefaultInstance;
-         this.SignatureProvider = tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.DefaultInstance;
-         this.ResolvingProvider = tableInfoProvider?.CreateResolvingProvider( this ) ?? new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider( this, Empty<Tuple<Tables, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability>>.Enumerable );
+         this.RegisterFunctionalityDirect( tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.DefaultInstance );
+         this.RegisterFunctionalityDirect( tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.DefaultInstance );
+         this.RegisterFunctionalityDirect( tableInfoProvider?.CreateResolvingProvider( this ) ?? new CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.DefaultResolvingProvider( this, Empty<Tuple<Tables, CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability>>.Enumerable ) );
       }
 #pragma warning restore 618
+
+      public DictionaryQuery<Type, Lazy<Object>> Functionalities
+      {
+         get
+         {
+            return this._extensionProvider.Functionalities;
+         }
+      }
+
+      public Boolean RegisterFunctionality<TThisFunctionality>( Func<TThisFunctionality> functionality )
+         where TThisFunctionality : class
+      {
+         return this._extensionProvider.RegisterFunctionality( functionality );
+      }
 
       public MetaDataTable<ModuleDefinition> ModuleDefinitions { get; }
 
@@ -195,12 +214,6 @@ namespace CILAssemblyManipulator.Physical
 
       public MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 #pragma warning restore 618
-
-      public CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider OpCodeProvider { get; }
-
-      public SignatureProvider SignatureProvider { get; }
-
-      public CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.ResolvingProvider ResolvingProvider { get; }
 
       protected override Boolean TryGetFixedTable( Int32 index, out MetaDataTable table )
       {
@@ -419,6 +432,8 @@ namespace CILAssemblyManipulator.Physical
             CILMetaDataTableInformationProviderFactory.CreateDefault
             );
       }
+
+
    }
 
    /// <summary>

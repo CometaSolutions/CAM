@@ -24,6 +24,7 @@ using UtilPack;
 using CILAssemblyManipulator.Physical;
 using TabularMetaData;
 using CILAssemblyManipulator.Physical.Meta;
+using UtilPack.Extension;
 
 namespace CILAssemblyManipulator.Physical
 {
@@ -42,7 +43,7 @@ namespace CILAssemblyManipulator.Physical
    /// </remarks>
    /// <seealso cref="T:CILAssemblyManipulator.Physical.CILMetaDataFactory"/>
    /// <seealso cref="MetaDataTable"/>
-   public interface CILMetaData : TabularMetaDataWithSchema
+   public interface CILMetaData : TabularMetaDataWithSchema, SelfDescribingExtensionByCompositionProvider<Object>
    {
       /// <summary>
       /// This property represents a metadata table for <see cref="Tables.Module"/>.
@@ -408,19 +409,7 @@ namespace CILAssemblyManipulator.Physical
       [Obsolete( "This table should not be used anymore.", false )]
       MetaDataTable<AssemblyReferenceOS> AssemblyReferenceOSs { get; }
 
-      /// <summary>
-      /// Gets the <see cref="Meta.OpCodeProvider"/> of this <see cref="CILMetaData"/>.
-      /// </summary>
-      /// <value>The <see cref="Meta.OpCodeProvider"/> of this <see cref="CILMetaData"/>.</value>
-      /// <seealso cref="Meta.OpCodeProvider"/>
-      Meta.OpCodeProvider OpCodeProvider { get; }
 
-      /// <summary>
-      /// Gets the <see cref="Meta.SignatureProvider"/> of this <see cref="CILMetaData"/>.
-      /// </summary>
-      /// <value>The <see cref="Meta.SignatureProvider"/> of this <see cref="CILMetaData"/>.</value>
-      /// <seealso cref="Meta.SignatureProvider"/>
-      Meta.SignatureProvider SignatureProvider { get; }
    }
 
 
@@ -2021,7 +2010,7 @@ public static partial class E_CILPhysical
       var tSpecs = md.TypeSpecifications;
       var tSpecList = tSpecs.TableContents;
       var tSpecIndices = reorderState.GetOrCreateIndexArray( tSpecs );
-      var sigProvider = reorderState.MetaData.SignatureProvider;
+      var sigProvider = reorderState.MetaData.GetSignatureProvider();
       var tSpecsCorrectOrder = tSpecList
          .Select( ( tSpec, idx ) => Tuple.Create( tSpec, idx ) )
          .OrderBy( tpl =>
@@ -2166,7 +2155,7 @@ public static partial class E_CILPhysical
       // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they can be skipped
 
       var md = state.MetaData;
-      var sigProvider = md.SignatureProvider;
+      var sigProvider = md.GetSignatureProvider();
       return md.FieldDefinitions.TableContents.Where( f => f != null ).SelectMany( f => sigProvider.GetSignatureTableIndexInfos( f.Signature ) )
          .Concat( md.MethodDefinitions.TableContents.Where( m => m != null ).SelectMany( m => sigProvider.GetSignatureTableIndexInfos( m.Signature ) ) )
          .Concat( md.MemberReferences.TableContents.SelectMany( m => sigProvider.GetSignatureTableIndexInfos( m.Signature ) ) )
@@ -2269,5 +2258,25 @@ public static partial class E_CILPhysical
       var retVal = new TableIndex( (Tables) table.GetTableIndex(), contents.Count );
       contents.Add( row );
       return retVal;
+   }
+
+   /// <summary>
+   /// Gets the <see cref="OpCodeProvider"/> of this <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <seealso cref="OpCodeProvider"/>
+   public static OpCodeProvider GetOpCodeProvider( this CILMetaData md )
+   {
+      return md.GetFunctionality<OpCodeProvider>();
+   }
+
+   /// <summary>
+   /// Gets the <see cref="SignatureProvider"/> of this <see cref="CILMetaData"/>.
+   /// </summary>
+   /// <param name="md">The <see cref="CILMetaData"/>.</param>
+   /// <seealso cref="SignatureProvider"/>
+   public static SignatureProvider GetSignatureProvider( this CILMetaData md )
+   {
+      return md.GetFunctionality<SignatureProvider>();
    }
 }

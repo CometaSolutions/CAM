@@ -122,7 +122,7 @@ public static partial class E_CILPhysical
          if ( il != null )
          {
 
-            var ocp = md.OpCodeProvider;
+            var ocp = md.GetOpCodeProvider();
             var state = new StackCalculationState( md, mDef, ocp.GetILByteCount( il.OpCodes ) );
 
             // Setup exception block stack sizes
@@ -162,7 +162,7 @@ public static partial class E_CILPhysical
       )
    {
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
-      var code = state.MD.OpCodeProvider.GetCodeFor( codeInfo.OpCodeID );
+      var code = state.MD.GetOpCodeProvider().GetCodeFor( codeInfo.OpCodeID );
       // Calling GetStackChange will take care of calculating stack change even for Ret/Call/Callvirt/Calli/Newobj codes.
       curStacksize += code.GetStackChange( state.MD, state.Method, codeInfo, curStacksize );
 
