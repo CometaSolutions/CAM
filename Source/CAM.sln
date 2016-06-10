@@ -59,6 +59,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Numerics", "UtilPa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Extension", "UtilPack\UtilPack.Extension\UtilPack.Extension.csproj", "{FC5050C0-76F8-4023-9450-AD64048B8A03}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Visiting", "UtilPack\UtilPack.Visiting\UtilPack.Visiting.csproj", "{66866813-AB98-4A0F-AB88-53F89B2D65EE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_Portable|Any CPU = Debug_Portable|Any CPU
@@ -491,6 +493,22 @@ Global
 		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release_WP|Any CPU.Build.0 = Release|Any CPU
 		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug_Portable|Any CPU.ActiveCfg = Debug|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug_Portable|Any CPU.Build.0 = Debug|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug_WP|Any CPU.ActiveCfg = Debug|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug_WP|Any CPU.Build.0 = Debug|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug|Any CPU.ActiveCfg = Debug_SL|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Debug|Any CPU.Build.0 = Debug_SL|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release_Portable|Any CPU.ActiveCfg = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release_Portable|Any CPU.Build.0 = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release_SL|Any CPU.ActiveCfg = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release_SL|Any CPU.Build.0 = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release_WP|Any CPU.ActiveCfg = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release_WP|Any CPU.Build.0 = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

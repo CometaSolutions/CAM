@@ -13,6 +13,7 @@
   <ItemGroup>
     <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.Numerics/UtilPack.Numerics.csproj" />
     <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.Extension/UtilPack.Extension.csproj" />
+    <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.Visiting/UtilPack.Visiting.csproj" />
   </ItemGroup>
   
   <Target Name="Build">

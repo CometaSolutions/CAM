@@ -159,6 +159,10 @@
       <Project>{3d03037a-0ecf-473b-a2af-ab7c52984784}</Project>
       <Name>UtilPack.Numerics</Name>
     </ProjectReference>
+    <ProjectReference Include="..\UtilPack\UtilPack.Visiting\UtilPack.Visiting.csproj">
+      <Project>{66866813-ab98-4a0f-ab88-53f89b2d65ee}</Project>
+      <Name>UtilPack.Visiting</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
