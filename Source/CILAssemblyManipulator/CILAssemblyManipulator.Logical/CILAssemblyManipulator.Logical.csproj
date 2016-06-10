@@ -90,6 +90,10 @@
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>UtilPack.Common</Name>
     </ProjectReference>
+    <ProjectReference Condition=" '$(IsCommandLineBuild)' == ''" Include="..\..\UtilPack\UtilPack.Extension\UtilPack.Extension.csproj">
+      <Project>{fc5050c0-76f8-4023-9450-ad64048b8a03}</Project>
+      <Name>UtilPack.Extension</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\TabularMetaData\TabularMetaData.csproj">
       <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>
       <Name>TabularMetaData</Name>

@@ -25,6 +25,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using TabularMetaData.Meta;
+using UtilPack.Extension;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {

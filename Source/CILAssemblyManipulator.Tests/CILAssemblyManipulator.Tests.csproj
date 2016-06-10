@@ -151,6 +151,10 @@
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>UtilPack.Common</Name>
     </ProjectReference>
+    <ProjectReference Include="..\UtilPack\Utilpack.Extension\Utilpack.Extension.csproj">
+      <Project>{fc5050c0-76f8-4023-9450-ad64048b8a03}</Project>
+      <Name>Utilpack.Extension</Name>
+    </ProjectReference>
     <ProjectReference Include="..\UtilPack\UtilPack.Numerics\UtilPack.Numerics.csproj">
       <Project>{3d03037a-0ecf-473b-a2af-ab7c52984784}</Project>
       <Name>UtilPack.Numerics</Name>

@@ -57,6 +57,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Common.IL", "UtilP
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Numerics", "UtilPack\UtilPack.Numerics\UtilPack.Numerics.csproj", "{3D03037A-0ECF-473B-A2AF-AB7C52984784}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Extension", "UtilPack\UtilPack.Extension\UtilPack.Extension.csproj", "{FC5050C0-76F8-4023-9450-AD64048B8A03}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_Portable|Any CPU = Debug_Portable|Any CPU
@@ -473,6 +475,22 @@ Global
 		{3D03037A-0ECF-473B-A2AF-AB7C52984784}.Release_WP|Any CPU.Build.0 = Release|Any CPU
 		{3D03037A-0ECF-473B-A2AF-AB7C52984784}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3D03037A-0ECF-473B-A2AF-AB7C52984784}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug_Portable|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug_Portable|Any CPU.Build.0 = Debug|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug_WP|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug_WP|Any CPU.Build.0 = Debug|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug|Any CPU.ActiveCfg = Debug_SL|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Debug|Any CPU.Build.0 = Debug_SL|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release_Portable|Any CPU.ActiveCfg = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release_Portable|Any CPU.Build.0 = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release_SL|Any CPU.ActiveCfg = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release_SL|Any CPU.Build.0 = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release_WP|Any CPU.ActiveCfg = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release_WP|Any CPU.Build.0 = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC5050C0-76F8-4023-9450-AD64048B8A03}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

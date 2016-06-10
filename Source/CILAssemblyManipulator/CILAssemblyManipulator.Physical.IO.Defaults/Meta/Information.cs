@@ -124,7 +124,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <term>Always registered, contain callback to create <see cref="TableSerializationLogicalFunctionality"/>.</term>
       /// </item>
       /// </list>
-      /// All of these functionalities are accessible from the created <see cref="MetaDataTableInformation{TRow}"/> with methods and extension methods of <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.
+      /// All of these functionalities are accessible from the created <see cref="MetaDataTableInformation{TRow}"/> with methods and extension methods of <see cref="UtilPack.Extension.SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.
       /// </remarks>
       public static MetaDataTableInformation<TRow> CreateSingleTableInfo<TRow, TRawRow>(
          Tables tableKind,
@@ -1534,7 +1534,7 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// This delegate a way to create <see cref="TableSerializationLogicalFunctionality"/> without the knowledge of generic arguments of <see cref="MetaDataTableInformation{TRow}"/>.
    /// </summary>
    /// <remarks>
-   /// This delegate is accessible through (extension) methods for <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/> of <see cref="MetaDataTableInformation"/>.
+   /// This delegate is accessible through (extension) methods for <see cref="UtilPack.Extension.SelfDescribingExtensionByCompositionProvider{TFunctionality}"/> of <see cref="MetaDataTableInformation"/>.
    /// </remarks>
    public delegate TableSerializationLogicalFunctionality MetaDataTableInformationWithSerializationCapabilityDelegate( TableSerializationLogicalFunctionalityCreationArgs args );
 
@@ -2038,7 +2038,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <term>Only registered if <paramref name="resolver"/> is not <c>null</c>, will contain functionality for resolving the initially unresolved values. One such example is <see cref="CustomAttributeDefinition.Signature"/>, which is always initially <see cref="RawCustomAttributeSignature"/> for non-empty custom signature BLOBs, and will be transformed to <see cref="ResolvedCustomAttributeSignature"/> by <paramref name="resolver"/> callback.</term>
       /// </item>
       /// </list>
-      /// All of these functionalities are accessible from the created <see cref="MetaDataColumnInformation{TRow, TValue}"/> with methods and extension methods of <see cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.
+      /// All of these functionalities are accessible from the created <see cref="MetaDataColumnInformation{TRow, TValue}"/> with methods and extension methods of <see cref="UtilPack.Extension.SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>.
       /// </remarks>
       /// <seealso cref="CAMPhysicalR::CILAssemblyManipulator.Physical.Meta.MetaDataColumnInformationWithResolvingCapability"/>
       public static MetaDataColumnInformation<TRow, TValue> GenericColumn<TRow, TRawRow, TValue>(
@@ -2082,7 +2082,7 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <summary>
    /// This interface is the functionality that will be present in <see cref="MetaDataColumnInformation{TRow, TValue}"/>s created by methods of <see cref="MetaDataColumnInformationFactory"/> class.
    /// </summary>
-   /// <seealso cref="SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>
+   /// <seealso cref="UtilPack.Extension.SelfDescribingExtensionByCompositionProvider{TFunctionality}"/>
    public interface MetaDataColumnInformationWithRawRowType
    {
       /// <summary>
