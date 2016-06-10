@@ -94,6 +94,7 @@
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)UtilPack.CWR.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)UtilPack.Numerics.dll" />
       <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)UtilPack.Extension.dll" />
+      <ProjectToMerge Include="$(MSBuildThisFileDirectory)$(OutputPath)UtilPack.Visiting.dll" />
     </ItemGroup>
     <!-- TODO Output logging info when all projects have XML document files -->
     <CILMerge.MSBuild.CILMergeTask
