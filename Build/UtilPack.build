@@ -12,6 +12,7 @@
   <!-- Projects to build, in build order -->
   <ItemGroup>
     <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.CWR/UtilPack.CWR.csproj" />
+    <UtilpackProject Include="$(UtilPackBaseDir)/Source/UtilPack/UtilPack.Numerics/UtilPack.Numerics.csproj" />
   </ItemGroup>
   
   <Target Name="Build">

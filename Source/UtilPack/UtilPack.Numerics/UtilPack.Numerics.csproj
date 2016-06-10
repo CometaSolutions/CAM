@@ -3,22 +3,22 @@
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <MinimumVisualStudioVersion>10.0</MinimumVisualStudioVersion>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{DBA22CD8-AC89-4902-8E44-F4771875E781}</ProjectGuid>
+    <ProjectGuid>{3D03037A-0ECF-473B-A2AF-AB7C52984784}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>UtilPack</RootNamespace>
-    <AssemblyName>UtilPack.Common</AssemblyName>
-    <FileAlignment>512</FileAlignment>
-    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <RootNamespace>UtilPack.Numerics</RootNamespace>
+    <AssemblyName>UtilPack.Numerics</AssemblyName>
     <DefaultLanguage>en-US</DefaultLanguage>
+    <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <!-- SL5 & WPSL 8 -->
     <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug_SL' or '$(Configuration)' == 'Release_SL' ">Profile328</TargetFrameworkProfile>
-    <!-- .NET & Windows 8 & WPA81 -->
+    <!-- .NET & Windows 8 -->
     <TargetFrameworkProfile Condition=" '$(Configuration)' == 'Debug' or '$(Configuration)' == 'Release' ">Profile92</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -46,7 +46,6 @@
     <DefineConstants>TRACE;DEBUG;SILVERLIGHT</DefineConstants>
     <DebugType>full</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
@@ -59,40 +58,20 @@
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(MonoBuild)' == '' and '$(Configuration)' != 'Debug_WP' and '$(Configuration)' != 'Release_WP' ">
+  <PropertyGroup Condition=" '$(MonoBuild)' == '' ">
     <DocumentationFile>$(OutputPath)$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AbstractDisposable.cs" />
-    <Compile Include="ArgumentValidator.cs" />
-    <Compile Include="BinaryUtils.cs" />
-    <Compile Include="ComparerWrappers.cs" />
-    <Compile Include="Lazies.cs" />
-    <Compile Include="NullableComparer.cs" />
-    <Compile Include="StreamHelper.cs" />
-    <Compile Include="TimeComparers.cs" />
-    <Compile Include="TypeUtils.cs" />
-    <Compile Include="UndoBuffer.cs" />
-    <Compile Include="ResizableArray.cs" />
-    <Compile Include="UsingHelper.cs" />
-    <Compile Include="InstancePools.cs" />
-    <Compile Include="Miscellaneous.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="CollectionExtensions.cs" />
-    <Compile Include="Empty.cs" />
-    <Compile Include="ComparerFromFunctions.cs" />
-    <Compile Include="ReferenceEqualityComparer.cs" />
-    <Compile Include="SequenceEqualityComparer.cs" />
-    <Compile Include="BinaryExtensions.cs" />
-    <Compile Include="StringConversions.cs" />
-    <Compile Include="TreeToEnumerableExtensions.cs" />
+    <!-- A reference to the entire .NET Framework is automatically included -->
+    <ProjectReference Include="..\UtilPack.Common\UtilPack.Common.csproj">
+      <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
+      <Name>UtilPack.Common</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <!-- A reference to the entire .NET Framework is automatically included -->
-    <ProjectReference Include="..\UtilPack.Common.IL\UtilPack.Common.IL.csproj">
-      <Project>{50b4b609-aea4-47dc-b608-9364d0b6c06b}</Project>
-      <Name>UtilPack.Common.IL</Name>
-    </ProjectReference>
+    <Compile Include="BigInteger.Calculations.cs" />
+    <Compile Include="BigInteger.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
 </Project>

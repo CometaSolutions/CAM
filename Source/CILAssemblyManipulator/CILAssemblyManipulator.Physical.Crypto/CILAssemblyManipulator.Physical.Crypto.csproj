@@ -70,6 +70,9 @@
     <Reference Include="UtilPack_Common_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
       <HintPath>$(OutputPath)UtilPack.Common.dll</HintPath>
     </Reference>
+    <Reference Include="UtilPack_Numerics_dll" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' != '' ">
+      <HintPath>$(OutputPath)../SL/UtilPack.Numerics.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CILAssemblyManipulator.Physical.Core\CILAssemblyManipulator.Physical.Core.csproj">
@@ -79,6 +82,10 @@
     <ProjectReference Include="..\..\UtilPack\UtilPack.Common\UtilPack.Common.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
       <Project>{dba22cd8-ac89-4902-8e44-f4771875e781}</Project>
       <Name>UtilPack.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\UtilPack\UtilPack.Numerics\UtilPack.Numerics.csproj" Condition=" '$(UseUtilpackReference)' == '' And '$(IsCommandLineBuild)' == ''">
+      <Project>{3d03037a-0ecf-473b-a2af-ab7c52984784}</Project>
+      <Name>UtilPack.Numerics</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

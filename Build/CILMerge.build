@@ -17,6 +17,10 @@
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
       <MergeProjectTargets>Build</MergeProjectTargets>
     </CILMergeProject>
+    <CILMergeProject Include="$(CILMergeBaseDir)/Source/UtilPack/UtilPack.Numerics/UtilPack.Numerics.csproj">
+      <MergeProjectConfiguration>$(CILMergeConfiguration)_SL</MergeProjectConfiguration>
+      <MergeProjectTargets>Build</MergeProjectTargets>
+    </CILMergeProject>
     <CILMergeProject Include="$(CILMergeBaseDir)/Source/CILAssemblyManipulator/CILAssemblyManipulator.Physical.IO/CILAssemblyManipulator.Physical.IO.csproj">
       <MergeProjectConfiguration>$(CILMergeConfiguration)</MergeProjectConfiguration>
       <MergeProjectTargets>Build</MergeProjectTargets>
