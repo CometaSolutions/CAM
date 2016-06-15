@@ -83,7 +83,7 @@ namespace UtilPack.Visiting
 
    public sealed class TypeBasedAcceptor<TElement, TEdgeInfo> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
    {
-      private readonly AcceptorInformation<TElement> _acceptorInfo;
+      private readonly VisitorInformation<TElement, TEdgeInfo> _visitorInfo;
 
       internal TypeBasedAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor, TopMostTypeVisitingStrategy topMostVisitingStrategy, Boolean continueOnMissingVertex )
          : base( visitor )
@@ -91,7 +91,7 @@ namespace UtilPack.Visiting
          this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement>>().ToDictionaryProxy();
          this.EdgeAcceptors = UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewDictionary<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>>();
 
-         this._acceptorInfo = new AcceptorInformation<TElement>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
+         this._visitorInfo = visitor.CreateVisitorInfo( new AcceptorInformation<TElement>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ ) );
       }
 
       private DictionaryProxy<Type, AcceptVertexDelegate<TElement>> VertexAcceptors { get; }
@@ -117,7 +117,7 @@ namespace UtilPack.Visiting
 
       public Boolean Accept( TElement element )
       {
-         return this.Visitor.Visit( element, this._acceptorInfo );
+         return this.Visitor.Visit( element, this._visitorInfo );
       }
    }
 
@@ -167,7 +167,8 @@ namespace UtilPack.Visiting
 
       public Boolean Accept( TElement element, TContext context )
       {
-         return this.Visitor.Visit( element, this._acceptorInfo, context );
+         var info = this.Visitor.CreateVisitorInfo( this._acceptorInfo, context );
+         return this.Visitor.Visit( element, info );
       }
 
       public Boolean AcceptExplicit( TElement element, TContext context )
