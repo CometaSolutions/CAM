@@ -21,6 +21,7 @@ using System.Linq;
 using System.Text;
 using UtilPack.CollectionsWithRoles;
 using UtilPack.Visiting;
+using UtilPack;
 
 namespace UtilPack.Visiting
 {
@@ -56,21 +57,20 @@ namespace UtilPack.Visiting
    /// <typeparam name="TElement">The common type for elements.</typeparam>
    /// <typeparam name="TEdgeInfo">The type for edge information (e.g. list index).</typeparam>
    /// <param name="element">The element that should be visited.</param>
-   /// <param name="edgeType">The information about type containing edge.</param>
-   /// <param name="edgeName">The name of the edge.</param>
+   /// <param name="edgeID">The <see cref="VisitorEdgeInfo{TElement, TEdgeInfo}.ID"/> of the edge.</param>
    /// <param name="edgeInfo">The edge-specific info object (e.g. list index).</param>
    /// <param name="overrideType">If parameter is supplied, then this type is used to lookup the visitor functionality for given <paramref name="element"/>, instead of <see cref="Object.GetType"/>.</param>
    /// <returns><c>true</c> if should continue visiting; <c>false</c> otherwise.</returns>
    /// <seealso cref="TypeBasedVisitor{TElement, TEdgeInfo}"/>
-   public delegate Boolean VisitElementCallbackDelegate<in TElement, in TEdgeInfo>( TElement element, Type edgeType, String edgeName, TEdgeInfo edgeInfo, Type overrideType = null );
+   public delegate Boolean VisitElementCallbackDelegate<in TElement, in TEdgeInfo>( TElement element, Int32 edgeID, TEdgeInfo edgeInfo, Type overrideType = null );
 
 
    public class VisitorVertexInfo<TElement, TEdgeInfo>
    {
-      public VisitorVertexInfo( Type type, params VisitorEdgeInfo<TElement, TEdgeInfo>[] edges )
+      internal VisitorVertexInfo( Type type, IEnumerable<VisitorEdgeInfo<TElement, TEdgeInfo>> edges )
       {
          this.Type = ArgumentValidator.ValidateNotNull( "Type", type );
-         this.Edges = ( edges ?? Empty<VisitorEdgeInfo<TElement, TEdgeInfo>>.Array ).Where( e => e != null ).ToArrayProxy().CQ;
+         this.Edges = ( edges ?? Empty<VisitorEdgeInfo<TElement, TEdgeInfo>>.Enumerable ).Where( e => e != null ).ToArrayProxy().CQ;
       }
       public Type Type { get; }
 
@@ -79,12 +79,16 @@ namespace UtilPack.Visiting
 
    public class VisitorEdgeInfo<TElement, TEdgeInfo>
    {
-      public VisitorEdgeInfo( Type type, String name, VisitElementDelegate<TElement, TEdgeInfo> del )
+
+      internal VisitorEdgeInfo( Int32 id, Type type, String name, VisitElementDelegate<TElement, TEdgeInfo> del )
       {
+         this.ID = id;
          this.Type = ArgumentValidator.ValidateNotNull( "Type", type );
          this.Name = name;
          this.Delegate = ArgumentValidator.ValidateNotNull( "Delegate", del );
       }
+
+      public Int32 ID { get; }
 
       public Type Type { get; }
 
@@ -92,42 +96,95 @@ namespace UtilPack.Visiting
 
       public VisitElementDelegate<TElement, TEdgeInfo> Delegate { get; }
 
-      public static VisitorEdgeInfo<TElement, TEdgeInfo> CreatePropertyEdge<TActualElement>( String name, VisitElementDelegateTyped<TElement, TEdgeInfo, TActualElement> typedDelegate )
-         where TActualElement : TElement
+
+   }
+
+   public class VisitorVertexInfoFactory<TElement, TEdgeInfo> : AbstractDisposable
+   {
+      private readonly TypeBasedVisitor<TElement, TEdgeInfo> _visitor;
+      private readonly List<VisitorEdgeInfo<TElement, TEdgeInfo>> _edges;
+      private readonly Type _vertexType;
+
+      public VisitorVertexInfoFactory( TypeBasedVisitor<TElement, TEdgeInfo> visitor, Type vertexType )
       {
-         return new VisitorEdgeInfo<TElement, TEdgeInfo>( typeof( TActualElement ), name, typedDelegate.AsVisitElementDelegate() );
+         this._visitor = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
+         this._vertexType = ArgumentValidator.ValidateNotNull( "Vertex type", vertexType );
+         this._edges = new List<VisitorEdgeInfo<TElement, TEdgeInfo>>();
       }
 
-      public static VisitorEdgeInfo<TElement, TEdgeInfo> CreateBaseTypeEdge<TActualElement, TBaseType>()
-         where TActualElement : TBaseType
-         where TBaseType : TElement
+      public VisitorEdgeInfo<TElement, TEdgeInfo> AddEdge( Type type, String name, Func<Int32, VisitElementDelegate<TElement, TEdgeInfo>> delegateCreator )
       {
-         return new VisitorEdgeInfo<TElement, TEdgeInfo>( typeof( TBaseType ), null, ( sig, cb ) => cb.VisitBaseType( sig, typeof( TBaseType ) ) );
+         var id = this._visitor.GetNextEdgeID();
+         var retVal = new VisitorEdgeInfo<TElement, TEdgeInfo>( id, type, name, delegateCreator( id ) );
+         this._edges.Add( retVal );
+         return retVal;
+      }
+
+      protected override void Dispose( Boolean disposing )
+      {
+         if ( disposing )
+         {
+            this._visitor.RegisterVisitor( new VisitorVertexInfo<TElement, TEdgeInfo>( this._vertexType, this._edges ) );
+         }
       }
    }
 
    public class TypeBasedVisitor<TElement, TEdgeInfo>
    {
+      private Int32 _currentEdgeID;
 
       public TypeBasedVisitor()
       {
+         this._currentEdgeID = 0;
          this.VerticeInfos = new Dictionary<Type, VisitorVertexInfo<TElement, TEdgeInfo>>();
+         this.EdgeInfoLookup = new Dictionary<Type, Dictionary<String, VisitorEdgeInfo<TElement, TEdgeInfo>>>();
       }
 
-      private IDictionary<Type, VisitorVertexInfo<TElement, TEdgeInfo>> VerticeInfos { get; }
+      private Dictionary<Type, VisitorVertexInfo<TElement, TEdgeInfo>> VerticeInfos { get; }
 
+      private Dictionary<Type, Dictionary<String, VisitorEdgeInfo<TElement, TEdgeInfo>>> EdgeInfoLookup { get; }
 
-      public void RegisterVisitor( Type elementType, VisitorVertexInfo<TElement, TEdgeInfo> visitor )
+      public VisitorEdgeInfo<TElement, TEdgeInfo> TryGetEdgeInfo( Type type, String name, out Boolean success )
       {
-         this.VerticeInfos[elementType] = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
+         Dictionary<String, VisitorEdgeInfo<TElement, TEdgeInfo>> inner;
+         VisitorEdgeInfo<TElement, TEdgeInfo> info = null;
+         success = this.EdgeInfoLookup.TryGetValue( type, out inner )
+            && inner.TryGetValue( name, out info );
+         return info;
       }
 
-      public VisitorInformation<TElement, TEdgeInfo> CreateVisitorInfo( AcceptorInformation<TElement> acceptorInfo )
+      public VisitorVertexInfoFactory<TElement, TEdgeInfo> CreateVertexInfoFactory( Type vertexType )
+      {
+         return new VisitorVertexInfoFactory<TElement, TEdgeInfo>( this, vertexType );
+      }
+
+
+      internal void RegisterVisitor( VisitorVertexInfo<TElement, TEdgeInfo> visitor )
+      {
+         this.VerticeInfos[visitor.Type] = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
+         foreach ( var edge in visitor.Edges )
+         {
+            // Skip parent-type edges.
+            if ( edge.Name != null )
+            {
+               this.EdgeInfoLookup
+                  .GetOrAdd_NotThreadSafe( edge.Type, t => new Dictionary<String, VisitorEdgeInfo<TElement, TEdgeInfo>>() )
+                  .Add( edge.Name, edge );
+            }
+         }
+      }
+
+      internal Int32 GetNextEdgeID()
+      {
+         return System.Threading.Interlocked.Increment( ref this._currentEdgeID ) - 1;
+      }
+
+      internal VisitorInformation<TElement, TEdgeInfo> CreateVisitorInfo( AcceptorInformation<TElement> acceptorInfo )
       {
          return new VisitorInformation<TElement, TEdgeInfo>( this, acceptorInfo );
       }
 
-      public VisitorInformation<TElement, TEdgeInfo, TContext> CreateVisitorInfo<TContext>( AcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
+      internal VisitorInformation<TElement, TEdgeInfo, TContext> CreateVisitorInfo<TContext>( AcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
       {
          return new VisitorInformation<TElement, TEdgeInfo, TContext>( this, acceptorInfo, context );
       }
@@ -137,7 +194,7 @@ namespace UtilPack.Visiting
          VisitorInformation<TElement, TEdgeInfo> visitorInfo
          )
       {
-         return this.VisitElementWithNoContext( element, visitorInfo.AcceptorInformation, visitorInfo.Callback, null, null, default( TEdgeInfo ), null );
+         return this.VisitElementWithNoContext( element, visitorInfo.AcceptorInformation, visitorInfo.Callback, -1, default( TEdgeInfo ), null );
       }
 
       public Boolean Visit<TContext>(
@@ -145,7 +202,7 @@ namespace UtilPack.Visiting
          VisitorInformation<TElement, TEdgeInfo, TContext> visitorInfo
          )
       {
-         return this.VisitElementWithContext( element, visitorInfo.AcceptorInformation, visitorInfo.Context, visitorInfo.Callback, null, null, default( TEdgeInfo ), null );
+         return this.VisitElementWithContext( element, visitorInfo.AcceptorInformation, visitorInfo.Context, visitorInfo.Callback, -1, default( TEdgeInfo ), null );
       }
 
       // TODO parametrize what to return when vertex type not found.
@@ -157,28 +214,26 @@ namespace UtilPack.Visiting
       {
          VisitElementCallbackDelegate<TElement, TEdgeInfo> callback = null;
          AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptorCallback = null;
-         acceptorCallback = ( el, ctx ) => el == null || this.VisitElementWithContext( el, acceptors, context, callback, acceptorCallback, null, null, default( TEdgeInfo ), null ); // this.VisitEdges( el, el.GetType(), callback );
-         callback = ( el, edgeType, edgeName, edgeInfo, type ) => this.VisitElementWithContext( el, acceptors, context, callback, acceptorCallback, edgeType, edgeName, edgeInfo, type );
+         acceptorCallback = ( el, ctx ) => el == null || this.VisitElementWithContext( el, acceptors, context, callback, acceptorCallback, -1, default( TEdgeInfo ), null ); // this.VisitEdges( el, el.GetType(), callback );
+         callback = ( el, edgeID, edgeInfo, type ) => this.VisitElementWithContext( el, acceptors, context, callback, acceptorCallback, edgeID, edgeInfo, type );
 
-         return this.VisitElementWithContext( element, acceptors, context, callback, acceptorCallback, null, null, default( TEdgeInfo ), null );
+         return this.VisitElementWithContext( element, acceptors, context, callback, acceptorCallback, -1, default( TEdgeInfo ), null );
       }
 
       internal Boolean VisitElementWithNoContext(
          TElement element,
          AcceptorInformation<TElement> acceptorInfo,
          VisitElementCallbackDelegate<TElement, TEdgeInfo> callback,
-         Type edgeType,
-         String edgeName,
+         Int32 edgeID,
          TEdgeInfo edgeInfo,
          Type overrideType
          )
       {
-         DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>> edgeDic;
          AcceptEdgeDelegateInformation<TElement> edgeDelegateInfo = null;
          AcceptVertexDelegate<TElement> vertexAcceptor;
          Boolean hadAcceptor;
          return element != null
-            && ( edgeType == null || edgeName == null || ( edgeDic = acceptorInfo.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo ) ?? true ) )
+            && ( ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo ) ?? true )
             && this.CheckForTopMostTypeStrategy( element, acceptorInfo, overrideType )
             && ( ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element ) ) || ( vertexAcceptor == null && acceptorInfo.ContinueOnMissingVertex ) )
             && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
@@ -187,48 +242,44 @@ namespace UtilPack.Visiting
 
       internal Boolean VisitElementWithContext<TContext>(
          TElement element,
-         AcceptorInformation<TElement, TContext> acceptors,
+         AcceptorInformation<TElement, TContext> acceptorInfo,
          TContext context,
          VisitElementCallbackDelegate<TElement, TEdgeInfo> callback,
-         Type edgeType,
-         String edgeName,
+         Int32 edgeID,
          TEdgeInfo edgeInfo,
          Type overrideType
          )
       {
-         DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>> edgeDic;
          AcceptEdgeDelegateInformation<TElement, TContext> edgeDelegateInfo = null;
          AcceptVertexDelegate<TElement, TContext> vertexAcceptor;
          Boolean hadAcceptor;
          return element != null
-            && ( edgeType == null || edgeName == null || ( edgeDic = acceptors.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo, context ) ?? true ) )
-            && this.CheckForTopMostTypeStrategy( element, acceptors, context, overrideType )
-            && ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
+            && ( ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo, context ) ?? true )
+            && this.CheckForTopMostTypeStrategy( element, acceptorInfo, context, overrideType )
+            && ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
             && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
             && ( edgeDelegateInfo?.Exit( element, edgeInfo, context ) ?? true );
       }
 
       private Boolean VisitElementWithContext<TContext>(
          TElement element,
-         ExplicitAcceptorInformation<TElement, TContext> acceptors,
+         ExplicitAcceptorInformation<TElement, TContext> acceptorInfo,
          TContext context,
          VisitElementCallbackDelegate<TElement, TEdgeInfo> callback,
          AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptorCallback,
-         Type edgeType,
-         String edgeName,
+         Int32 edgeID,
          TEdgeInfo edgeInfo,
          Type overrideType
          )
       {
-         DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>> edgeDic;
          AcceptEdgeDelegateInformation<TElement, TContext> edgeDelegateInfo = null;
          AcceptVertexExplicitDelegate<TElement, TContext> vertexAcceptor;
          Boolean hadAcceptor;
          return element != null
-            && ( edgeType == null || edgeName == null || ( edgeDic = acceptors.EdgeAcceptors.TryGetValue( edgeType, out hadAcceptor ) ) == null || ( edgeDelegateInfo = edgeDic.TryGetValue( edgeName, out hadAcceptor ) ) == null || ( edgeDelegateInfo?.Entry( element, edgeInfo, context ) ?? true ) )
-            && this.CheckForTopMostTypeStrategy( element, acceptors, context, overrideType, acceptorCallback )
-            && ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context, acceptorCallback ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context, acceptorCallback ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
-                                                                                                                                                                                                    // && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
+            && ( ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo, context ) ?? true )
+            && this.CheckForTopMostTypeStrategy( element, acceptorInfo, context, overrideType, acceptorCallback )
+            && ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context, acceptorCallback ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context, acceptorCallback ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
+                                                                                                                                                                                                       // && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
             && ( edgeDelegateInfo?.Exit( element, edgeInfo, context ) ?? true );
       }
 
@@ -348,7 +399,7 @@ namespace UtilPack.Visiting
          ArgumentValidator.ValidateNotNull( "Visitor", visitor );
 
          VisitElementCallbackDelegate<TElement, TEdgeInfo> callback = null;
-         callback = ( el, edgeType, edgeName, edgeInfo, type ) => visitor.VisitElementWithNoContext( el, acceptorInfo, callback, edgeType, edgeName, edgeInfo, type );
+         callback = ( el, edgeID, edgeInfo, type ) => visitor.VisitElementWithNoContext( el, acceptorInfo, callback, edgeID, edgeInfo, type );
          return callback;
       }
    }
@@ -358,6 +409,7 @@ namespace UtilPack.Visiting
       public VisitorInformation( TypeBasedVisitor<TElement, TEdgeInfo> visitor, AcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
          : base( CreateCallback( visitor, acceptorInfo, context ) )
       {
+         this.Context = context;
          this.AcceptorInformation = ArgumentValidator.ValidateNotNull( "Acceptor information", acceptorInfo );
       }
 
@@ -370,7 +422,7 @@ namespace UtilPack.Visiting
          ArgumentValidator.ValidateNotNull( "Visitor", visitor );
 
          VisitElementCallbackDelegate<TElement, TEdgeInfo> callback = null;
-         callback = ( el, edgeType, edgeName, edgeInfo, type ) => visitor.VisitElementWithContext( el, acceptorInfo, context, callback, edgeType, edgeName, edgeInfo, type );
+         callback = ( el, edgeID, edgeInfo, type ) => visitor.VisitElementWithContext( el, acceptorInfo, context, callback, edgeID, edgeInfo, type );
          return callback;
       }
    }
@@ -387,29 +439,48 @@ public static partial class E_UtilPack
 
    public static Boolean VisitBaseType<TElement, TEdgeInfo>( this VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, TElement element, Type baseType )
    {
-      return callback( element, null, null, default( TEdgeInfo ), baseType );
+      return callback( element, -1, default( TEdgeInfo ), baseType );
    }
 
-   public static Boolean VisitSimpleEdge<TElement, TEdgeInfo>( this VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, TElement element, Type edgeType, String edgeName )
+   public static Boolean VisitSimpleEdge<TElement, TEdgeInfo>( this VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, TElement element, Int32 edgeID )
    {
-      return callback( element, edgeType, edgeName, default( TEdgeInfo ) );
+      return callback( element, edgeID, default( TEdgeInfo ) );
    }
 
-   public static Boolean VisitCollectionEdge<TElement>( this VisitElementCallbackDelegate<TElement, Int32> callback, TElement element, Type edgeType, String edgeName, Int32 index )
+   public static Boolean VisitCollectionEdge<TElement>( this VisitElementCallbackDelegate<TElement, Int32> callback, TElement element, Int32 edgeID, Int32 index )
    {
-      return callback( element, edgeType, edgeName, index );
+      return callback( element, edgeID, index );
    }
 
-   public static Boolean VisitListEdge<TElement, TEdgeElement>( this VisitElementCallbackDelegate<TElement, Int32> callback, Type edgeType, String edgeName, List<TEdgeElement> list )
+   public static Boolean VisitListEdge<TElement, TEdgeElement>( this VisitElementCallbackDelegate<TElement, Int32> callback, Int32 edgeID, List<TEdgeElement> list )
       where TEdgeElement : TElement
    {
       var retVal = true;
       var max = list.Count;
       for ( var i = 0; i < max && retVal; ++i )
       {
-         retVal = callback.VisitCollectionEdge( list[i], edgeType, edgeName, i );
+         retVal = callback.VisitCollectionEdge( list[i], edgeID, i );
       }
       return retVal;
+   }
+
+   public static VisitorEdgeInfo<TElement, TEdgeInfo> CreatePropertyEdge<TElement, TEdgeInfo, TActualElement>( this VisitorVertexInfoFactory<TElement, TEdgeInfo> factory, String name, Func<Int32, VisitElementDelegateTyped<TElement, TEdgeInfo, TActualElement>> typedDelegate )
+      where TActualElement : TElement
+   {
+      return factory.AddEdge( typeof( TActualElement ), name, id => typedDelegate( id ).AsVisitElementDelegate() );
+   }
+
+   public static VisitorEdgeInfo<TElement, TEdgeInfo> CreateBaseTypeEdge<TElement, TEdgeInfo, TActualElement, TBaseType>( this VisitorVertexInfoFactory<TElement, TEdgeInfo> factory )
+      where TActualElement : TBaseType
+      where TBaseType : TElement
+   {
+      return factory.AddEdge( typeof( TBaseType ), null, id => ( sig, cb ) => cb.VisitBaseType( sig, typeof( TBaseType ) ) );
+   }
+
+   public static Int32 GetEdgeIDOrNegative<TElement, TEdgeInfo>( this TypeBasedVisitor<TElement, TEdgeInfo> visitor, Type type, String name )
+   {
+      Boolean success;
+      return visitor.TryGetEdgeInfo( type, name, out success )?.ID ?? -1;
    }
 
 

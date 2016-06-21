@@ -89,14 +89,13 @@ namespace UtilPack.Visiting
          : base( visitor )
       {
          this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement>>().ToDictionaryProxy();
-         this.EdgeAcceptors = UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewDictionary<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>>();
-
-         this._visitorInfo = visitor.CreateVisitorInfo( new AcceptorInformation<TElement>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ ) );
+         this.EdgeAcceptors = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy<AcceptEdgeDelegateInformation<TElement>>();
+         this._visitorInfo = visitor.CreateVisitorInfo( new AcceptorInformation<TElement>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ ) );
       }
 
       private DictionaryProxy<Type, AcceptVertexDelegate<TElement>> VertexAcceptors { get; }
 
-      private DictionaryWithRoles<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>> EdgeAcceptors { get; }
+      private ListProxy<AcceptEdgeDelegateInformation<TElement>> EdgeAcceptors { get; }
 
       public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement> acceptor )
       {
@@ -105,14 +104,29 @@ namespace UtilPack.Visiting
 
       public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement> enter, AcceptEdgeDelegate<TElement> exit )
       {
-         Boolean success;
-         var inner = this.EdgeAcceptors.CQ.TryGetValue( type, out success );
-         if ( inner == null )
+         var edgeID = this.Visitor.GetEdgeIDOrNegative( type, edgeName );
+         if ( edgeID < 0 )
          {
-            inner = new Dictionary<String, AcceptEdgeDelegateInformation<TElement>>().ToDictionaryProxy();
-            this.EdgeAcceptors.Add( type, inner );
+            throw new ArgumentException( "No edge information found for " + type + "." + edgeName + "." );
          }
-         inner[edgeName] = new AcceptEdgeDelegateInformation<TElement>( enter, exit );
+         var list = this.EdgeAcceptors;
+         var count = list.CQ.Count;
+         var edgeInfo = new AcceptEdgeDelegateInformation<TElement>( enter, exit );
+
+         if ( edgeID == count )
+         {
+            list.Add( edgeInfo );
+         }
+         else if ( edgeID < count )
+         {
+            list[edgeID] = edgeInfo;
+         }
+         else // id > list.Count
+         {
+            list.AddRange( Enumerable.Repeat<AcceptEdgeDelegateInformation<TElement>>( null, edgeID - count ) );
+            list.Add( edgeInfo );
+         }
+
       }
 
       public Boolean Accept( TElement element )
@@ -131,17 +145,17 @@ namespace UtilPack.Visiting
       {
          this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement, TContext>>().ToDictionaryProxy();
          this.ExplicitVertexAcceptors = new Dictionary<Type, AcceptVertexExplicitDelegate<TElement, TContext>>().ToDictionaryProxy();
-         this.EdgeAcceptors = UtilPack.CollectionsWithRoles.CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewDictionary<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>>();
+         this.EdgeAcceptors = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy<AcceptEdgeDelegateInformation<TElement, TContext>>();
 
-         this._acceptorInfo = new AcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
-         this._explicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ, this.EdgeAcceptors.CQ.IQ );
+         this._acceptorInfo = new AcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ );
+         this._explicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ, this.EdgeAcceptors.CQ );
       }
 
       private DictionaryProxy<Type, AcceptVertexDelegate<TElement, TContext>> VertexAcceptors { get; }
 
       private DictionaryProxy<Type, AcceptVertexExplicitDelegate<TElement, TContext>> ExplicitVertexAcceptors { get; }
 
-      private DictionaryWithRoles<Type, DictionaryProxy<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryProxyQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> EdgeAcceptors { get; }
+      private ListProxy<AcceptEdgeDelegateInformation<TElement, TContext>> EdgeAcceptors { get; }
 
       public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement, TContext> acceptor )
       {
@@ -155,14 +169,28 @@ namespace UtilPack.Visiting
 
       public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TContext> enter, AcceptEdgeDelegate<TElement, TContext> exit )
       {
-         Boolean success;
-         var inner = this.EdgeAcceptors.CQ.TryGetValue( type, out success );
-         if ( inner == null )
+         var edgeID = this.Visitor.GetEdgeIDOrNegative( type, edgeName );
+         if ( edgeID < 0 )
          {
-            inner = new Dictionary<String, AcceptEdgeDelegateInformation<TElement, TContext>>().ToDictionaryProxy();
-            this.EdgeAcceptors.Add( type, inner );
+            throw new ArgumentException( "No edge information found for " + type + "." + edgeName + "." );
          }
-         inner[edgeName] = new AcceptEdgeDelegateInformation<TElement, TContext>( enter, exit );
+         var list = this.EdgeAcceptors;
+         var count = list.CQ.Count;
+         var edgeInfo = new AcceptEdgeDelegateInformation<TElement, TContext>( enter, exit );
+
+         if ( edgeID == count )
+         {
+            list.Add( edgeInfo );
+         }
+         else if ( edgeID < count )
+         {
+            list[edgeID] = edgeInfo;
+         }
+         else // id > list.Count
+         {
+            list.AddRange( Enumerable.Repeat<AcceptEdgeDelegateInformation<TElement, TContext>>( null, edgeID - count ) );
+            list.Add( edgeInfo );
+         }
       }
 
       public Boolean Accept( TElement element, TContext context )
@@ -184,7 +212,7 @@ namespace UtilPack.Visiting
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          DictionaryQuery<Type, TVertexDelegate> vertexAcceptors,
-         DictionaryQuery<Type, DictionaryQuery<String, TEdgeInfo>> edgeAcceptors
+         ListQuery<TEdgeInfo> edgeAcceptors
          )
       {
          this.TopMostVisitingStrategy = topMostVisitingStrategy;
@@ -195,7 +223,7 @@ namespace UtilPack.Visiting
 
       public DictionaryQuery<Type, TVertexDelegate> VertexAcceptors { get; }
 
-      public DictionaryQuery<Type, DictionaryQuery<String, TEdgeInfo>> EdgeAcceptors { get; }
+      public ListQuery<TEdgeInfo> EdgeAcceptors { get; }
 
       public TopMostTypeVisitingStrategy TopMostVisitingStrategy { get; }
 
@@ -208,7 +236,7 @@ namespace UtilPack.Visiting
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          DictionaryQuery<Type, AcceptVertexDelegate<TElement>> vertexAcceptors,
-         DictionaryQuery<Type, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement>>> edgeAcceptors
+         ListQuery<AcceptEdgeDelegateInformation<TElement>> edgeAcceptors
          ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
       }
@@ -241,7 +269,7 @@ namespace UtilPack.Visiting
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          DictionaryQuery<Type, AcceptVertexDelegate<TElement, TContext>> vertexAcceptors,
-         DictionaryQuery<Type, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> edgeAcceptors
+         ListQuery<AcceptEdgeDelegateInformation<TElement, TContext>> edgeAcceptors
          ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
       }
@@ -262,7 +290,7 @@ namespace UtilPack.Visiting
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          DictionaryQuery<Type, AcceptVertexExplicitDelegate<TElement, TContext>> vertexAcceptors,
-         DictionaryQuery<Type, DictionaryQuery<String, AcceptEdgeDelegateInformation<TElement, TContext>>> edgeAcceptors
+         ListQuery<AcceptEdgeDelegateInformation<TElement, TContext>> edgeAcceptors
          ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
 
