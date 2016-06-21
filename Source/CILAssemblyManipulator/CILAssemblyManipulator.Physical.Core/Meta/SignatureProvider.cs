@@ -971,11 +971,11 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="enter">The callback when entering the edge.</param>
       /// <param name="exit">The callback when exiting the edge.</param>
       /// <exception cref="ArgumentNullException">If any of <paramref name="edgeName"/>, <paramref name="enter"/>, or <paramref name="exit"/> is <c>null</c>.</exception>
-      public SignatureEdgeMatchingFunctionality( String edgeName, AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> enter, AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> exit )
+      public SignatureEdgeMatchingFunctionality( String edgeName, AcceptEdgeDelegate<SignatureElement, Int32, SignatureMatchingContext> enter, AcceptEdgeDelegate<SignatureElement, Int32, SignatureMatchingContext> exit )
       {
          this.EdgeName = ArgumentValidator.ValidateNotNull( "Edge name", edgeName );
          this.Enter = ArgumentValidator.ValidateNotNull( "Enter callback", enter );
-         this.Exit = exit ?? ( new AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext>( ( el, info, ctx ) => { ctx.CurrentElementStack.Pop(); return true; } ) );
+         this.Exit = exit ?? ( new AcceptEdgeDelegate<SignatureElement, Int32, SignatureMatchingContext>( ( el, info, ctx ) => { ctx.CurrentElementStack.Pop(); return true; } ) );
       }
 
       /// <summary>
@@ -991,15 +991,15 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// Gets the callback which is executed when entering the edge.
       /// </summary>
       /// <value>The callback which is executed when entering the edge.</value>
-      public AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> Enter { get; }
+      public AcceptEdgeDelegate<SignatureElement, Int32, SignatureMatchingContext> Enter { get; }
 
       /// <summary>
       /// Gets the callback which is executed when exiting the edge.
       /// </summary>
       /// <value>The callback which is executed when exiting the edge.</value>
-      public AcceptEdgeDelegate<SignatureElement, SignatureMatchingContext> Exit { get; }
+      public AcceptEdgeDelegate<SignatureElement, Int32, SignatureMatchingContext> Exit { get; }
 
-      private static Boolean DefaultEdgeExit( SignatureElement element, Object info, SignatureMatchingContext context )
+      private static Boolean DefaultEdgeExit( SignatureElement element, Int32 info, SignatureMatchingContext context )
       {
          context.CurrentElementStack.Pop();
          return true;

@@ -25,9 +25,10 @@ using UtilPack.Visiting;
 namespace UtilPack.Visiting
 {
 #pragma warning disable 1591
+
    public delegate Boolean AcceptVertexDelegate<in TElement>( TElement element );
 
-   public delegate Boolean AcceptEdgeDelegate<in TElement>( TElement element, Object edgeInfo );
+   public delegate Boolean AcceptEdgeDelegate<in TElement, in TEdgeInfo>( TElement element, TEdgeInfo edgeInfo );
 
    /// <summary>
    /// This is delegate that captures signature to 'accept', or visit, a single element in visitor pattern.
@@ -50,11 +51,12 @@ namespace UtilPack.Visiting
    /// </summary>
    /// <typeparam name="TElement">The type of element.</typeparam>
    /// <typeparam name="TContext">The type of context that is given when performing visiting.</typeparam>
+   /// <typeparam name="TEdgeInfo">The type of edge info (typically <see cref="Int32"/> indicating list/array index in case of list/array property).</typeparam>
    /// <param name="element">The current element.</param>
    /// <param name="edgeInfo">The domain-specific edge information.</param>
    /// <param name="context">The current context.</param>
    /// <returns><c>true</c> if visiting should be continued, <c>false</c> otherwise.</returns>
-   public delegate Boolean AcceptEdgeDelegate<in TElement, in TContext>( TElement element, Object edgeInfo, TContext context );
+   public delegate Boolean AcceptEdgeDelegate<in TElement, in TEdgeInfo, in TContext>( TElement element, TEdgeInfo edgeInfo, TContext context );
 
    public delegate Boolean AcceptVertexExplicitDelegate<TElement, TContext>( TElement element, TContext context, AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptor );
 
@@ -89,20 +91,20 @@ namespace UtilPack.Visiting
          : base( visitor )
       {
          this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement>>().ToDictionaryProxy();
-         this.EdgeAcceptors = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy<AcceptEdgeDelegateInformation<TElement>>();
-         this._visitorInfo = visitor.CreateVisitorInfo( new AcceptorInformation<TElement>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ ) );
+         this.EdgeAcceptors = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy<AcceptEdgeDelegateInformation<TElement, TEdgeInfo>>();
+         this._visitorInfo = visitor.CreateVisitorInfo( new AcceptorInformation<TElement, TEdgeInfo>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ ) );
       }
 
       private DictionaryProxy<Type, AcceptVertexDelegate<TElement>> VertexAcceptors { get; }
 
-      private ListProxy<AcceptEdgeDelegateInformation<TElement>> EdgeAcceptors { get; }
+      private ListProxy<AcceptEdgeDelegateInformation<TElement, TEdgeInfo>> EdgeAcceptors { get; }
 
       public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement> acceptor )
       {
          this.VertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
 
-      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement> enter, AcceptEdgeDelegate<TElement> exit )
+      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo> enter, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
       {
          var edgeID = this.Visitor.GetEdgeIDOrNegative( type, edgeName );
          if ( edgeID < 0 )
@@ -111,7 +113,7 @@ namespace UtilPack.Visiting
          }
          var list = this.EdgeAcceptors;
          var count = list.CQ.Count;
-         var edgeInfo = new AcceptEdgeDelegateInformation<TElement>( enter, exit );
+         var edgeInfo = new AcceptEdgeDelegateInformation<TElement, TEdgeInfo>( enter, exit );
 
          if ( edgeID == count )
          {
@@ -123,7 +125,7 @@ namespace UtilPack.Visiting
          }
          else // id > list.Count
          {
-            list.AddRange( Enumerable.Repeat<AcceptEdgeDelegateInformation<TElement>>( null, edgeID - count ) );
+            list.AddRange( Enumerable.Repeat<AcceptEdgeDelegateInformation<TElement, TEdgeInfo>>( null, edgeID - count ) );
             list.Add( edgeInfo );
          }
 
@@ -137,25 +139,25 @@ namespace UtilPack.Visiting
 
    public class TypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
    {
-      private readonly AcceptorInformation<TElement, TContext> _acceptorInfo;
-      private readonly ExplicitAcceptorInformation<TElement, TContext> _explicitAcceptorInfo;
+      private readonly AcceptorInformation<TElement, TEdgeInfo, TContext> _acceptorInfo;
+      private readonly ExplicitAcceptorInformation<TElement, TEdgeInfo, TContext> _explicitAcceptorInfo;
 
       public TypeBasedAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor, TopMostTypeVisitingStrategy topMostVisitingStrategy, Boolean continueOnMissingVertex )
          : base( visitor )
       {
          this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement, TContext>>().ToDictionaryProxy();
          this.ExplicitVertexAcceptors = new Dictionary<Type, AcceptVertexExplicitDelegate<TElement, TContext>>().ToDictionaryProxy();
-         this.EdgeAcceptors = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy<AcceptEdgeDelegateInformation<TElement, TContext>>();
+         this.EdgeAcceptors = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>();
 
-         this._acceptorInfo = new AcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ );
-         this._explicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ, this.EdgeAcceptors.CQ );
+         this._acceptorInfo = new AcceptorInformation<TElement, TEdgeInfo, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ );
+         this._explicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TEdgeInfo, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ, this.EdgeAcceptors.CQ );
       }
 
       private DictionaryProxy<Type, AcceptVertexDelegate<TElement, TContext>> VertexAcceptors { get; }
 
       private DictionaryProxy<Type, AcceptVertexExplicitDelegate<TElement, TContext>> ExplicitVertexAcceptors { get; }
 
-      private ListProxy<AcceptEdgeDelegateInformation<TElement, TContext>> EdgeAcceptors { get; }
+      private ListProxy<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>> EdgeAcceptors { get; }
 
       public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement, TContext> acceptor )
       {
@@ -167,7 +169,7 @@ namespace UtilPack.Visiting
          this.ExplicitVertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
 
-      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TContext> enter, AcceptEdgeDelegate<TElement, TContext> exit )
+      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> enter, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
       {
          var edgeID = this.Visitor.GetEdgeIDOrNegative( type, edgeName );
          if ( edgeID < 0 )
@@ -176,7 +178,7 @@ namespace UtilPack.Visiting
          }
          var list = this.EdgeAcceptors;
          var count = list.CQ.Count;
-         var edgeInfo = new AcceptEdgeDelegateInformation<TElement, TContext>( enter, exit );
+         var edgeInfo = new AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>( enter, exit );
 
          if ( edgeID == count )
          {
@@ -188,7 +190,7 @@ namespace UtilPack.Visiting
          }
          else // id > list.Count
          {
-            list.AddRange( Enumerable.Repeat<AcceptEdgeDelegateInformation<TElement, TContext>>( null, edgeID - count ) );
+            list.AddRange( Enumerable.Repeat<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>( null, edgeID - count ) );
             list.Add( edgeInfo );
          }
       }
@@ -230,13 +232,13 @@ namespace UtilPack.Visiting
       public Boolean ContinueOnMissingVertex { get; }
    }
 
-   public class AcceptorInformation<TElement> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement>, AcceptEdgeDelegateInformation<TElement>>
+   public class AcceptorInformation<TElement, TEdgeInfo> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement, TEdgeInfo>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo>>
    {
       public AcceptorInformation(
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          DictionaryQuery<Type, AcceptVertexDelegate<TElement>> vertexAcceptors,
-         ListQuery<AcceptEdgeDelegateInformation<TElement>> edgeAcceptors
+         ListQuery<AcceptEdgeDelegateInformation<TElement, TEdgeInfo>> edgeAcceptors
          ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
       }
@@ -255,42 +257,42 @@ namespace UtilPack.Visiting
       public TDelegate Exit { get; }
    }
 
-   public class AcceptEdgeDelegateInformation<TElement> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement>>
+   public class AcceptEdgeDelegateInformation<TElement, TEdgeInfo> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TEdgeInfo>>
    {
-      public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement> entry, AcceptEdgeDelegate<TElement> exit )
+      public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement, TEdgeInfo> entry, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
          : base( entry, exit )
       {
       }
    }
 
-   public class AcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TContext>, AcceptEdgeDelegateInformation<TElement, TContext>>
+   public class AcceptorInformation<TElement, TEdgeInfo, TContext> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>
    {
       public AcceptorInformation(
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          DictionaryQuery<Type, AcceptVertexDelegate<TElement, TContext>> vertexAcceptors,
-         ListQuery<AcceptEdgeDelegateInformation<TElement, TContext>> edgeAcceptors
+         ListQuery<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>> edgeAcceptors
          ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
       }
    }
 
-   public class AcceptEdgeDelegateInformation<TElement, TContext> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TContext>>
+   public class AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>
    {
-      public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement, TContext> entry, AcceptEdgeDelegate<TElement, TContext> exit )
+      public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> entry, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
          : base( entry, exit )
       {
 
       }
    }
 
-   public class ExplicitAcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptVertexExplicitDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TContext>, AcceptEdgeDelegateInformation<TElement, TContext>>
+   public class ExplicitAcceptorInformation<TElement, TEdgeInfo, TContext> : AbstractAcceptorInformation<AcceptVertexExplicitDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>
    {
       public ExplicitAcceptorInformation(
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          DictionaryQuery<Type, AcceptVertexExplicitDelegate<TElement, TContext>> vertexAcceptors,
-         ListQuery<AcceptEdgeDelegateInformation<TElement, TContext>> edgeAcceptors
+         ListQuery<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>> edgeAcceptors
          ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
       {
 
