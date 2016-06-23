@@ -138,17 +138,29 @@ namespace UtilPack
       }
    }
 
-   internal sealed class InstanceHolder<TInstance> : InstanceWithNextInfo<InstanceHolder<TInstance>>
+   /// <summary>
+   /// This class is generic instance holder, suitable to use with <see cref="LocklessInstancePoolForClassesNoHeapAllocations{TInstance}"/>.
+   /// </summary>
+   /// <typeparam name="TInstance">The type of actual instance.</typeparam>
+   public sealed class InstanceHolder<TInstance> : InstanceWithNextInfo<InstanceHolder<TInstance>>
    {
       private readonly TInstance _instance;
       private InstanceHolder<TInstance> _next;
 
-      internal InstanceHolder( TInstance instance )
+      /// <summary>
+      /// Creates new instance of <see cref="InstanceHolder{TInstance}"/>.
+      /// </summary>
+      /// <param name="instance">The actual instance.</param>
+      public InstanceHolder( TInstance instance )
       {
          this._instance = instance;
       }
 
-      internal TInstance Instance
+      /// <summary>
+      /// Gets the current instance.
+      /// </summary>
+      /// <value>The current instance.</value>
+      public TInstance Instance
       {
          get
          {
@@ -156,6 +168,11 @@ namespace UtilPack
          }
       }
 
+      /// <summary>
+      /// Gets or sets the next <see cref="InstanceHolder{TInstance}"/> in the instance holder chain.
+      /// This should never be used directly - instead let <see cref="LocklessInstancePoolForClassesNoHeapAllocations{TInstance}"/> manage this.
+      /// </summary>
+      /// <value>The next <see cref="InstanceHolder{TInstance}"/> in the instance holder chain.</value>
       public InstanceHolder<TInstance> Next
       {
          get

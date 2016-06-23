@@ -87,7 +87,7 @@ namespace UtilPack.Visiting
    {
       private readonly VisitorInformation<TElement, TEdgeInfo> _visitorInfo;
 
-      internal TypeBasedAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor, TopMostTypeVisitingStrategy topMostVisitingStrategy, Boolean continueOnMissingVertex )
+      public TypeBasedAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor, TopMostTypeVisitingStrategy topMostVisitingStrategy, Boolean continueOnMissingVertex )
          : base( visitor )
       {
          this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement>>().ToDictionaryProxy();
@@ -137,20 +137,38 @@ namespace UtilPack.Visiting
       }
    }
 
-   public class TypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
+   public sealed class TypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
    {
-      private readonly AcceptorInformation<TElement, TEdgeInfo, TContext> _acceptorInfo;
-      private readonly ExplicitAcceptorInformation<TElement, TEdgeInfo, TContext> _explicitAcceptorInfo;
 
-      public TypeBasedAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor, TopMostTypeVisitingStrategy topMostVisitingStrategy, Boolean continueOnMissingVertex )
+      public TypeBasedAcceptor(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex
+         )
+         : this( visitor, topMostVisitingStrategy, continueOnMissingVertex, null )
+      {
+
+      }
+
+      public TypeBasedAcceptor(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         Action<TElement, TContext> contextInitializer
+         )
          : base( visitor )
       {
          this.VertexAcceptors = new Dictionary<Type, AcceptVertexDelegate<TElement, TContext>>().ToDictionaryProxy();
          this.ExplicitVertexAcceptors = new Dictionary<Type, AcceptVertexExplicitDelegate<TElement, TContext>>().ToDictionaryProxy();
          this.EdgeAcceptors = CollectionsFactorySingleton.DEFAULT_COLLECTIONS_FACTORY.NewListProxy<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>();
 
-         this._acceptorInfo = new AcceptorInformation<TElement, TEdgeInfo, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ );
-         this._explicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TEdgeInfo, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ, this.EdgeAcceptors.CQ );
+         this.AcceptorInfo = new AcceptorInformation<TElement, TEdgeInfo, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ );
+         this.ExplicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ );
+         if ( contextInitializer != null )
+         {
+            this.VisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>>();
+            this.ContextInitializer = contextInitializer;
+         }
       }
 
       private DictionaryProxy<Type, AcceptVertexDelegate<TElement, TContext>> VertexAcceptors { get; }
@@ -158,6 +176,16 @@ namespace UtilPack.Visiting
       private DictionaryProxy<Type, AcceptVertexExplicitDelegate<TElement, TContext>> ExplicitVertexAcceptors { get; }
 
       private ListProxy<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>> EdgeAcceptors { get; }
+
+      private AcceptorInformation<TElement, TEdgeInfo, TContext> AcceptorInfo { get; }
+
+      private ExplicitAcceptorInformation<TElement, TContext> ExplicitAcceptorInfo { get; }
+
+      private Action<TElement, TContext> ContextInitializer { get; }
+
+      private Boolean CacheVisitorInfos { get; }
+
+      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> VisitorInfoPool { get; }
 
       public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement, TContext> acceptor )
       {
@@ -197,17 +225,67 @@ namespace UtilPack.Visiting
 
       public Boolean Accept( TElement element, TContext context )
       {
-         var info = this.Visitor.CreateVisitorInfo( this._acceptorInfo, context );
-         return this.Visitor.Visit( element, info );
+         Boolean retVal;
+         if ( this.CacheVisitorInfos )
+         {
+            var instance = this.VisitorInfoPool.TakeInstance();
+            try
+            {
+               if ( instance == null )
+               {
+                  instance = new InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>( this.Visitor.CreateVisitorInfo( this.AcceptorInfo, context ) );
+               }
+               var info = instance.Instance;
+               this.ContextInitializer( element, info.Context );
+               retVal = this.Visitor.Visit( element, info );
+            }
+            finally
+            {
+               this.VisitorInfoPool.ReturnInstance( instance );
+            }
+         }
+         else
+         {
+            retVal = this.Visitor.Visit( element, this.Visitor.CreateVisitorInfo( this.AcceptorInfo, context ) );
+         }
+         return retVal;
       }
 
       public Boolean AcceptExplicit( TElement element, TContext context )
       {
-         return this.Visitor.VisitExplicit( element, this._explicitAcceptorInfo, context );
+         var info = this.Visitor.CreateExplicitVisitorInfo( this.ExplicitAcceptorInfo, context );
+         return this.Visitor.VisitExplicit( element, info );
+      }
+
+      private Boolean Accept( TElement element, TContext context, VisitorInformation<TElement, TEdgeInfo, TContext> visitorInfo )
+      {
+         return this.Visitor.Visit( element, visitorInfo );
       }
    }
 
-   public class AbstractAcceptorInformation<TVertexDelegate, TEdgeDelegate, TEdgeInfo>
+
+   public abstract class AbstractAcceptorInformation<TVertexDelegate>
+   {
+
+      public AbstractAcceptorInformation(
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         DictionaryQuery<Type, TVertexDelegate> vertexAcceptors
+         )
+      {
+         this.TopMostVisitingStrategy = topMostVisitingStrategy;
+         this.ContinueOnMissingVertex = continueOnMissingVertex;
+         this.VertexAcceptors = ArgumentValidator.ValidateNotNull( "Vertex acceptors", vertexAcceptors );
+      }
+
+      public DictionaryQuery<Type, TVertexDelegate> VertexAcceptors { get; }
+
+      public TopMostTypeVisitingStrategy TopMostVisitingStrategy { get; }
+
+      public Boolean ContinueOnMissingVertex { get; }
+   }
+
+   public abstract class AbstractAcceptorInformation<TVertexDelegate, TEdgeDelegate, TEdgeInfo> : AbstractAcceptorInformation<TVertexDelegate>
       where TEdgeInfo : AbstractEdgeDelegateInformation<TEdgeDelegate>
    {
       public AbstractAcceptorInformation(
@@ -216,20 +294,12 @@ namespace UtilPack.Visiting
          DictionaryQuery<Type, TVertexDelegate> vertexAcceptors,
          ListQuery<TEdgeInfo> edgeAcceptors
          )
+         : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors )
       {
-         this.TopMostVisitingStrategy = topMostVisitingStrategy;
-         this.ContinueOnMissingVertex = continueOnMissingVertex;
-         this.VertexAcceptors = ArgumentValidator.ValidateNotNull( "Vertex acceptors", vertexAcceptors );
          this.EdgeAcceptors = ArgumentValidator.ValidateNotNull( "Edge acceptors", edgeAcceptors );
       }
 
-      public DictionaryQuery<Type, TVertexDelegate> VertexAcceptors { get; }
-
       public ListQuery<TEdgeInfo> EdgeAcceptors { get; }
-
-      public TopMostTypeVisitingStrategy TopMostVisitingStrategy { get; }
-
-      public Boolean ContinueOnMissingVertex { get; }
    }
 
    public class AcceptorInformation<TElement, TEdgeInfo> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement, TEdgeInfo>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo>>
@@ -286,14 +356,13 @@ namespace UtilPack.Visiting
       }
    }
 
-   public class ExplicitAcceptorInformation<TElement, TEdgeInfo, TContext> : AbstractAcceptorInformation<AcceptVertexExplicitDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>
+   public class ExplicitAcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptVertexExplicitDelegate<TElement, TContext>>
    {
       public ExplicitAcceptorInformation(
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
-         DictionaryQuery<Type, AcceptVertexExplicitDelegate<TElement, TContext>> vertexAcceptors,
-         ListQuery<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>> edgeAcceptors
-         ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors, edgeAcceptors )
+         DictionaryQuery<Type, AcceptVertexExplicitDelegate<TElement, TContext>> vertexAcceptors
+         ) : base( topMostVisitingStrategy, continueOnMissingVertex, vertexAcceptors )
       {
 
       }
