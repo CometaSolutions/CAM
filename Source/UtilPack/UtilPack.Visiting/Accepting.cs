@@ -137,24 +137,12 @@ namespace UtilPack.Visiting
       }
    }
 
-   public sealed class TypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
+   public abstract class AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
    {
-
-      public TypeBasedAcceptor(
+      public AbstractTypeBasedAcceptor(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex
-         )
-         : this( visitor, topMostVisitingStrategy, continueOnMissingVertex, null )
-      {
-
-      }
-
-      public TypeBasedAcceptor(
-         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
-         TopMostTypeVisitingStrategy topMostVisitingStrategy,
-         Boolean continueOnMissingVertex,
-         Action<TElement, TContext> contextInitializer
          )
          : base( visitor )
       {
@@ -164,11 +152,6 @@ namespace UtilPack.Visiting
 
          this.AcceptorInfo = new AcceptorInformation<TElement, TEdgeInfo, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.VertexAcceptors.CQ, this.EdgeAcceptors.CQ );
          this.ExplicitAcceptorInfo = new ExplicitAcceptorInformation<TElement, TContext>( topMostVisitingStrategy, continueOnMissingVertex, this.ExplicitVertexAcceptors.CQ );
-         if ( contextInitializer != null )
-         {
-            this.VisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>>();
-            this.ContextInitializer = contextInitializer;
-         }
       }
 
       private DictionaryProxy<Type, AcceptVertexDelegate<TElement, TContext>> VertexAcceptors { get; }
@@ -177,15 +160,9 @@ namespace UtilPack.Visiting
 
       private ListProxy<AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>> EdgeAcceptors { get; }
 
-      private AcceptorInformation<TElement, TEdgeInfo, TContext> AcceptorInfo { get; }
+      protected AcceptorInformation<TElement, TEdgeInfo, TContext> AcceptorInfo { get; }
 
-      private ExplicitAcceptorInformation<TElement, TContext> ExplicitAcceptorInfo { get; }
-
-      private Action<TElement, TContext> ContextInitializer { get; }
-
-      private Boolean CacheVisitorInfos { get; }
-
-      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> VisitorInfoPool { get; }
+      protected ExplicitAcceptorInformation<TElement, TContext> ExplicitAcceptorInfo { get; }
 
       public void RegisterVertexAcceptor( Type type, AcceptVertexDelegate<TElement, TContext> acceptor )
       {
@@ -222,44 +199,95 @@ namespace UtilPack.Visiting
             list.Add( edgeInfo );
          }
       }
+   }
+
+   public sealed class TypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
+   {
+
+      public TypeBasedAcceptor(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex
+         )
+         : base( visitor, topMostVisitingStrategy, continueOnMissingVertex )
+      {
+      }
 
       public Boolean Accept( TElement element, TContext context )
       {
-         Boolean retVal;
-         if ( this.CacheVisitorInfos )
-         {
-            var instance = this.VisitorInfoPool.TakeInstance();
-            try
-            {
-               if ( instance == null )
-               {
-                  instance = new InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>( this.Visitor.CreateVisitorInfo( this.AcceptorInfo, context ) );
-               }
-               var info = instance.Instance;
-               this.ContextInitializer( element, info.Context );
-               retVal = this.Visitor.Visit( element, info );
-            }
-            finally
-            {
-               this.VisitorInfoPool.ReturnInstance( instance );
-            }
-         }
-         else
-         {
-            retVal = this.Visitor.Visit( element, this.Visitor.CreateVisitorInfo( this.AcceptorInfo, context ) );
-         }
-         return retVal;
+         return this.Visitor.Visit( element, this.Visitor.CreateVisitorInfo( this.AcceptorInfo, context ) );
       }
 
       public Boolean AcceptExplicit( TElement element, TContext context )
       {
-         var info = this.Visitor.CreateExplicitVisitorInfo( this.ExplicitAcceptorInfo, context );
-         return this.Visitor.VisitExplicit( element, info );
+         return this.Visitor.VisitExplicit( element, this.Visitor.CreateExplicitVisitorInfo( this.ExplicitAcceptorInfo, context ) );
+      }
+   }
+
+   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
+   {
+      public CachingTypeBasedAcceptor(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         Func<TContext> contextFactory,
+         Action<TElement, TContext> contextInitializer
+         ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex )
+      {
+         this.VisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>>();
+         this.ExplicitVisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>>();
+         this.ContextFactory = ArgumentValidator.ValidateNotNull( "Context factory", contextFactory );
+         this.ContextInitializer = ArgumentValidator.ValidateNotNull( "Context initializer", contextInitializer );
       }
 
-      private Boolean Accept( TElement element, TContext context, VisitorInformation<TElement, TEdgeInfo, TContext> visitorInfo )
+      private Func<TContext> ContextFactory { get; }
+
+      private Action<TElement, TContext> ContextInitializer { get; }
+
+      private Boolean CacheVisitorInfos { get; }
+
+      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> VisitorInfoPool { get; }
+
+      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>> ExplicitVisitorInfoPool { get; }
+
+      public Boolean Accept( TElement element )
       {
-         return this.Visitor.Visit( element, visitorInfo );
+         var pool = this.VisitorInfoPool;
+         var instance = pool.TakeInstance();
+         try
+         {
+            if ( instance == null )
+            {
+               instance = new InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>( this.Visitor.CreateVisitorInfo( this.AcceptorInfo, this.ContextFactory() ) );
+            }
+            var info = instance.Instance;
+            this.ContextInitializer( element, info.Context );
+            return this.Visitor.Visit( element, info );
+         }
+         finally
+         {
+            pool.ReturnInstance( instance );
+         }
+      }
+
+      public Boolean AcceptExplicit( TElement element )
+      {
+         var pool = this.ExplicitVisitorInfoPool;
+         var instance = pool.TakeInstance();
+         try
+         {
+            if ( instance == null )
+            {
+               instance = new InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>( this.Visitor.CreateExplicitVisitorInfo( this.ExplicitAcceptorInfo, this.ContextFactory() ) );
+            }
+            var info = instance.Instance;
+            this.ContextInitializer( element, info.Context );
+            return this.Visitor.VisitExplicit( element, info );
+         }
+         finally
+         {
+            pool.ReturnInstance( instance );
+         }
       }
    }
 
