@@ -277,15 +277,6 @@ namespace CILAssemblyManipulator.Physical.Meta
          return this._simpleCATypes.TryGetValue( kind, out retVal ) ? retVal : null;
       }
 
-
-
-      /// <inheritdoc />
-      public Boolean MatchSignatures( CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
-      {
-         var acceptor = this.GetFunctionality<TypeBasedAcceptor<SignatureElement, Int32, SignatureMatchingContext>>();
-         return acceptor.Accept( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
-      }
-
       private static Boolean MatchTypeDefOrRefOrSpec( SignatureMatchingContext ctx, TableIndex defIdx, TableIndex refIdx )
       {
          var defModule = ctx.FirstMD;
@@ -541,81 +532,6 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreatePropertyEdge<SignatureElement, Int32, PointerTypeSignature>( nameof( PointerTypeSignature.PointerType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.PointerType, edgeID ) )
             };
          } );
-
-         ////using ( var factory = visitor.CreateSignatureVertexInfoFactory<ParameterOrLocalSignature>() )
-         ////{
-         ////   factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
-         ////   yield return NewVisitFunctionality<ParameterOrLocalSignature>(
-         ////      VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.CustomModifiers ), sig.CustomModifiers ) ),
-         ////      VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, typeof( ParameterOrLocalSignature ), nameof( ParameterOrLocalSignature.Type ) ) )
-         ////   );
-         ////}
-         //yield return NewVisitFunctionality<ParameterSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreateBaseTypeEdge<ParameterSignature, ParameterOrLocalSignature>()
-         //);
-
-         //yield return NewVisitFunctionality<LocalSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreateBaseTypeEdge<LocalSignature, ParameterOrLocalSignature>()
-         //);
-
-         //yield return NewVisitFunctionality<FieldSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<FieldSignature>( nameof( FieldSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( FieldSignature ), nameof( FieldSignature.CustomModifiers ), sig.CustomModifiers ) ),
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<FieldSignature>( nameof( FieldSignature.Type ), ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, typeof( FieldSignature ), nameof( FieldSignature.Type ) ) )
-         //);
-
-         //yield return NewVisitFunctionality<AbstractMethodSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.ReturnType, typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.ReturnType ) ) ),
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.Parameters ), ( sig, cb ) => cb.VisitListEdge( typeof( AbstractMethodSignature ), nameof( AbstractMethodSignature.Parameters ), sig.Parameters ) )
-         //);
-
-         //yield return NewVisitFunctionality<MethodDefinitionSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreateBaseTypeEdge<MethodDefinitionSignature, AbstractMethodSignature>()
-         //);
-
-         //yield return NewVisitFunctionality<MethodReferenceSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreateBaseTypeEdge<MethodReferenceSignature, AbstractMethodSignature>(),
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<MethodReferenceSignature>( nameof( MethodReferenceSignature.VarArgsParameters ), ( sig, cb ) => cb.VisitListEdge( typeof( MethodReferenceSignature ), nameof( MethodReferenceSignature.VarArgsParameters ), sig.VarArgsParameters ) )
-         //);
-
-         //yield return NewVisitFunctionality<PropertySignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<PropertySignature>( nameof( PropertySignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.CustomModifiers ), sig.CustomModifiers ) ),
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<PropertySignature>( nameof( PropertySignature.PropertyType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.PropertyType, typeof( PropertySignature ), nameof( PropertySignature.PropertyType ) ) ),
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<PropertySignature>( nameof( PropertySignature.Parameters ), ( sig, cb ) => cb.VisitListEdge( typeof( PropertySignature ), nameof( PropertySignature.Parameters ), sig.Parameters ) )
-         //);
-
-         //yield return NewVisitFunctionality<LocalVariablesSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<LocalVariablesSignature>( nameof( LocalVariablesSignature.Locals ), ( sig, cb ) => cb.VisitListEdge( typeof( LocalVariablesSignature ), nameof( LocalVariablesSignature.Locals ), sig.Locals ) )
-         //);
-
-         //yield return NewVisitFunctionality<GenericMethodSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<GenericMethodSignature>( nameof( GenericMethodSignature.GenericArguments ), ( sig, cb ) => cb.VisitListEdge( typeof( GenericMethodSignature ), nameof( GenericMethodSignature.GenericArguments ), sig.GenericArguments ) )
-         //);
-
-         //yield return NewVisitFunctionality<AbstractArrayTypeSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.ArrayType, typeof( AbstractArrayTypeSignature ), nameof( AbstractArrayTypeSignature.ArrayType ) ) )
-         //);
-
-         //yield return NewVisitFunctionality<ComplexArrayTypeSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreateBaseTypeEdge<ComplexArrayTypeSignature, AbstractArrayTypeSignature>()
-         //);
-
-         //yield return NewVisitFunctionality<SimpleArrayTypeSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<SimpleArrayTypeSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( SimpleArrayTypeSignature ), nameof( SimpleArrayTypeSignature.CustomModifiers ), sig.CustomModifiers ) ),
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreateBaseTypeEdge<SimpleArrayTypeSignature, AbstractArrayTypeSignature>()
-         //);
-
-         //yield return NewVisitFunctionality<ClassOrValueTypeSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<ClassOrValueTypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), ( sig, cb ) => cb.VisitListEdge( typeof( ClassOrValueTypeSignature ), nameof( ClassOrValueTypeSignature.GenericArguments ), sig.GenericArguments ) )
-         //);
-
-         //yield return NewVisitFunctionality<FunctionPointerTypeSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), ( sig, cb ) => cb.VisitSimpleEdge( sig.MethodSignature, typeof( FunctionPointerTypeSignature ), nameof( FunctionPointerTypeSignature.MethodSignature ) ) )
-         //);
-
-         //yield return NewVisitFunctionality<PointerTypeSignature>(
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<PointerTypeSignature>( nameof( PointerTypeSignature.CustomModifiers ), ( sig, cb ) => cb.VisitListEdge( typeof( PointerTypeSignature ), nameof( PointerTypeSignature.CustomModifiers ), sig.CustomModifiers ) ),
-         //   VisitorEdgeInfo<SignatureElement, Int32>.CreatePropertyEdge<PointerTypeSignature>( nameof( PointerTypeSignature.PointerType ), ( sig, cb ) => cb.VisitSimpleEdge( sig.PointerType, typeof( PointerTypeSignature ), nameof( PointerTypeSignature.PointerType ) ) )
-         //);
       }
 
       /// <summary>
@@ -1101,11 +1017,9 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <summary>
       /// Creates a new instance of <see cref="ObjectGraphEqualityContext{TElement}"/> with given starting element.
       /// </summary>
-      /// <param name="startingElement">The starting element.</param>
-      public ObjectGraphEqualityContext( TElement startingElement )
+      public ObjectGraphEqualityContext()
       {
          this.CurrentElementStack = new Stack<TElement>();
-         this.CurrentElementStack.Push( startingElement );
       }
 
       /// <summary>
@@ -1131,8 +1045,10 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <param name="secondMD">The <see cref="CILMetaData"/> holding the <paramref name="startingElement"/>.</param>
       /// <param name="signatureMatcher">The <see cref="Meta.SignatureMatcher"/> holding callbacks to match table indices.</param>
       public SignatureMatchingContext( SignatureElement startingElement, CILMetaData firstMD, CILMetaData secondMD, SignatureMatcher signatureMatcher )
-         : base( startingElement )
+         : base()
       {
+         this.CurrentElementStack.Push( startingElement );
+
          this.FirstMD = ArgumentValidator.ValidateNotNull( "First meta data", firstMD );
          this.SecondMD = ArgumentValidator.ValidateNotNull( "Second meta data", secondMD );
 
