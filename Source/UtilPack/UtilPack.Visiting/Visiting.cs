@@ -513,5 +513,15 @@ public static partial class E_UtilPack
       return visitor.TryGetEdgeInfo( type, name, out success )?.ID ?? -1;
    }
 
+   public static Int32 GetEdgeIDOrThrow<TElement, TEdgeInfo>( this TypeBasedVisitor<TElement, TEdgeInfo> visitor, Type type, String name )
+   {
+      var edgeID = visitor.GetEdgeIDOrNegative( type, name );
+      if ( edgeID < 0 )
+      {
+         throw new ArgumentException( "No edge information found for " + type + "." + name + "." );
+      }
+      return edgeID;
+   }
+
 
 }

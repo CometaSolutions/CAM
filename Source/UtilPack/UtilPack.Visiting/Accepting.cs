@@ -80,7 +80,7 @@ namespace UtilPack.Visiting
 
       }
 
-      protected TypeBasedVisitor<TElement, TEdgeInfo> Visitor { get; }
+      public TypeBasedVisitor<TElement, TEdgeInfo> Visitor { get; }
    }
 
    public sealed class TypeBasedAcceptor<TElement, TEdgeInfo> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
@@ -104,13 +104,13 @@ namespace UtilPack.Visiting
          this.VertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
 
-      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo> enter, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
+      public void RegisterEdgeAcceptor( Int32 edgeID, AcceptEdgeDelegate<TElement, TEdgeInfo> enter, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
       {
-         var edgeID = this.Visitor.GetEdgeIDOrNegative( type, edgeName );
          if ( edgeID < 0 )
          {
-            throw new ArgumentException( "No edge information found for " + type + "." + edgeName + "." );
+            throw new ArgumentException( "Edge ID must be at least zero." );
          }
+
          var list = this.EdgeAcceptors;
          var count = list.CQ.Count;
          var edgeInfo = new AcceptEdgeDelegateInformation<TElement, TEdgeInfo>( enter, exit );
@@ -139,7 +139,7 @@ namespace UtilPack.Visiting
 
    public abstract class AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
    {
-      public AbstractTypeBasedAcceptor(
+      internal AbstractTypeBasedAcceptor(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex
@@ -174,12 +174,11 @@ namespace UtilPack.Visiting
          this.ExplicitVertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
 
-      public void RegisterEdgeAcceptor( Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> enter, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
+      public void RegisterEdgeAcceptor( Int32 edgeID, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> enter, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
       {
-         var edgeID = this.Visitor.GetEdgeIDOrNegative( type, edgeName );
          if ( edgeID < 0 )
          {
-            throw new ArgumentException( "No edge information found for " + type + "." + edgeName + "." );
+            throw new ArgumentException( "Edge ID must be at least zero." );
          }
          var list = this.EdgeAcceptors;
          var count = list.CQ.Count;
@@ -224,14 +223,15 @@ namespace UtilPack.Visiting
       }
    }
 
-   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
+   public abstract class AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TContextInitializer> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
+      where TContextInitializer : class
    {
-      public CachingTypeBasedAcceptor(
+      internal AbstractCachingTypeBasedAcceptor(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          Func<TContext> contextFactory,
-         Action<TElement, TContext> contextInitializer
+         TContextInitializer contextInitializer
          ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex )
       {
          this.VisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>>();
@@ -240,15 +240,26 @@ namespace UtilPack.Visiting
          this.ContextInitializer = ArgumentValidator.ValidateNotNull( "Context initializer", contextInitializer );
       }
 
-      private Func<TContext> ContextFactory { get; }
+      protected Func<TContext> ContextFactory { get; }
 
-      private Action<TElement, TContext> ContextInitializer { get; }
+      protected TContextInitializer ContextInitializer { get; }
 
-      private Boolean CacheVisitorInfos { get; }
+      protected LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> VisitorInfoPool { get; }
 
-      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> VisitorInfoPool { get; }
+      protected LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>> ExplicitVisitorInfoPool { get; }
+   }
 
-      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>> ExplicitVisitorInfoPool { get; }
+   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext>>
+   {
+      public CachingTypeBasedAcceptor(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         Func<TContext> contextFactory,
+         Action<TElement, TContext> contextInitializer
+         ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer )
+      {
+      }
 
       public Boolean Accept( TElement element )
       {
@@ -282,6 +293,59 @@ namespace UtilPack.Visiting
             }
             var info = instance.Instance;
             this.ContextInitializer( element, info.Context );
+            return this.Visitor.VisitExplicit( element, info );
+         }
+         finally
+         {
+            pool.ReturnInstance( instance );
+         }
+      }
+   }
+
+   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TAdditionalInfo> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext, TAdditionalInfo>>
+   {
+      public CachingTypeBasedAcceptor(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         Func<TContext> contextFactory,
+         Action<TElement, TContext, TAdditionalInfo> contextInitializer
+         ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer )
+      {
+      }
+
+      public Boolean Accept( TElement element, TAdditionalInfo additionalInfo )
+      {
+         var pool = this.VisitorInfoPool;
+         var instance = pool.TakeInstance();
+         try
+         {
+            if ( instance == null )
+            {
+               instance = new InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>( this.Visitor.CreateVisitorInfo( this.AcceptorInfo, this.ContextFactory() ) );
+            }
+            var info = instance.Instance;
+            this.ContextInitializer( element, info.Context, additionalInfo );
+            return this.Visitor.Visit( element, info );
+         }
+         finally
+         {
+            pool.ReturnInstance( instance );
+         }
+      }
+
+      public Boolean AcceptExplicit( TElement element, TAdditionalInfo additionalInfo )
+      {
+         var pool = this.ExplicitVisitorInfoPool;
+         var instance = pool.TakeInstance();
+         try
+         {
+            if ( instance == null )
+            {
+               instance = new InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>( this.Visitor.CreateExplicitVisitorInfo( this.ExplicitAcceptorInfo, this.ContextFactory() ) );
+            }
+            var info = instance.Instance;
+            this.ContextInitializer( element, info.Context, additionalInfo );
             return this.Visitor.VisitExplicit( element, info );
          }
          finally
@@ -409,5 +473,15 @@ public static partial class E_UtilPack
       where TActualElement : TElement
    {
       acceptorAggregator.RegisterVertexAcceptor( typeof( TActualElement ), ( el, ctx ) => acceptor( (TActualElement) el, ctx ) );
+   }
+
+   public static void RegisterEdgeAcceptor<TElement, TEdgeInfo>( this TypeBasedAcceptor<TElement, TEdgeInfo> acceptor, Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo> enter, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
+   {
+      acceptor.RegisterEdgeAcceptor( acceptor.Visitor.GetEdgeIDOrThrow( type, edgeName ), enter, exit );
+   }
+
+   public static void RegisterEdgeAcceptor<TElement, TEdgeInfo, TContext>( this AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext> acceptor, Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> enter, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
+   {
+      acceptor.RegisterEdgeAcceptor( acceptor.Visitor.GetEdgeIDOrThrow( type, edgeName ), enter, exit );
    }
 }

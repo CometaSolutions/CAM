@@ -1008,29 +1008,6 @@ namespace CILAssemblyManipulator.Physical.Meta
 
    }
 
-   /// <summary>
-   /// This is base class for code using visitor pattern to test whether object hierarchies are equal.
-   /// </summary>
-   /// <typeparam name="TElement">The top-level type of the elements.</typeparam>
-   public class ObjectGraphEqualityContext<TElement>
-   {
-      /// <summary>
-      /// Creates a new instance of <see cref="ObjectGraphEqualityContext{TElement}"/> with given starting element.
-      /// </summary>
-      public ObjectGraphEqualityContext()
-      {
-         this.CurrentElementStack = new Stack<TElement>();
-      }
-
-      /// <summary>
-      /// Gets the current stack of the objects.
-      /// </summary>
-      /// <value>The current stack of the objects.</value>
-      /// <remarks>
-      /// Whenever visiting other object, on-enter-edge acceptor should push to this stack, and on-exit-edge acceptor should pop from this stack.
-      /// </remarks>
-      public Stack<TElement> CurrentElementStack { get; }
-   }
 
    /// <summary>
    /// This class captures context when matching two signatures.
@@ -1449,12 +1426,6 @@ public static partial class E_CILPhysical
    //{
    //   acceptorAggregator.RegisterNonConformingAcceptor( typeof( TElement ), ( el, nc, ctx ) => acceptor( (TElement) el, nc, ctx ) );
    //}
-
-   internal static SignatureElement GetCurrentElement( this SignatureMatchingContext ctx )
-   {
-      return ctx.CurrentElementStack.Peek();
-   }
-
 
 
    internal static TSignature CloneSingle<TSignature>( this CopyingContext context, TSignature signature, AcceptVertexExplicitCallbackDelegate<SignatureElement, CopyingContext> callback )

@@ -66,6 +66,7 @@
     <Compile Include="UtilPack\BigInteger.cs" />
     <Compile Include="UtilPack\Collections.cs" />
     <Compile Include="UtilPack\StringConversions.cs" />
+    <Compile Include="UtilPack\Visiting.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ApplicationParameters\ApplicationParameters.csproj">
