@@ -477,7 +477,7 @@ public static partial class E_UtilPack
       return callback( element, edgeID, default( TEdgeInfo ) );
    }
 
-   public static Boolean VisitCollectionEdge<TElement>( this VisitElementCallbackDelegate<TElement, Int32> callback, TElement element, Int32 edgeID, Int32 index )
+   public static Boolean VisitSingleCollectionEdge<TElement>( this VisitElementCallbackDelegate<TElement, Int32> callback, TElement element, Int32 edgeID, Int32 index )
    {
       return callback( element, edgeID, index );
    }
@@ -489,7 +489,19 @@ public static partial class E_UtilPack
       var max = list.Count;
       for ( var i = 0; i < max && retVal; ++i )
       {
-         retVal = callback.VisitCollectionEdge( list[i], edgeID, i );
+         retVal = callback.VisitSingleCollectionEdge( list[i], edgeID, i );
+      }
+      return retVal;
+   }
+
+   public static Boolean VisitArrayEdge<TElement, TEdgeElement>( this VisitElementCallbackDelegate<TElement, Int32> callback, Int32 edgeID, TEdgeElement[] array )
+      where TEdgeElement : TElement
+   {
+      var retVal = true;
+      var max = array.Length;
+      for ( var i = 0; i < max && retVal; ++i )
+      {
+         retVal = callback.VisitSingleCollectionEdge( array[i], edgeID, i );
       }
       return retVal;
    }

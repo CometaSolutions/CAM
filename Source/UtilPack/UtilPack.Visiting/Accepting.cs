@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using UtilPack;
 using UtilPack.CollectionsWithRoles;
 using UtilPack.Visiting;
 
@@ -234,8 +235,6 @@ namespace UtilPack.Visiting
          TContextInitializer contextInitializer
          ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex )
       {
-         this.VisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>>();
-         this.ExplicitVisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>>();
          this.ContextFactory = ArgumentValidator.ValidateNotNull( "Context factory", contextFactory );
          this.ContextInitializer = ArgumentValidator.ValidateNotNull( "Context initializer", contextInitializer );
       }
@@ -244,13 +243,15 @@ namespace UtilPack.Visiting
 
       protected TContextInitializer ContextInitializer { get; }
 
-      protected LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> VisitorInfoPool { get; }
 
-      protected LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>> ExplicitVisitorInfoPool { get; }
    }
 
-   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext>>
+   public class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext>>
    {
+
+      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> _visitorInfoPool;
+      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>> _explicitVisitorInfoPool;
+
       public CachingTypeBasedAcceptor(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
@@ -259,11 +260,13 @@ namespace UtilPack.Visiting
          Action<TElement, TContext> contextInitializer
          ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer )
       {
+         this._visitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>>();
+         this._explicitVisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>>();
       }
 
       public Boolean Accept( TElement element )
       {
-         var pool = this.VisitorInfoPool;
+         var pool = this._visitorInfoPool;
          var instance = pool.TakeInstance();
          try
          {
@@ -283,7 +286,7 @@ namespace UtilPack.Visiting
 
       public Boolean AcceptExplicit( TElement element )
       {
-         var pool = this.ExplicitVisitorInfoPool;
+         var pool = this._explicitVisitorInfoPool;
          var instance = pool.TakeInstance();
          try
          {
@@ -302,8 +305,11 @@ namespace UtilPack.Visiting
       }
    }
 
-   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TAdditionalInfo> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext, TAdditionalInfo>>
+   public class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TAdditionalInfo> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext, TAdditionalInfo>>
    {
+      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> _visitorInfoPool;
+      private LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>> _explicitVisitorInfoPool;
+
       public CachingTypeBasedAcceptor(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
@@ -312,11 +318,13 @@ namespace UtilPack.Visiting
          Action<TElement, TContext, TAdditionalInfo> contextInitializer
          ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer )
       {
+         this._visitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>>();
+         this._explicitVisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>>();
       }
 
       public Boolean Accept( TElement element, TAdditionalInfo additionalInfo )
       {
-         var pool = this.VisitorInfoPool;
+         var pool = this._visitorInfoPool;
          var instance = pool.TakeInstance();
          try
          {
@@ -336,7 +344,7 @@ namespace UtilPack.Visiting
 
       public Boolean AcceptExplicit( TElement element, TAdditionalInfo additionalInfo )
       {
-         var pool = this.ExplicitVisitorInfoPool;
+         var pool = this._explicitVisitorInfoPool;
          var instance = pool.TakeInstance();
          try
          {
@@ -484,4 +492,6 @@ public static partial class E_UtilPack
    {
       acceptor.RegisterEdgeAcceptor( acceptor.Visitor.GetEdgeIDOrThrow( type, edgeName ), enter, exit );
    }
+
+
 }
