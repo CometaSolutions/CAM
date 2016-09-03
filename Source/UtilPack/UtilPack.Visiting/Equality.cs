@@ -24,22 +24,24 @@ using UtilPack.Visiting;
 
 namespace UtilPack.Visiting
 {
+
    /// <summary>
-   /// This is class which binds certain generic parameters of <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/> to make it easier to create acceptors for equality functionality.
+   /// This class contains methods to easily create certain kinds of acceptors.
    /// </summary>
-   /// <typeparam name="TElement">The common type of elements being compared for equality.</typeparam>
-   public sealed class EqualityComparisonAcceptor<TElement> : CachingTypeBasedAcceptor<TElement, Int32, ObjectGraphEqualityContext<TElement>, TElement>
+   public static class AcceptorFactory
    {
       /// <summary>
-      /// Creates a new <see cref="EqualityComparisonAcceptor{TElement}"/> with given visitor and <see cref="TopMostTypeVisitingStrategy"/>.
+      /// Creates a new <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/> for equality comparison functionality, with given visitor and <see cref="TopMostTypeVisitingStrategy"/>.
       /// </summary>
       /// <param name="visitor">The visitor.</param>
       /// <param name="topMostVisitingStrategy">The <see cref="TopMostTypeVisitingStrategy"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="visitor"/> is <c>null</c>.</exception>
-      public EqualityComparisonAcceptor(
+      public static CachingTypeBasedAcceptor<TElement, Int32, ObjectGraphEqualityContext<TElement>, TElement> NewEqualityComparisonAcceptor<TElement>(
          TypeBasedVisitor<TElement, Int32> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy
-         ) : base(
+         )
+      {
+         return new CachingTypeBasedAcceptor<TElement, Int32, ObjectGraphEqualityContext<TElement>, TElement>(
             visitor,
             topMostVisitingStrategy,
             false,
@@ -49,8 +51,23 @@ namespace UtilPack.Visiting
                ctx.CurrentElementStack.Clear();
                ctx.CurrentElementStack.Push( otherObj );
             }
-            )
+            );
+      }
+
+      /// <summary>
+      /// 
+      /// </summary>
+      /// <typeparam name="TElement"></typeparam>
+      /// <param name="visitor"></param>
+      /// <returns></returns>
+      public static TypeBasedAcceptorWithResult<TElement, Int32> NewHashCodeComputationAcceptor<TElement>(
+         ExplicitTypeBasedVisitor<TElement> visitor
+         )
       {
+         return new TypeBasedAcceptorWithResult<TElement, Int32>(
+            visitor,
+            true
+            );
       }
    }
 
@@ -185,7 +202,7 @@ public static partial class E_UtilPack
    /// <param name="getter">The callback to get an array of another elements held by element given as parameter.</param>
    public static void RegisterEqualityComparisonTransition_Array<TElement, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, Int32, TContext, TElement> acceptor, Int32 edgeID, Func<TActualElement, TElement[]> getter )
       where TElement : class
-      where TActualElement : TElement
+      where TActualElement : class, TElement
       where TContext : ObjectGraphEqualityContext<TElement>
    {
       // TODO: optimize the lambda if TActualElement == TElement (no need for cast)
@@ -199,6 +216,108 @@ public static partial class E_UtilPack
          EdgeExit
          );
    }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <typeparam name="TElement"></typeparam>
+   /// <typeparam name="TActualElement"></typeparam>
+   /// <param name="acceptor"></param>
+   /// <param name="hashCode"></param>
+   public static void RegisterHashCodeComputer<TElement, TActualElement>( this TypeBasedAcceptorWithResult<TElement, Int32> acceptor, Func<TActualElement, AcceptVertexExplicitCallbackWithResultDelegate<TElement, Int32>, Int32> hashCode )
+      where TActualElement : TElement
+   {
+      acceptor.RegisterVertexAcceptor(
+         typeof( TActualElement ),
+         ( el, cb ) => hashCode( (TActualElement) el, cb )
+         );
+   }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <typeparam name="TElement"></typeparam>
+   /// <typeparam name="TActualElement"></typeparam>
+   /// <param name="acceptor"></param>
+   /// <param name="hashCode"></param>
+   public static void RegisterHashCodeComputer<TElement, TActualElement>( this TypeBasedAcceptorWithResult<TElement, Int32> acceptor, HashCode<TActualElement> hashCode )
+      where TActualElement : TElement
+   {
+      acceptor.RegisterVertexAcceptor(
+         typeof( TActualElement ),
+         ( el, cb ) => hashCode( (TActualElement) el )
+         );
+   }
+
+   //public static void RegisterHashCodeComputer<TElement, TEdgeInfo, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> acceptor, Func<TActualElement, AcceptVertexExplicitCallbackDelegate<TElement, TContext>, Int32> hashCode )
+   //   where TActualElement : TElement
+   //   where TContext : HashCodeComputationContext
+   //{
+   //   acceptor.RegisterExplicitVertexAcceptor(
+   //      typeof( TActualElement ),
+   //      ( el, ctx, cb ) =>
+   //      {
+   //         ctx.CurrentHashCode = hashCode( (TActualElement) el, cb );
+   //         return true;
+   //      }
+   //      );
+   //}
+
+   //public static void RegisterHashCodeComputer<TElement, TEdgeInfo, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> acceptor, HashCode<TActualElement> hashCode )
+   //   where TActualElement : TElement
+   //   where TContext : HashCodeComputationContext
+   //{
+   //   acceptor.RegisterExplicitVertexAcceptor(
+   //      typeof( TActualElement ),
+   //      ( el, ctx, cb ) =>
+   //      {
+   //         ctx.CurrentHashCode = hashCode( (TActualElement) el );
+   //         return true;
+   //      }
+   //      );
+   //}
+
+   ///// <summary>
+   ///// Creates an equality comparer, which will use the <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/> for <see cref="IEqualityComparer{T}.Equals(T, T)"/> method, and a given callback for <see cref="IEqualityComparer{T}.GetHashCode(T)"/> method.
+   ///// </summary>
+   ///// <typeparam name="TElement">The common type of elements.</typeparam>
+   ///// <typeparam name="TContext">The type of context, should be <see cref="ObjectGraphEqualityContext{TElement}"/> or subclass.</typeparam>
+   ///// <typeparam name="TActualElement">The type of the element that equality comparison functionality should be added to.</typeparam>
+   ///// <param name="acceptor">The <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/>.</param>
+   ///// <param name="hashCode">The hash code callback.</param>
+   ///// <returns></returns>
+   //public static IEqualityComparer<TActualElement> NewEqualityComparer<TElement, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, Int32, TContext, TElement> acceptor, HashCode<TActualElement> hashCode )
+   //   where TElement : class
+   //   where TActualElement : class, TElement
+   //   where TContext : ObjectGraphEqualityContext<TElement>
+   //{
+   //   return new AcceptorBasedEqualityComparer<TElement, TContext, TActualElement>( acceptor, hashCode );
+   //}
+
+   //private sealed class AcceptorBasedEqualityComparer<TElement, TContext, TActualElement> : IEqualityComparer<TActualElement>
+   //   where TElement : class
+   //   where TActualElement : class, TElement
+   //   where TContext : ObjectGraphEqualityContext<TElement>
+   //{
+   //   internal AcceptorBasedEqualityComparer( CachingTypeBasedAcceptor<TElement, Int32, TContext, TElement> acceptor, HashCode<TActualElement> hashCode )
+   //   {
+   //      this._acceptor = ArgumentValidator.ValidateNotNullReference( acceptor );
+   //      this._hashCode = ArgumentValidator.ValidateNotNull( "Hash code callback", hashCode );
+   //   }
+
+   //   private readonly CachingTypeBasedAcceptor<TElement, Int32, TContext, TElement> _acceptor;
+   //   private readonly HashCode<TActualElement> _hashCode;
+
+   //   Boolean IEqualityComparer<TActualElement>.Equals( TActualElement x, TActualElement y )
+   //   {
+   //      return this._acceptor.Accept( x, y );
+   //   }
+
+   //   Int32 IEqualityComparer<TActualElement>.GetHashCode( TActualElement obj )
+   //   {
+   //      return this._hashCode( obj );
+   //   }
+   //}
 
    private static Boolean EdgeExit<TElement, TEdgeInfo, TContext>( TElement element, TEdgeInfo info, TContext context )
       where TElement : class

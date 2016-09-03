@@ -136,12 +136,26 @@ namespace UtilPack.Visiting
          return new ExplicitVisitorInformation<TElement, TContext>( this.CreateCallback( acceptorInfo, context ), acceptorInfo, context );
       }
 
+      public ExplicitVisitorInformationWithResult<TElement, TResult> CreateExplicitVisitorInfo<TResult>( ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo )
+      {
+         return new ExplicitVisitorInformationWithResult<TElement, TResult>( this.CreateCallback( acceptorInfo ), acceptorInfo );
+      }
+
       public Boolean VisitExplicit<TContext>(
          TElement element,
          ExplicitVisitorInformation<TElement, TContext> visitorInfo
          )
       {
-         return this.VisitElementWithContext( element, visitorInfo.AcceptorInformation, visitorInfo.Context, visitorInfo.Callback, null );
+         return this.VisitElementWithContext( element, visitorInfo.AcceptorInformation, visitorInfo.Context, visitorInfo.Callback );
+      }
+
+      public Boolean VisitExplicit<TResult>(
+         TElement element,
+         ExplicitVisitorInformationWithResult<TElement, TResult> visitorInfo,
+         out TResult result
+         )
+      {
+         return this.VisitElementWithNoContext( element, visitorInfo.AcceptorInformation, visitorInfo.Callback, out result );
       }
 
 
@@ -150,53 +164,98 @@ namespace UtilPack.Visiting
          TElement element,
          ExplicitAcceptorInformation<TElement, TContext> acceptorInfo,
          TContext context,
-         AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptorCallback,
-         Type overrideType
+         AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptorCallback
          )
       {
-         //AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext> edgeDelegateInfo = null;
-         AcceptVertexExplicitDelegate<TElement, TContext> vertexAcceptor;
+         AcceptVertexExplicitDelegate<TElement, TContext> vertexAcceptor = null;
          Boolean hadAcceptor;
-         return element != null
-            //&& ( ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo, context ) ?? true )
-            && this.CheckForTopMostTypeStrategy( element, acceptorInfo, context, overrideType, acceptorCallback )
-            && ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context, acceptorCallback ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context, acceptorCallback ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
-
-            // && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
-            //&& ( edgeDelegateInfo?.Exit( element, edgeInfo, context ) ?? true )
-            ;
-      }
-
-      private Boolean CheckForTopMostTypeStrategy<TContext>(
-         TElement element,
-         ExplicitAcceptorInformation<TElement, TContext> info,
-         TContext context,
-         Type overrideType,
-         AcceptVertexExplicitCallbackDelegate<TElement, TContext> callback
-         )
-      {
-         Boolean hadAcceptor;
-         AcceptVertexExplicitDelegate<TElement, TContext> acceptor;
-         var acceptorDictionary = info.VertexAcceptors;
-         switch ( info.TopMostVisitingStrategy )
+         var retVal = element != null
+            && ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( element.GetType(), out hadAcceptor ) ) != null;
+         if ( retVal )
          {
-            case TopMostTypeVisitingStrategy.IfNotOverridingType:
-               return overrideType != null
-                  || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-                  || acceptor( element, context, callback );
-
-            case TopMostTypeVisitingStrategy.Always:
-               return ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-                  || acceptor( element, context, callback );
-            default:
-               return true;
+            vertexAcceptor( element, context, acceptorCallback );
          }
+
+         return retVal;
+
+         //return element != null
+         //   //&& this.CheckForTopMostTypeStrategy( element, acceptorInfo, context, overrideType, acceptorCallback )
+         //   && ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context, acceptorCallback ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context, acceptorCallback ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
+         //   ;
       }
+
+      private Boolean VisitElementWithNoContext<TResult>(
+         TElement element,
+         ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo,
+         AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> acceptorCallback,
+         out TResult result
+         )
+      {
+         AcceptVertexExplicitWithResultDelegate<TElement, TResult> vertexAcceptor = null;
+         Boolean hadAcceptor;
+         var retVal = element != null
+            && ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( element.GetType(), out hadAcceptor ) ) != null;
+         if ( retVal )
+         {
+            result = vertexAcceptor( element, acceptorCallback );
+         }
+         else
+         {
+            result = default( TResult );
+         }
+
+         return retVal;
+      }
+
+      //private Boolean CheckForTopMostTypeStrategy<TContext>(
+      //   TElement element,
+      //   ExplicitAcceptorInformation<TElement, TContext> info,
+      //   TContext context,
+      //   Type overrideType,
+      //   AcceptVertexExplicitCallbackDelegate<TElement, TContext> callback
+      //   )
+      //{
+      //   Boolean hadAcceptor;
+      //   AcceptVertexExplicitDelegate<TElement, TContext> acceptor;
+      //   var acceptorDictionary = info.VertexAcceptors;
+      //   switch ( info.TopMostVisitingStrategy )
+      //   {
+      //      case TopMostTypeVisitingStrategy.IfNotOverridingType:
+      //         return overrideType != null
+      //            || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
+      //            || acceptor( element, context, callback );
+
+      //      case TopMostTypeVisitingStrategy.Always:
+      //         return ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
+      //            || acceptor( element, context, callback );
+      //      default:
+      //         return true;
+      //   }
+      //}
 
       private AcceptVertexExplicitCallbackDelegate<TElement, TContext> CreateCallback<TContext>( ExplicitAcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
       {
          AcceptVertexExplicitCallbackDelegate<TElement, TContext> callback = null;
-         callback = ( el, ctx ) => el == null || this.VisitElementWithContext( el, acceptorInfo, context, callback, null );
+         callback = ( el, ctx ) =>
+         {
+            return el != null
+               && this.VisitElementWithContext( el, acceptorInfo, context, callback );
+         };
+         return callback;
+      }
+
+      private AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> CreateCallback<TResult>( ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo )
+      {
+         AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback = null;
+         callback = ( el ) =>
+         {
+            TResult retVal;
+            if ( !this.VisitElementWithNoContext( el, acceptorInfo, callback, out retVal ) )
+            {
+               retVal = default( TResult );
+            }
+            return retVal;
+         };
          return callback;
       }
    }
@@ -438,6 +497,15 @@ namespace UtilPack.Visiting
       }
 
 
+   }
+
+   public class ExplicitVisitorInformationWithResult<TElement, TResult> : AbstractVisitorInformation<AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult>, ExplicitAcceptorInformationWithResult<TElement, TResult>>
+   {
+      public ExplicitVisitorInformationWithResult( AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback, ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo )
+         : base( callback, acceptorInfo )
+      {
+
+      }
    }
 
    public class VisitorInformation<TElement, TEdgeInfo, TContext> : AbstractVisitorInformation<VisitElementCallbackDelegate<TElement, TEdgeInfo>, AcceptorInformation<TElement, TEdgeInfo, TContext>, TContext>

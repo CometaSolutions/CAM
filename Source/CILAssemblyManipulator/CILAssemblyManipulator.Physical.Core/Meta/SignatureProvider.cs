@@ -815,7 +815,6 @@ namespace CILAssemblyManipulator.Physical.Meta
          {
             var result = functionality( (TSignature) el, ctx, cb );
             ctx.CurrentObject = result;
-            return true;
          } );
       }
 

@@ -42,58 +42,81 @@ namespace CILAssemblyManipulator.Tests.UtilPack
       [Test]
       public void TestEqualityWithCachingTypeBasedAcceptor()
       {
-         var visitor = new TypeBasedVisitor<Object, Int32>();
-         using ( var a = visitor.CreateVertexInfoFactory( typeof( A ) ) )
-         {
-         }
          Int32 edgeID;
-         using ( var b = visitor.CreateVertexInfoFactory( typeof( B ) ) )
-         {
-            edgeID = b.CreatePropertyEdge<Object, Int32, B>( nameof( B.A ), thisEdgeID => ( el, cb ) => cb.VisitSimpleEdge( el.A, thisEdgeID ) ).ID;
-         }
-
-         var acceptor = new EqualityComparisonAcceptor<Object>(
-            visitor,
-            TopMostTypeVisitingStrategy.Never
-            );
+         var visitor = this.CreateVisitor( out edgeID );
+         var acceptor = AcceptorFactory.NewEqualityComparisonAcceptor( visitor, TopMostTypeVisitingStrategy.Never );
          acceptor.RegisterEqualityAcceptor( ( A x, A y ) => String.Equals( x.StringValue, y.StringValue ) );
          acceptor.RegisterEqualityAcceptor( ( B x, B y ) => x.Int32Value == y.Int32Value );
          acceptor.RegisterEqualityComparisonTransition_Simple( edgeID, ( B el ) => el.A );
 
-         var first = new B()
-         {
-            Int32Value = 5,
-            A = new A()
-            {
-               StringValue = "Test"
-            }
-         };
-         var second = new B()
-         {
-            Int32Value = 5,
-            A = new A()
-            {
-               StringValue = "Test"
-            }
-         };
+
+
+         var first = this.CreateB1();
+         var second = this.CreateB1();
 
          var firstResult = acceptor.Accept( first, second );
          var secondResult = acceptor.Accept( first, second );
 
          Assert.IsTrue( firstResult );
          Assert.AreEqual( firstResult, secondResult );
+
+         first = this.CreateB2();
+
+         firstResult = acceptor.Accept( first, second );
+         secondResult = acceptor.Accept( first, second );
+
+         Assert.IsFalse( firstResult );
+         Assert.AreEqual( firstResult, secondResult );
       }
 
-
-      private static Boolean TestEquality<T>( Object element, ObjectGraphEqualityContext<Object> context, Equality<T> equality )
-         where T : class
+      [Test]
+      public void TestHashCodeWithAcceptor()
       {
-         var fromCtx = context.GetCurrentElement();
-         T fromCtxTyped;
-         return ReferenceEquals( element, fromCtx )
-         || ( element != null && ( fromCtxTyped = fromCtx as T ) != null
-         && equality( (T) element, fromCtxTyped ) );
+         Int32 edgeID;
+         var visitor = this.CreateVisitor( out edgeID );
+         var acceptor = AcceptorFactory.NewHashCodeComputationAcceptor( visitor );
+         acceptor.RegisterHashCodeComputer( ( A x ) => x.StringValue.GetHashCodeSafe() );
+         acceptor.RegisterHashCodeComputer( ( B x, AcceptVertexExplicitCallbackWithResultDelegate<Object, Int32> cb ) => x.Int32Value * 2 + cb( x.A ) );
 
+         var b = this.CreateB1();
+         var hashFromAcceptor = acceptor.AcceptExplicit( b );
+         var manualHash = b.Int32Value * 2 + b.A.StringValue.GetHashCodeSafe();
+
+         Assert.AreEqual( hashFromAcceptor, manualHash );
+
+      }
+
+      private TypeBasedVisitor<Object, Int32> CreateVisitor( out Int32 edgeID )
+      {
+         var visitor = new TypeBasedVisitor<Object, Int32>();
+         using ( var a = visitor.CreateVertexInfoFactory( typeof( A ) ) )
+         {
+         }
+         using ( var b = visitor.CreateVertexInfoFactory( typeof( B ) ) )
+         {
+            edgeID = b.CreatePropertyEdge<Object, Int32, B>( nameof( B.A ), thisEdgeID => ( el, cb ) => cb.VisitSimpleEdge( el.A, thisEdgeID ) ).ID;
+         }
+         return visitor;
+      }
+
+      private B CreateB1()
+      {
+         return new B()
+         {
+            Int32Value = 5,
+            A = new A()
+            {
+               StringValue = "Test"
+            }
+         };
+      }
+
+      private B CreateB2()
+      {
+         return new B()
+         {
+            Int32Value = 5
+         };
       }
    }
 
