@@ -19,71 +19,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using UtilPack;
 using UtilPack.CollectionsWithRoles;
-using UtilPack.Visiting;
 
-namespace UtilPack.Visiting
-{
 #pragma warning disable 1591
 
-   public delegate Boolean AcceptVertexDelegate<in TElement>( TElement element );
-
-   public delegate Boolean AcceptEdgeDelegate<in TElement, in TEdgeInfo>( TElement element, TEdgeInfo edgeInfo );
-
-   /// <summary>
-   /// This is delegate that captures signature to 'accept', or visit, a single element in visitor pattern.
-   /// </summary>
-   /// <typeparam name="TElement">The common type for elements.</typeparam>
-   /// <typeparam name="TContext">The type of context that is given when performing visiting.</typeparam>
-   /// <param name="element">The current element.</param>
-   /// <param name="context">The current context.</param>
-   /// <returns><c>true</c> if visiting should be continued, <c>false</c> otherwise.</returns>
-   /// <remarks>
-   /// The methods implementing this should be agnostic to how the hierarchical structure is explored.
-   /// This is done by <see cref="VisitElementDelegate{TElement, TEdgeInfo}"/>.
-   /// The <see cref="AcceptVertexDelegate{TElement, TContext}"/> should only capture the functionality that is done for element.
-   /// In other words, <see cref="VisitElementDelegate{TElement, TEdgeInfo}"/> captures how the hierarchical structure is explored, and <see cref="AcceptVertexDelegate{TElement, TContext}"/> captures what is done for nodes of hierarchical structure.
-   /// </remarks>
-   public delegate Boolean AcceptVertexDelegate<in TElement, in TContext>( TElement element, TContext context );
-
-   /// <summary>
-   /// This is delegate that captures signature to 'accept', or visit, a single edge (transition between elements) in visitor pattern.
-   /// </summary>
-   /// <typeparam name="TElement">The type of element.</typeparam>
-   /// <typeparam name="TContext">The type of context that is given when performing visiting.</typeparam>
-   /// <typeparam name="TEdgeInfo">The type of edge info (typically <see cref="Int32"/> indicating list/array index in case of list/array property).</typeparam>
-   /// <param name="element">The current element.</param>
-   /// <param name="edgeInfo">The domain-specific edge information.</param>
-   /// <param name="context">The current context.</param>
-   /// <returns><c>true</c> if visiting should be continued, <c>false</c> otherwise.</returns>
-   public delegate Boolean AcceptEdgeDelegate<in TElement, in TEdgeInfo, in TContext>( TElement element, TEdgeInfo edgeInfo, TContext context );
-
-   public delegate void AcceptVertexExplicitDelegate<TElement, TContext>( TElement element, TContext context, AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptor );
-
-   public delegate Boolean AcceptVertexExplicitCallbackDelegate<in TElement, in TContext>( TElement element, TContext context );
-
-   public delegate void AcceptVertexExplicitDelegateTyped<TElement, TContext, in TActualElement>( TActualElement element, TContext context, AcceptVertexExplicitCallbackDelegate<TElement, TContext> acceptor )
-      where TActualElement : TElement;
-
-
-   //public delegate TResult AcceptVertexWithResultDelegate<in TElement, out TResult>( TElement element, out Boolean shouldContinue );
-
-   //public delegate TResult AcceptVertexWithResultDelegate<in TElement, in TContext, out TResult>( TElement element, TContext context, out Boolean shouldContinue );
-
-   public delegate TResult AcceptVertexExplicitWithResultDelegate<TElement, TResult>( TElement element, AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> acceptor );
-
-   public delegate TResult AcceptVertexExplicitCallbackWithResultDelegate<in TElement, out TResult>( TElement element );
-
-   public enum TopMostTypeVisitingStrategy
-   {
-      Never,
-      IfNotOverridingType,
-      Always
-   }
-
-   public abstract class AbstractAcceptor<TElement, TVisitor>
-      where TVisitor : class
+namespace UtilPack.Visiting.Implementation
+{
+   internal abstract class AbstractAcceptor<TElement, TVisitor>
+   where TVisitor : class
    {
       public AbstractAcceptor( TVisitor visitor )
       {
@@ -93,17 +36,17 @@ namespace UtilPack.Visiting
       public TVisitor Visitor { get; }
    }
 
-   public abstract class AbstractTypeBasedAcceptor<TElement, TEdgeInfo> : AbstractAcceptor<TElement, TypeBasedVisitor<TElement, TEdgeInfo>>
+   internal abstract class AbstractAutomaticAcceptor<TElement, TEdgeInfo> : AbstractAcceptor<TElement, TypeBasedVisitor<TElement, TEdgeInfo>>
 
    {
-      internal AbstractTypeBasedAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor )
+      internal AbstractAutomaticAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor )
          : base( visitor )
       {
       }
 
    }
 
-   public sealed class TypeBasedAcceptor<TElement, TEdgeInfo> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
+   internal sealed class TypeBasedAcceptor<TElement, TEdgeInfo> : AbstractAutomaticAcceptor<TElement, TEdgeInfo>
    {
       private readonly VisitorInformation<TElement, TEdgeInfo> _visitorInfo;
 
@@ -159,7 +102,7 @@ namespace UtilPack.Visiting
 
    }
 
-   public sealed class TypeBasedAcceptorWithResult<TElement, TResult> : AbstractAcceptor<TElement, ExplicitTypeBasedVisitor<TElement>>
+   internal sealed class TypeBasedAcceptorWithResult<TElement, TResult> : AbstractAcceptor<TElement, ExplicitTypeBasedVisitor<TElement>>
    {
       private readonly ExplicitVisitorInformationWithResult<TElement, TResult> _visitorInfo;
 
@@ -177,13 +120,13 @@ namespace UtilPack.Visiting
          this.VertexAcceptors[type] = ArgumentValidator.ValidateNotNull( "Acceptor", acceptor );
       }
 
-      public Boolean AcceptExplicit( TElement element, out TResult result )
+      public TResult AcceptExplicit( TElement element, out Boolean success )
       {
-         return this.Visitor.VisitExplicit( element, this._visitorInfo, out result );
+         return this.Visitor.VisitExplicit( element, this._visitorInfo, out success );
       }
    }
 
-   public abstract class AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo>
+   internal abstract class AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractAutomaticAcceptor<TElement, TEdgeInfo>
    {
       internal AbstractTypeBasedAcceptor(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
@@ -246,7 +189,7 @@ namespace UtilPack.Visiting
       }
    }
 
-   public sealed class TypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
+   internal sealed class TypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
    {
 
       public TypeBasedAcceptor(
@@ -271,7 +214,7 @@ namespace UtilPack.Visiting
 
    }
 
-   public abstract class AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TContextInitializer> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
+   internal abstract class AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TContextInitializer> : AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext>
       where TContextInitializer : class
    {
       internal AbstractCachingTypeBasedAcceptor(
@@ -293,7 +236,7 @@ namespace UtilPack.Visiting
 
    }
 
-   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext>>
+   internal sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext>>
    {
 
       private readonly LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> _visitorInfoPool;
@@ -352,7 +295,7 @@ namespace UtilPack.Visiting
       }
    }
 
-   public sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TAdditionalInfo> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext, TAdditionalInfo>>
+   internal sealed class CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TAdditionalInfo> : AbstractCachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, Action<TElement, TContext, TAdditionalInfo>>
    {
       private readonly LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<VisitorInformation<TElement, TEdgeInfo, TContext>>> _visitorInfoPool;
       private readonly LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ExplicitVisitorInformation<TElement, TContext>>> _explicitVisitorInfoPool;
@@ -412,7 +355,7 @@ namespace UtilPack.Visiting
 
 
 
-   public abstract class AbstractAcceptorInformation<TVertexDelegate>
+   internal abstract class AbstractAcceptorInformation<TVertexDelegate>
    {
 
       public AbstractAcceptorInformation(
@@ -429,7 +372,7 @@ namespace UtilPack.Visiting
       public Boolean ContinueOnMissingVertex { get; }
    }
 
-   public abstract class AbstractImplicitAcceptorInformation<TVertexDelegate> : AbstractAcceptorInformation<TVertexDelegate>
+   internal abstract class AbstractImplicitAcceptorInformation<TVertexDelegate> : AbstractAcceptorInformation<TVertexDelegate>
    {
       public AbstractImplicitAcceptorInformation(
          Boolean continueOnMissingVertex,
@@ -444,7 +387,7 @@ namespace UtilPack.Visiting
    }
 
 
-   public abstract class AbstractAcceptorInformation<TVertexDelegate, TEdgeDelegate, TEdgeInfo> : AbstractImplicitAcceptorInformation<TVertexDelegate>
+   internal abstract class AbstractAcceptorInformation<TVertexDelegate, TEdgeDelegate, TEdgeInfo> : AbstractImplicitAcceptorInformation<TVertexDelegate>
       where TEdgeInfo : AbstractEdgeDelegateInformation<TEdgeDelegate>
    {
       public AbstractAcceptorInformation(
@@ -461,7 +404,7 @@ namespace UtilPack.Visiting
       public ListQuery<TEdgeInfo> EdgeAcceptors { get; }
    }
 
-   public class AcceptorInformation<TElement, TEdgeInfo> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement, TEdgeInfo>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo>>
+   internal class AcceptorInformation<TElement, TEdgeInfo> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement, TEdgeInfo>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo>>
    {
       public AcceptorInformation(
          Boolean continueOnMissingVertex,
@@ -474,7 +417,7 @@ namespace UtilPack.Visiting
 
    }
 
-   public abstract class AbstractEdgeDelegateInformation<TDelegate>
+   internal abstract class AbstractEdgeDelegateInformation<TDelegate>
    {
       public AbstractEdgeDelegateInformation( TDelegate entry, TDelegate exit )
       {
@@ -486,7 +429,7 @@ namespace UtilPack.Visiting
       public TDelegate Exit { get; }
    }
 
-   public class AcceptEdgeDelegateInformation<TElement, TEdgeInfo> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TEdgeInfo>>
+   internal class AcceptEdgeDelegateInformation<TElement, TEdgeInfo> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TEdgeInfo>>
    {
       public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement, TEdgeInfo> entry, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
          : base( entry, exit )
@@ -494,7 +437,7 @@ namespace UtilPack.Visiting
       }
    }
 
-   public class AcceptorInformation<TElement, TEdgeInfo, TContext> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>
+   internal class AcceptorInformation<TElement, TEdgeInfo, TContext> : AbstractAcceptorInformation<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>, AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext>>
    {
       public AcceptorInformation(
          Boolean continueOnMissingVertex,
@@ -506,7 +449,7 @@ namespace UtilPack.Visiting
       }
    }
 
-   public class AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>
+   internal class AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext> : AbstractEdgeDelegateInformation<AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>
    {
       public AcceptEdgeDelegateInformation( AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> entry, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
          : base( entry, exit )
@@ -515,7 +458,7 @@ namespace UtilPack.Visiting
       }
    }
 
-   public class ExplicitAcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptVertexExplicitDelegate<TElement, TContext>>
+   internal class ExplicitAcceptorInformation<TElement, TContext> : AbstractAcceptorInformation<AcceptVertexExplicitDelegate<TElement, TContext>>
    {
       public ExplicitAcceptorInformation(
          Boolean continueOnMissingVertex,
@@ -526,7 +469,7 @@ namespace UtilPack.Visiting
       }
    }
 
-   public class ExplicitAcceptorInformationWithResult<TElement, TResult> : AbstractAcceptorInformation<AcceptVertexExplicitWithResultDelegate<TElement, TResult>>
+   internal class ExplicitAcceptorInformationWithResult<TElement, TResult> : AbstractAcceptorInformation<AcceptVertexExplicitWithResultDelegate<TElement, TResult>>
    {
       public ExplicitAcceptorInformationWithResult(
          Boolean continueOnMissingVertex,
@@ -536,38 +479,5 @@ namespace UtilPack.Visiting
 
       }
    }
-}
-
-public static partial class E_UtilPack
-{
-   public static AcceptVertexExplicitDelegate<TElement, TContext> AsAcceptVertexExplicitDelegate<TElement, TContext, TActualElement>( this AcceptVertexExplicitDelegateTyped<TElement, TContext, TActualElement> typed )
-      where TActualElement : TElement
-   {
-      return ( el, ctx, cb ) => typed( (TActualElement) el, ctx, cb );
-   }
-
-   public static void RegisterAcceptor<TElement, TEdgeInfo, TContext, TActualElement>( this TypeBasedAcceptor<TElement, TEdgeInfo, TContext> acceptorAggregator, AcceptVertexDelegate<TActualElement, TContext> acceptor )
-      where TActualElement : TElement
-   {
-      acceptorAggregator.RegisterVertexAcceptor( typeof( TActualElement ), ( el, ctx ) => acceptor( (TActualElement) el, ctx ) );
-   }
-
-   public static void RegisterEdgeAcceptor<TElement, TEdgeInfo>( this TypeBasedAcceptor<TElement, TEdgeInfo> acceptor, Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo> enter, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
-   {
-      acceptor.RegisterEdgeAcceptor( acceptor.Visitor.GetEdgeIDOrThrow( type, edgeName ), enter, exit );
-   }
-
-   public static void RegisterEdgeAcceptor<TElement, TEdgeInfo, TContext>( this AbstractTypeBasedAcceptor<TElement, TEdgeInfo, TContext> acceptor, Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> enter, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
-   {
-      acceptor.RegisterEdgeAcceptor( acceptor.Visitor.GetEdgeIDOrThrow( type, edgeName ), enter, exit );
-   }
-
-   public static TResult AcceptExplicit<TElement, TResult>( this TypeBasedAcceptorWithResult<TElement, TResult> acceptor, TElement element )
-   {
-      TResult retVal;
-      acceptor.AcceptExplicit( element, out retVal );
-      return retVal;
-   }
-
 
 }

@@ -21,6 +21,7 @@ using System.Linq;
 using System.Text;
 using UtilPack;
 using UtilPack.Visiting;
+using UtilPack.Visiting.Implementation;
 
 namespace UtilPack.Visiting
 {
@@ -28,7 +29,7 @@ namespace UtilPack.Visiting
    /// <summary>
    /// This class contains methods to easily create certain kinds of acceptors.
    /// </summary>
-   public static class AcceptorFactory
+   public static partial class AcceptorFactory
    {
       /// <summary>
       /// Creates a new <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/> for equality comparison functionality, with given visitor and <see cref="TopMostTypeVisitingStrategy"/>.
