@@ -23,8 +23,8 @@ using System.Text;
 namespace UtilPack.Visiting.Implementation
 {
    internal abstract class AbstractVisitorInformation<TDelegate, TAcceptorInfo>
-   where TDelegate : class
-   where TAcceptorInfo : class
+      where TDelegate : class
+      where TAcceptorInfo : class
    {
       public AbstractVisitorInformation( TDelegate callback, TAcceptorInfo acceptorInfo )
       {
@@ -52,36 +52,60 @@ namespace UtilPack.Visiting.Implementation
 
    }
 
-   internal class VisitorInformation<TElement, TEdgeInfo> : AbstractVisitorInformation<VisitElementCallbackDelegate<TElement, TEdgeInfo>, AcceptorInformation<TElement, TEdgeInfo>>
+   internal class AutomaticVisitorInformation<TElement, TEdgeInfo> : AbstractVisitorInformation<VisitElementCallbackDelegate<TElement, TEdgeInfo>, AcceptorInformation<TElement, TEdgeInfo>>
    {
-      public VisitorInformation( VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, AcceptorInformation<TElement, TEdgeInfo> acceptorInfo )
+      public AutomaticVisitorInformation( VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, AcceptorInformation<TElement, TEdgeInfo> acceptorInfo )
          : base( callback, acceptorInfo )
       {
       }
-
-
    }
 
-   internal class ExplicitVisitorInformationWithResult<TElement, TResult> : AbstractVisitorInformation<AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult>, ExplicitAcceptorInformationWithResult<TElement, TResult>>
+   internal class AutomaticVisitorInformation<TElement, TEdgeInfo, TContext> : AbstractVisitorInformation<VisitElementCallbackDelegate<TElement, TEdgeInfo>, AcceptorInformation<TElement, TEdgeInfo, TContext>, TContext>
    {
-      public ExplicitVisitorInformationWithResult( AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback, ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo )
-         : base( callback, acceptorInfo )
-      {
-
-      }
-   }
-
-   internal class VisitorInformation<TElement, TEdgeInfo, TContext> : AbstractVisitorInformation<VisitElementCallbackDelegate<TElement, TEdgeInfo>, AcceptorInformation<TElement, TEdgeInfo, TContext>, TContext>
-   {
-      public VisitorInformation( VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, AcceptorInformation<TElement, TEdgeInfo, TContext> acceptorInfo, TContext context )
+      public AutomaticVisitorInformation( VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, AcceptorInformation<TElement, TEdgeInfo, TContext> acceptorInfo, TContext context )
          : base( callback, acceptorInfo, context )
       {
       }
    }
 
-   internal class ExplicitVisitorInformation<TElement, TContext> : AbstractVisitorInformation<AcceptVertexExplicitCallbackDelegate<TElement>, ExplicitAcceptorInformation<TElement, TContext>, TContext>
+   //internal class VisitorInformationWithResult<TElement, TEdgeInfo, TResult> : AbstractVisitorInformation<VisitElementCallbackDelegate<TElement, TEdgeInfo>, AcceptorInformationWithResult<TElement, TEdgeInfo, TResult>>
+   //{
+   //   public VisitorInformationWithResult( VisitElementCallbackDelegate<TElement, TEdgeInfo> callback, AcceptorInformationWithResult<TElement, TEdgeInfo, TResult> acceptorInfo )
+   //      : base( callback, acceptorInfo )
+   //   {
+   //   }
+   //}
+
+   internal class ManualVisitorInformationWithResult<TElement, TResult> : AbstractVisitorInformation<AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult>, ExplicitAcceptorInformationWithResult<TElement, TResult>>
    {
-      public ExplicitVisitorInformation( AcceptVertexExplicitCallbackDelegate<TElement> callback, ExplicitAcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
+      public ManualVisitorInformationWithResult( AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback, ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo )
+         : base( callback, acceptorInfo )
+      {
+
+      }
+   }
+
+   internal class ManualVisitorInformationWithResult<TElement, TContext, TResult> : AbstractVisitorInformation<AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult>, ExplicitAcceptorInformationWithResult<TElement, TContext, TResult>>
+   {
+      public ManualVisitorInformationWithResult( AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback, ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> acceptorInfo )
+         : base( callback, acceptorInfo )
+      {
+
+      }
+   }
+
+
+   internal class ManualVisitorInformation<TElement> : AbstractVisitorInformation<AcceptVertexExplicitCallbackDelegate<TElement>, ExplicitAcceptorInformation<TElement>>
+   {
+      public ManualVisitorInformation( AcceptVertexExplicitCallbackDelegate<TElement> callback, ExplicitAcceptorInformation<TElement> acceptorInfo )
+         : base( callback, acceptorInfo )
+      {
+      }
+   }
+
+   internal class ManualVisitorInformation<TElement, TContext> : AbstractVisitorInformation<AcceptVertexExplicitCallbackDelegate<TElement>, ExplicitAcceptorInformation<TElement, TContext>, TContext>
+   {
+      public ManualVisitorInformation( AcceptVertexExplicitCallbackDelegate<TElement> callback, ExplicitAcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
          : base( callback, acceptorInfo, context )
       {
       }

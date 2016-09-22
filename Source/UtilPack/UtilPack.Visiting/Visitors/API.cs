@@ -131,19 +131,36 @@ namespace UtilPack.Visiting
 
    public abstract class ExplicitTypeBasedVisitor<TElement>
    {
-      internal ExplicitVisitorInformation<TElement, TContext> CreateExplicitVisitorInfo<TContext>( ExplicitAcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
+      internal ManualVisitorInformation<TElement> CreateExplicitVisitorInfo( ExplicitAcceptorInformation<TElement> acceptorInfo )
       {
-         return new ExplicitVisitorInformation<TElement, TContext>( this.CreateCallback( acceptorInfo, context ), acceptorInfo, context );
+         return new ManualVisitorInformation<TElement>( this.CreateCallback( acceptorInfo ), acceptorInfo );
+      }
+      internal ManualVisitorInformation<TElement, TContext> CreateExplicitVisitorInfo<TContext>( ExplicitAcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
+      {
+         return new ManualVisitorInformation<TElement, TContext>( this.CreateCallback( acceptorInfo, context ), acceptorInfo, context );
       }
 
-      internal ExplicitVisitorInformationWithResult<TElement, TResult> CreateExplicitVisitorInfo<TResult>( ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo )
+      internal ManualVisitorInformationWithResult<TElement, TResult> CreateExplicitVisitorInfo<TResult>( ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo )
       {
-         return new ExplicitVisitorInformationWithResult<TElement, TResult>( this.CreateCallback( acceptorInfo ), acceptorInfo );
+         return new ManualVisitorInformationWithResult<TElement, TResult>( this.CreateCallback( acceptorInfo ), acceptorInfo );
+      }
+
+      internal ManualVisitorInformationWithResult<TElement, TContext, TResult> CreateExplicitVisitorInfo<TContext, TResult>( ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> acceptorInfo, TContext context )
+      {
+         return new ManualVisitorInformationWithResult<TElement, TContext, TResult>( this.CreateCallback( acceptorInfo, context ), acceptorInfo );
+      }
+
+      internal Boolean VisitExplicit(
+         TElement element,
+         ManualVisitorInformation<TElement> visitorInfo
+         )
+      {
+         return this.VisitElementWithNoContext( element, visitorInfo.AcceptorInformation, visitorInfo.Callback );
       }
 
       internal Boolean VisitExplicit<TContext>(
          TElement element,
-         ExplicitVisitorInformation<TElement, TContext> visitorInfo
+         ManualVisitorInformation<TElement, TContext> visitorInfo
          )
       {
          return this.VisitElementWithContext( element, visitorInfo.AcceptorInformation, visitorInfo.Context, visitorInfo.Callback );
@@ -151,11 +168,21 @@ namespace UtilPack.Visiting
 
       internal TResult VisitExplicit<TResult>(
          TElement element,
-         ExplicitVisitorInformationWithResult<TElement, TResult> visitorInfo,
+         ManualVisitorInformationWithResult<TElement, TResult> visitorInfo,
          out Boolean success
          )
       {
          return this.VisitElementWithNoContext( element, visitorInfo.AcceptorInformation, visitorInfo.Callback, out success );
+      }
+
+      internal TResult VisitExplicit<TContext, TResult>(
+         TElement element,
+         TContext context,
+         ManualVisitorInformationWithResult<TElement, TContext, TResult> visitorInfo,
+         out Boolean success
+         )
+      {
+         return this.VisitElementWithContext( element, context, visitorInfo.AcceptorInformation, visitorInfo.Callback, out success );
       }
 
 
@@ -184,6 +211,23 @@ namespace UtilPack.Visiting
          //   ;
       }
 
+      private Boolean VisitElementWithNoContext(
+         TElement element,
+         ExplicitAcceptorInformation<TElement> acceptorInfo,
+         AcceptVertexExplicitCallbackDelegate<TElement> acceptorCallback
+         )
+      {
+         AcceptVertexExplicitDelegate<TElement> vertexAcceptor = null;
+         Boolean retVal = element != null
+            && ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( element.GetType(), out retVal ) ) != null;
+         if ( retVal )
+         {
+            vertexAcceptor( element, acceptorCallback );
+         }
+
+         return retVal;
+      }
+
       private TResult VisitElementWithNoContext<TResult>(
          TElement element,
          ExplicitAcceptorInformationWithResult<TElement, TResult> acceptorInfo,
@@ -198,31 +242,32 @@ namespace UtilPack.Visiting
          return result;
       }
 
-      //private Boolean CheckForTopMostTypeStrategy<TContext>(
-      //   TElement element,
-      //   ExplicitAcceptorInformation<TElement, TContext> info,
-      //   TContext context,
-      //   Type overrideType,
-      //   AcceptVertexExplicitCallbackDelegate<TElement, TContext> callback
-      //   )
-      //{
-      //   Boolean hadAcceptor;
-      //   AcceptVertexExplicitDelegate<TElement, TContext> acceptor;
-      //   var acceptorDictionary = info.VertexAcceptors;
-      //   switch ( info.TopMostVisitingStrategy )
-      //   {
-      //      case TopMostTypeVisitingStrategy.IfNotOverridingType:
-      //         return overrideType != null
-      //            || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-      //            || acceptor( element, context, callback );
+      private TResult VisitElementWithContext<TContext, TResult>(
+         TElement element,
+         TContext context,
+         ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> acceptorInfo,
+         AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> acceptorCallback,
+         out Boolean success
+         )
+      {
+         AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult> vertexAcceptor = null;
+         success = element != null
+            && ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( element.GetType(), out success ) ) != null;
+         TResult result = success ? vertexAcceptor( element, context, acceptorCallback ) : default( TResult );
+         return result;
+      }
 
-      //      case TopMostTypeVisitingStrategy.Always:
-      //         return ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-      //            || acceptor( element, context, callback );
-      //      default:
-      //         return true;
-      //   }
-      //}
+
+      private AcceptVertexExplicitCallbackDelegate<TElement> CreateCallback( ExplicitAcceptorInformation<TElement> acceptorInfo )
+      {
+         AcceptVertexExplicitCallbackDelegate<TElement> callback = null;
+         callback = ( el ) =>
+         {
+            return el != null
+               && this.VisitElementWithNoContext( el, acceptorInfo, callback );
+         };
+         return callback;
+      }
 
       private AcceptVertexExplicitCallbackDelegate<TElement> CreateCallback<TContext>( ExplicitAcceptorInformation<TElement, TContext> acceptorInfo, TContext context )
       {
@@ -242,6 +287,17 @@ namespace UtilPack.Visiting
          {
             Boolean success;
             return this.VisitElementWithNoContext( el, acceptorInfo, callback, out success );
+         };
+         return callback;
+      }
+
+      private AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> CreateCallback<TContext, TResult>( ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> acceptorInfo, TContext context )
+      {
+         AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback = null;
+         callback = ( el ) =>
+         {
+            Boolean success;
+            return this.VisitElementWithContext( el, context, acceptorInfo, callback, out success );
          };
          return callback;
       }
@@ -298,15 +354,20 @@ namespace UtilPack.Visiting
          return System.Threading.Interlocked.Increment( ref this._currentEdgeID ) - 1;
       }
 
-      internal VisitorInformation<TElement, TEdgeInfo> CreateVisitorInfo( AcceptorInformation<TElement, TEdgeInfo> acceptorInfo )
+      internal AutomaticVisitorInformation<TElement, TEdgeInfo> CreateVisitorInfo( AcceptorInformation<TElement, TEdgeInfo> acceptorInfo )
       {
-         return new VisitorInformation<TElement, TEdgeInfo>( this.CreateCallback( acceptorInfo ), acceptorInfo );
+         return new AutomaticVisitorInformation<TElement, TEdgeInfo>( this.CreateCallback( acceptorInfo ), acceptorInfo );
       }
 
-      internal VisitorInformation<TElement, TEdgeInfo, TContext> CreateVisitorInfo<TContext>( AcceptorInformation<TElement, TEdgeInfo, TContext> acceptorInfo, TContext context )
+      internal AutomaticVisitorInformation<TElement, TEdgeInfo, TContext> CreateVisitorInfo<TContext>( AcceptorInformation<TElement, TEdgeInfo, TContext> acceptorInfo, TContext context )
       {
-         return new VisitorInformation<TElement, TEdgeInfo, TContext>( this.CreateCallback( acceptorInfo, context ), acceptorInfo, context );
+         return new AutomaticVisitorInformation<TElement, TEdgeInfo, TContext>( this.CreateCallback( acceptorInfo, context ), acceptorInfo, context );
       }
+
+      //internal VisitorInformationWithResult<TElement, TEdgeInfo, TResult> CreateVisitorInfo<TResult>( AcceptorInformationWithResult<TElement, TEdgeInfo, TResult> acceptorInfo )
+      //{
+      //   return new VisitorInformationWithResult<TElement, TEdgeInfo, TResult>( this.CreateCallback( acceptorInfo ), acceptorInfo );
+      //}
 
       private VisitElementCallbackDelegate<TElement, TEdgeInfo> CreateCallback<TContext>( AcceptorInformation<TElement, TEdgeInfo, TContext> acceptorInfo, TContext context )
       {
@@ -322,9 +383,15 @@ namespace UtilPack.Visiting
          return callback;
       }
 
+      //private VisitElementCallbackDelegate<TElement, TEdgeInfo> CreateCallback<TResult>( AcceptorInformationWithResult<TElement, TEdgeInfo, TResult> acceptorInfo )
+      //{
+      //   VisitElementCallbackDelegate<TElement, TEdgeInfo> callback = null;
+
+      //}
+
       internal Boolean Visit(
          TElement element,
-         VisitorInformation<TElement, TEdgeInfo> visitorInfo
+         AutomaticVisitorInformation<TElement, TEdgeInfo> visitorInfo
          )
       {
          return this.VisitElementWithNoContext( element, visitorInfo.AcceptorInformation, visitorInfo.Callback, -1, default( TEdgeInfo ), null );
@@ -332,7 +399,7 @@ namespace UtilPack.Visiting
 
       internal Boolean Visit<TContext>(
          TElement element,
-         VisitorInformation<TElement, TEdgeInfo, TContext> visitorInfo
+         AutomaticVisitorInformation<TElement, TEdgeInfo, TContext> visitorInfo
          )
       {
          return this.VisitElementWithContext( element, visitorInfo.AcceptorInformation, visitorInfo.Context, visitorInfo.Callback, -1, default( TEdgeInfo ), null );

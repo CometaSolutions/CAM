@@ -32,27 +32,26 @@ namespace UtilPack.Visiting
    public static partial class AcceptorFactory
    {
       /// <summary>
-      /// Creates a new <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/> for equality comparison functionality, with given visitor and <see cref="TopMostTypeVisitingStrategy"/>.
+      /// Creates a new <see cref="AutomaticTransitionAcceptor_WithContext{TAcceptor, TElement, TEdgeInfo, TContext}"/> for equality comparison functionality, with given visitor and <see cref="TopMostTypeVisitingStrategy"/>.
       /// </summary>
       /// <param name="visitor">The visitor.</param>
       /// <param name="topMostVisitingStrategy">The <see cref="TopMostTypeVisitingStrategy"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="visitor"/> is <c>null</c>.</exception>
-      public static CachingTypeBasedAcceptor<TElement, Int32, ObjectGraphEqualityContext<TElement>, TElement> NewEqualityComparisonAcceptor<TElement>(
+      public static AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TElement>, TElement, Int32, ObjectGraphEqualityContext<TElement>> NewEqualityComparisonAcceptor<TElement>(
          TypeBasedVisitor<TElement, Int32> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy
          )
       {
-         return new CachingTypeBasedAcceptor<TElement, Int32, ObjectGraphEqualityContext<TElement>, TElement>(
+         return NewAutomaticAcceptor_WithHiddenContext_Caching(
             visitor,
             topMostVisitingStrategy,
             false,
             () => new ObjectGraphEqualityContext<TElement>(),
-            ( obj, ctx, otherObj ) =>
+            ( TElement obj, ObjectGraphEqualityContext<TElement> ctx, TElement otherObj ) =>
             {
                ctx.CurrentElementStack.Clear();
                ctx.CurrentElementStack.Push( otherObj );
-            }
-            );
+            } );
       }
 
       /// <summary>
@@ -61,13 +60,12 @@ namespace UtilPack.Visiting
       /// <typeparam name="TElement"></typeparam>
       /// <param name="visitor"></param>
       /// <returns></returns>
-      public static TypeBasedAcceptorWithResult<TElement, Int32> NewHashCodeComputationAcceptor<TElement>(
+      public static ManualTransitionAcceptor_WithReturnValue<AcceptorWithReturnValue<TElement, Int32>, TElement, Int32> NewHashCodeComputationAcceptor<TElement>(
          ExplicitTypeBasedVisitor<TElement> visitor
          )
       {
-         return new TypeBasedAcceptorWithResult<TElement, Int32>(
-            visitor,
-            true
+         return NewManualAcceptor_WithReturnValue<TElement, Int32>(
+            visitor
             );
       }
    }
@@ -119,9 +117,9 @@ public static partial class E_UtilPack
    /// <typeparam name="TEdgeInfo">The edge info type.</typeparam>
    /// <typeparam name="TContext">The context type, should be <see cref="ObjectGraphEqualityContext{TElement}"/> or subtype of it.</typeparam>
    /// <typeparam name="TActualElement">The type of the element that equality functionality is registered for.</typeparam>
-   /// <param name="acceptor">The <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/>.</param>
+   /// <param name="acceptor">The <see cref="AutomaticTransitionAcceptor_WithContext{TAcceptor, TElement, TEdgeInfo, TContext}"/> created by <see cref="AcceptorFactory.NewEqualityComparisonAcceptor{TElement}(TypeBasedVisitor{TElement, int}, TopMostTypeVisitingStrategy)"/>.</param>
    /// <param name="equality">The callback comparing two objects of type <typeparamref name="TActualElement"/>.</param>
-   public static void RegisterEqualityAcceptor<TElement, TEdgeInfo, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TElement> acceptor, Equality<TActualElement> equality )
+   public static void RegisterEqualityAcceptor<TElement, TEdgeInfo, TContext, TActualElement>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TElement>, TElement, TEdgeInfo, TContext> acceptor, Equality<TActualElement> equality )
       where TElement : class
       where TActualElement : class, TElement
       where TContext : ObjectGraphEqualityContext<TElement>
@@ -140,16 +138,16 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
-   /// This is helper method to invoke <see cref="AbstractTypeBasedAcceptor{TElement, TEdgeInfo, TContext}.RegisterEdgeAcceptor(int, AcceptEdgeDelegate{TElement, TEdgeInfo, TContext}, AcceptEdgeDelegate{TElement, TEdgeInfo, TContext})"/> method with arguments suitable for equality comparison of hierarchical structures.
+   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
    /// </summary>
    /// <typeparam name="TElement">The common type of elements.</typeparam>
    /// <typeparam name="TEdgeInfo">The type of edge information.</typeparam>
    /// <typeparam name="TContext">The context type, must be subclass of <see cref="ObjectGraphEqualityContext{TElement}"/>.</typeparam>
    /// <typeparam name="TActualElement">The type of this element.</typeparam>
-   /// <param name="acceptor">The <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/>.</param>
+   /// <param name="acceptor">The <see cref="AutomaticTransitionAcceptor_WithContext{TAcceptor, TElement, TEdgeInfo, TContext}"/> created by <see cref="AcceptorFactory.NewEqualityComparisonAcceptor{TElement}(TypeBasedVisitor{TElement, int}, TopMostTypeVisitingStrategy)"/>.</param>
    /// <param name="edgeID">The edge ID.</param>
    /// <param name="getter">The callback to get another element held by element given as parameter.</param>
-   public static void RegisterEqualityComparisonTransition_Simple<TElement, TEdgeInfo, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext, TElement> acceptor, Int32 edgeID, Func<TActualElement, TElement> getter )
+   public static void RegisterEqualityComparisonTransition_Simple<TElement, TEdgeInfo, TContext, TActualElement>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TElement>, TElement, TEdgeInfo, TContext> acceptor, Int32 edgeID, Func<TActualElement, TElement> getter )
       where TElement : class
       where TActualElement : TElement
       where TContext : ObjectGraphEqualityContext<TElement>
@@ -167,15 +165,15 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
-   /// This is helper method to invoke <see cref="AbstractTypeBasedAcceptor{TElement, TEdgeInfo, TContext}.RegisterEdgeAcceptor(int, AcceptEdgeDelegate{TElement, TEdgeInfo, TContext}, AcceptEdgeDelegate{TElement, TEdgeInfo, TContext})"/> method with arguments suitable for equality comparison of hierarchical structures.
+   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
    /// </summary>
    /// <typeparam name="TElement">The common type of elements.</typeparam>
    /// <typeparam name="TContext">The context type, must be subclass of <see cref="ObjectGraphEqualityContext{TElement}"/>.</typeparam>
    /// <typeparam name="TActualElement">The type of this element.</typeparam>
-   /// <param name="acceptor">The <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/>.</param>
+   /// <param name="acceptor">The <see cref="AutomaticTransitionAcceptor_WithContext{TAcceptor, TElement, TEdgeInfo, TContext}"/> created by <see cref="AcceptorFactory.NewEqualityComparisonAcceptor{TElement}(TypeBasedVisitor{TElement, int}, TopMostTypeVisitingStrategy)"/>.</param>
    /// <param name="edgeID">The edge ID.</param>
    /// <param name="getter">The callback to get a list of another elements held by element given as parameter.</param>
-   public static void RegisterEqualityComparisonTransition_List<TElement, TContext, TActualElement>( this AbstractCachingTypeBasedAcceptor<TElement, Int32, TContext, TElement> acceptor, Int32 edgeID, Func<TActualElement, IList<TElement>> getter )
+   public static void RegisterEqualityComparisonTransition_List<TElement, TContext, TActualElement>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TElement>, TElement, Int32, TContext> acceptor, Int32 edgeID, Func<TActualElement, IList<TElement>> getter )
       where TElement : class
       where TActualElement : TElement
       where TContext : ObjectGraphEqualityContext<TElement>
@@ -193,15 +191,15 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
-   /// This is helper method to invoke <see cref="AbstractTypeBasedAcceptor{TElement, TEdgeInfo, TContext}.RegisterEdgeAcceptor(int, AcceptEdgeDelegate{TElement, TEdgeInfo, TContext}, AcceptEdgeDelegate{TElement, TEdgeInfo, TContext})"/> method with arguments suitable for equality comparison of hierarchical structures.
+   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
    /// </summary>
    /// <typeparam name="TElement">The common type of elements.</typeparam>
    /// <typeparam name="TContext">The context type, must be subclass of <see cref="ObjectGraphEqualityContext{TElement}"/>.</typeparam>
    /// <typeparam name="TActualElement">The type of this element.</typeparam>
-   /// <param name="acceptor">The <see cref="CachingTypeBasedAcceptor{TElement, TEdgeInfo, TContext, TAdditionalInfo}"/>.</param>
+   /// <param name="acceptor">The <see cref="AutomaticTransitionAcceptor_WithContext{TAcceptor, TElement, TEdgeInfo, TContext}"/> created by <see cref="AcceptorFactory.NewEqualityComparisonAcceptor{TElement}(TypeBasedVisitor{TElement, int}, TopMostTypeVisitingStrategy)"/>.</param>
    /// <param name="edgeID">The edge ID.</param>
    /// <param name="getter">The callback to get an array of another elements held by element given as parameter.</param>
-   public static void RegisterEqualityComparisonTransition_Array<TElement, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, Int32, TContext, TElement> acceptor, Int32 edgeID, Func<TActualElement, TElement[]> getter )
+   public static void RegisterEqualityComparisonTransition_Array<TElement, TContext, TActualElement>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TElement>, TElement, Int32, TContext> acceptor, Int32 edgeID, Func<TActualElement, TElement[]> getter )
       where TElement : class
       where TActualElement : class, TElement
       where TContext : ObjectGraphEqualityContext<TElement>
@@ -225,7 +223,7 @@ public static partial class E_UtilPack
    /// <typeparam name="TActualElement"></typeparam>
    /// <param name="acceptor"></param>
    /// <param name="hashCode"></param>
-   public static void RegisterHashCodeComputer<TElement, TActualElement>( this TypeBasedAcceptorWithResult<TElement, Int32> acceptor, Func<TActualElement, AcceptVertexExplicitCallbackWithResultDelegate<TElement, Int32>, Int32> hashCode )
+   public static void RegisterHashCodeComputer<TElement, TActualElement>( this ManualTransitionAcceptor_WithReturnValue<AcceptorWithReturnValue<TElement, Int32>, TElement, Int32> acceptor, Func<TActualElement, AcceptVertexExplicitCallbackWithResultDelegate<TElement, Int32>, Int32> hashCode )
       where TActualElement : TElement
    {
       acceptor.RegisterVertexAcceptor(
@@ -241,7 +239,7 @@ public static partial class E_UtilPack
    /// <typeparam name="TActualElement"></typeparam>
    /// <param name="acceptor"></param>
    /// <param name="hashCode"></param>
-   public static void RegisterHashCodeComputer<TElement, TActualElement>( this TypeBasedAcceptorWithResult<TElement, Int32> acceptor, HashCode<TActualElement> hashCode )
+   public static void RegisterHashCodeComputer<TElement, TActualElement>( this ManualTransitionAcceptor_WithReturnValue<AcceptorWithReturnValue<TElement, Int32>, TElement, Int32> acceptor, HashCode<TActualElement> hashCode )
       where TActualElement : TElement
    {
       acceptor.RegisterVertexAcceptor(

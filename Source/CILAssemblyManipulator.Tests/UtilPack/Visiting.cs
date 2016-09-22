@@ -44,15 +44,17 @@ namespace CILAssemblyManipulator.Tests.UtilPack
       {
          Int32 edgeID;
          var visitor = this.CreateVisitor( out edgeID );
-         var acceptor = AcceptorFactory.NewEqualityComparisonAcceptor( visitor, TopMostTypeVisitingStrategy.Never );
-         acceptor.RegisterEqualityAcceptor( ( A x, A y ) => String.Equals( x.StringValue, y.StringValue ) );
-         acceptor.RegisterEqualityAcceptor( ( B x, B y ) => x.Int32Value == y.Int32Value );
-         acceptor.RegisterEqualityComparisonTransition_Simple( edgeID, ( B el ) => el.A );
+         var acceptorSetup = AcceptorFactory.NewEqualityComparisonAcceptor( visitor, TopMostTypeVisitingStrategy.Never );
+         acceptorSetup.RegisterEqualityAcceptor( ( A x, A y ) => String.Equals( x.StringValue, y.StringValue ) );
+         acceptorSetup.RegisterEqualityAcceptor( ( B x, B y ) => x.Int32Value == y.Int32Value );
+         acceptorSetup.RegisterEqualityComparisonTransition_Simple( edgeID, ( B el ) => el.A );
 
 
 
          var first = this.CreateB1();
          var second = this.CreateB1();
+
+         var acceptor = acceptorSetup.Acceptor;
 
          var firstResult = acceptor.Accept( first, second );
          var secondResult = acceptor.Accept( first, second );
@@ -79,7 +81,7 @@ namespace CILAssemblyManipulator.Tests.UtilPack
          acceptor.RegisterHashCodeComputer( ( B x, AcceptVertexExplicitCallbackWithResultDelegate<Object, Int32> cb ) => x.Int32Value * 2 + cb( x.A ) );
 
          var b = this.CreateB1();
-         var hashFromAcceptor = acceptor.AcceptExplicit( b );
+         var hashFromAcceptor = acceptor.Acceptor.Accept( b );
          var manualHash = b.Int32Value * 2 + b.A.StringValue.GetHashCodeSafe();
 
          Assert.AreEqual( hashFromAcceptor, manualHash );

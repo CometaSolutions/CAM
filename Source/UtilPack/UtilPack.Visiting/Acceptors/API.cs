@@ -46,61 +46,68 @@ namespace UtilPack.Visiting
    }
 
    // These interfaces define how the acceptors are set up
-   public interface AcceptorSetup<in TVertexDelegate>
+   public interface AcceptorSetup<out TAcceptor, in TVertexDelegate>
    {
       void RegisterVertexAcceptor( Type type, TVertexDelegate vertexAcceptor );
+
+      TAcceptor Acceptor { get; }
    }
 
-   public interface AcceptorSetup<in TVertexDelegate, in TEdgeDelegate> : AcceptorSetup<TVertexDelegate>
+   public interface AcceptorSetup<out TAcceptor, in TVertexDelegate, in TEdgeDelegate> : AcceptorSetup<TAcceptor, TVertexDelegate>
    {
       void RegisterEdgeAcceptor( Int32 edgeID, TEdgeDelegate enter, TEdgeDelegate exit );
    }
 
    // Manual transition acceptors
 
-   public interface ManualTransitionAcceptor_NoContext<TElement> : Acceptor<TElement>, AcceptorSetup<AcceptVertexExplicitDelegate<TElement>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
+   public interface ManualTransitionAcceptor_NoContext<out TAcceptor, TElement> : AcceptorSetup<TAcceptor, AcceptVertexExplicitDelegate<TElement>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
    {
 
    }
 
-   public interface ManualTransitionAcceptor_WithContext<TElement, TContext> : AcceptorWithContext<TElement, TContext>, AcceptorSetup<AcceptVertexExplicitDelegate<TElement, TContext>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
+   public interface ManualTransitionAcceptor_WithContext<out TAcceptor, TElement, TContext> : AcceptorSetup<TAcceptor, AcceptVertexExplicitDelegate<TElement, TContext>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
    {
 
    }
 
-   public interface ManualTransitionAcceptor_WithReturnValue<TElement, TResult> : AcceptorWithReturnValue<TElement, TResult>, AcceptorSetup<AcceptVertexExplicitWithResultDelegate<TElement, TResult>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
+   public interface ManualTransitionAcceptor_WithReturnValue<out TAcceptor, TElement, TResult> : AcceptorSetup<TAcceptor, AcceptVertexExplicitWithResultDelegate<TElement, TResult>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
    {
 
    }
 
-   public interface ManualTransitionAcceptor_WithContextAndReturnValue<TElement, TContext, TResult> : AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, AcceptorSetup<AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
+   public interface ManualTransitionAcceptor_WithContextAndReturnValue<out TAcceptor, TElement, TContext, TResult> : AcceptorSetup<TAcceptor, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>>, VisitorHolder<ExplicitTypeBasedVisitor<TElement>>
    {
 
    }
 
    // Automatic transition acceptors
 
-   public interface AutomaticTransitionAcceptor_NoContext<TElement, TEdgeInfo> : Acceptor<TElement>, AcceptorSetup<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement, TEdgeInfo>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
+   public interface AutomaticTransitionAcceptor_NoContext<out TAcceptor, TElement, TEdgeInfo> : AcceptorSetup<TAcceptor, AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement, TEdgeInfo>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
    {
 
    }
 
-   public interface AutomaticTransitionAcceptor_WithContext<TElement, TEdgeInfo, TContext> : AcceptorWithContext<TElement, TContext>, AcceptorSetup<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
+   public interface AutomaticTransitionAcceptor_WithContext<out TAcceptor, TElement, TEdgeInfo, TContext> : AcceptorSetup<TAcceptor, AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
    {
 
    }
 
-   public interface AutomaticTransitionAcceptor_WithReturnValue<TElement, TEdgeInfo, TResult> : AcceptorWithReturnValue<TElement, TResult>, AcceptorSetup<AcceptVertexWithResultDelegate<TElement, TResult>, AcceptEdgeDelegate<TElement, TEdgeInfo>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
-   {
+   //public interface AutomaticTransitionAcceptor_WithContext_Caching<TElement, TEdgeInfo, TContext> : Acceptor<TElement>, AcceptorSetup<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
+   //{
 
-   }
+   //}
 
-   public interface AutomaticTransitionAcceptor_WithContextAndReturnValue<TElement, TEdgeInfo, TContext, TResult> : AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, AcceptorSetup<AcceptVertexWithResultDelegate<TElement, TContext, TResult>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
-   {
+   //public interface AutomaticTransitionAcceptor_WithReturnValue<TElement, TEdgeInfo, TResult> : AcceptorWithReturnValue<TElement, TResult>, AcceptorSetup<AcceptVertexWithResultDelegate<TElement, TResult>, AcceptEdgeDelegate<TElement, TEdgeInfo>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
+   //{
 
-   }
+   //}
 
-   public interface VisitorHolder<TVisitor>
+   //public interface AutomaticTransitionAcceptor_WithContextAndReturnValue<TElement, TEdgeInfo, TContext, TResult> : AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, AcceptorSetup<AcceptVertexWithResultDelegate<TElement, TContext, TResult>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
+   //{
+
+   //}
+
+   public interface VisitorHolder<out TVisitor>
    {
       TVisitor Visitor { get; }
    }
@@ -139,9 +146,9 @@ namespace UtilPack.Visiting
    /// <returns><c>true</c> if visiting should be continued, <c>false</c> otherwise.</returns>
    public delegate Boolean AcceptEdgeDelegate<in TElement, in TEdgeInfo, in TContext>( TElement element, TEdgeInfo edgeInfo, TContext context );
 
-   public delegate TResult AcceptVertexWithResultDelegate<in TElement, out TResult>( TElement element, out Boolean shouldContinue );
+   //public delegate TResult AcceptVertexWithResultDelegate<in TElement, out TResult>( TElement element, out Boolean shouldContinue );
 
-   public delegate TResult AcceptVertexWithResultDelegate<in TElement, in TContext, out TResult>( TElement element, TContext context, out Boolean shouldContinue );
+   //public delegate TResult AcceptVertexWithResultDelegate<in TElement, in TContext, out TResult>( TElement element, TContext context, out Boolean shouldContinue );
 
    public delegate void AcceptVertexExplicitDelegate<TElement>( TElement element, AcceptVertexExplicitCallbackDelegate<TElement> acceptor );
 
@@ -169,7 +176,73 @@ namespace UtilPack.Visiting
 
    public static partial class AcceptorFactory
    {
+      public static AutomaticTransitionAcceptor_NoContext<Acceptor<TElement>, TElement, TEdgeInfo> NewAutomaticAcceptor_NoContext<TElement, TEdgeInfo>(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex
+         )
+      {
+         return new Implementation.AutomaticTransitionAcceptor_NoContextImpl<TElement, TEdgeInfo>( visitor, topMostVisitingStrategy, continueOnMissingVertex );
+      }
 
+      public static AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TContext>, TElement, TEdgeInfo, TContext> NewAutomaticAcceptor_WithContext<TElement, TEdgeInfo, TContext>(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex
+         )
+      {
+         return new Implementation.AutomaticTransitionAcceptor_WithContextImpl<TElement, TEdgeInfo, TContext>( visitor, topMostVisitingStrategy, continueOnMissingVertex );
+      }
+
+      public static AutomaticTransitionAcceptor_WithContext<Acceptor<TElement>, TElement, TEdgeInfo, TContext> NewAutomaticAcceptor_WithContext_Caching<TElement, TEdgeInfo, TContext>(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         Func<TContext> contextFactory,
+         Action<TElement, TContext> contextInitializer
+         )
+      {
+         return new Implementation.AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext>( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer );
+      }
+
+      public static AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TAdditionalInfo>, TElement, TEdgeInfo, TContext> NewAutomaticAcceptor_WithHiddenContext_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo>(
+         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         TopMostTypeVisitingStrategy topMostVisitingStrategy,
+         Boolean continueOnMissingVertex,
+         Func<TContext> contextFactory,
+         Action<TElement, TContext, TAdditionalInfo> contextInitializer
+         )
+      {
+         return new Implementation.AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo>( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer );
+      }
+
+      public static ManualTransitionAcceptor_NoContext<Acceptor<TElement>, TElement> NewManualAcceptor_NoContext<TElement>(
+         ExplicitTypeBasedVisitor<TElement> visitor
+         )
+      {
+         return new Implementation.ManualTransitionAcceptor_NoContextImpl<TElement>( visitor );
+      }
+
+      public static ManualTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TContext>, TElement, TContext> NewManualAcceptor_WithContext<TElement, TContext>(
+         ExplicitTypeBasedVisitor<TElement> visitor
+         )
+      {
+         return new Implementation.ManualTransitionAcceptor_WithContextImpl<TElement, TContext>( visitor );
+      }
+
+      public static ManualTransitionAcceptor_WithReturnValue<AcceptorWithReturnValue<TElement, TResult>, TElement, TResult> NewManualAcceptor_WithReturnValue<TElement, TResult>(
+         ExplicitTypeBasedVisitor<TElement> visitor
+         )
+      {
+         return new Implementation.ManualTransitionAcceptor_WithReturnValueImpl<TElement, TResult>( visitor );
+      }
+
+      public static ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, TContext, TResult> NewManualAcceptor_WithContextAndReturnValue<TElement, TContext, TResult>(
+         ExplicitTypeBasedVisitor<TElement> visitor
+         )
+      {
+         return new Implementation.ManualTransitionAcceptor_WithContextAndReturnValueImpl<TElement, TContext, TResult>( visitor );
+      }
    }
 }
 
@@ -181,25 +254,19 @@ public static partial class E_UtilPack
       return ( el, ctx, cb ) => typed( (TActualElement) el, ctx, cb );
    }
 
-   public static void RegisterAcceptor<TElement, TContext, TActualElement>( this AcceptorSetup<AcceptVertexDelegate<TElement, TContext>> acceptor, AcceptVertexDelegate<TActualElement, TContext> callback )
+   public static void RegisterVertexAcceptor<TAcceptor, TElement, TContext, TActualElement>( this AcceptorSetup<TAcceptor, AcceptVertexDelegate<TElement, TContext>> acceptor, AcceptVertexDelegate<TActualElement, TContext> callback )
       where TActualElement : TElement
    {
       acceptor.RegisterVertexAcceptor( typeof( TActualElement ), ( el, ctx ) => callback( (TActualElement) el, ctx ) );
    }
 
-   public static void RegisterEdgeAcceptor<TAcceptorSetup, TElement, TEdgeInfo>( this TAcceptorSetup acceptor, Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo> enter, AcceptEdgeDelegate<TElement, TEdgeInfo> exit )
-      where TAcceptorSetup : AcceptorSetup<AcceptVertexDelegate<TElement>, AcceptEdgeDelegate<TElement, TEdgeInfo>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
+   public static void RegisterEdgeAcceptor<TAcceptorSetup, TAcceptor, TVertexDelegate, TEdgeDelegate, TElement, TEdgeInfo>( this TAcceptorSetup acceptor, Type type, String edgeName, TEdgeDelegate enter, TEdgeDelegate exit )
+      where TAcceptorSetup : AcceptorSetup<TAcceptor, TVertexDelegate, TEdgeDelegate>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
    {
       acceptor.RegisterEdgeAcceptor( acceptor.Visitor.GetEdgeIDOrThrow( type, edgeName ), enter, exit );
    }
 
-   public static void RegisterEdgeAcceptor<TAcceptorSetup, TElement, TEdgeInfo, TContext>( this TAcceptorSetup acceptor, Type type, String edgeName, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> enter, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext> exit )
-      where TAcceptorSetup : AcceptorSetup<AcceptVertexDelegate<TElement, TContext>, AcceptEdgeDelegate<TElement, TEdgeInfo, TContext>>, VisitorHolder<TypeBasedVisitor<TElement, TEdgeInfo>>
-   {
-      acceptor.RegisterEdgeAcceptor( acceptor.Visitor.GetEdgeIDOrThrow( type, edgeName ), enter, exit );
-   }
-
-   public static TResult Accept<TElement, TResult>( this ManualTransitionAcceptor_WithReturnValue<TElement, TResult> acceptor, TElement element )
+   public static TResult Accept<TElement, TResult>( this AcceptorWithReturnValue<TElement, TResult> acceptor, TElement element )
    {
       Boolean success;
       return acceptor.Accept( element, out success );
