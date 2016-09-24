@@ -228,20 +228,20 @@ namespace CILAssemblyManipulator.Physical.Meta
          this.RegisterFunctionalityDirect( visitor );
 
          // Signature acceptor: decomposing
-         var decomposer = new TypeBasedAcceptor<SignatureElement, Int32, DecomposeSignatureContext>( visitor, TopMostTypeVisitingStrategy.IfNotOverridingType, true );
+         var decomposer = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, DecomposeSignatureContext>( visitor, TopMostTypeVisitingStrategy.IfNotOverridingType, true );
          decomposer.RegisterSignatureDecomposer<SignatureElement>( ( el, ctx ) => ctx.AddElement( el ) );
-         this.RegisterFunctionalityDirect( decomposer );
+         this.RegisterFunctionalityDirect( decomposer.Acceptor );
 
          // Signature acceptor: table index collector
-         var tableIndexCollector = new TypeBasedAcceptor<SignatureElement, Int32, TableIndexCollectorContext>( visitor, TopMostTypeVisitingStrategy.Never, true );
+         var tableIndexCollector = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, TableIndexCollectorContext>( visitor, TopMostTypeVisitingStrategy.Never, true );
          foreach ( var tableIndexCollectorInfo in signatureTableIndexInfoProviders ?? GetDefaultSignatureTableIndexInfoCollectors() )
          {
             tableIndexCollector.RegisterVertexAcceptor( tableIndexCollectorInfo.SignatureElementType, tableIndexCollectorInfo.Functionality );
          }
-         this.RegisterFunctionalityDirect( tableIndexCollector );
+         this.RegisterFunctionalityDirect( tableIndexCollector.Acceptor );
 
          // Signature matching
-         var matcher = new TypeBasedAcceptor<SignatureElement, Int32, SignatureMatchingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
+         var matcher = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, SignatureMatchingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
          foreach ( var matcherInfo in matchers ?? GetDefaultMatchingFunctionality() )
          {
             var type = matcherInfo.SignatureElementType;
@@ -252,15 +252,15 @@ namespace CILAssemblyManipulator.Physical.Meta
                matcher.RegisterEdgeAcceptor( type, edge.EdgeName, edge.Enter, edge.Exit );
             }
          }
-         this.RegisterFunctionalityDirect( matcher );
+         this.RegisterFunctionalityDirect( matcher.Acceptor );
 
          // Signature cloning
-         var cloner = new TypeBasedAcceptor<SignatureElement, Int32, CopyingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
+         var cloner = AcceptorFactory.NewManualAcceptor_WithContext<SignatureElement, CopyingContext>( visitor );
          foreach ( var clonerInfo in cloners ?? GetDefaultCopyingFunctionality() )
          {
-            cloner.RegisterExplicitVertexAcceptor( clonerInfo.SignatureElementType, clonerInfo.Functionality );
+            cloner.RegisterVertexAcceptor( clonerInfo.SignatureElementType, clonerInfo.Functionality );
          }
-         this.RegisterFunctionalityDirect( cloner );
+         this.RegisterFunctionalityDirect( cloner.Acceptor );
       }
 
       /// <inheritdoc />
@@ -1077,7 +1077,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       public Func<TableIndex, TableIndex> TableIndexTransformer { get; }
    }
 
-   internal delegate TSignature CopySignatureDelegate<TSignature>( TSignature signature, CopyingContext context, AcceptVertexExplicitCallbackDelegate<SignatureElement, CopyingContext> callback );
+   internal delegate TSignature CopySignatureDelegate<TSignature>( TSignature signature, CopyingContext context, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback );
 }
 
 public static partial class E_CILPhysical
@@ -1282,7 +1282,7 @@ public static partial class E_CILPhysical
 
    public static IEnumerable<SignatureElement> DecomposeSignature( this SignatureProvider provider, AbstractSignature signature )
    {
-      var decomposer = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, Int32, DecomposeSignatureContext>>();
+      var decomposer = provider.GetFunctionality<AcceptorWithContext<SignatureElement, DecomposeSignatureContext>>();
       var decomposeContext = new DecomposeSignatureContext();
       decomposer.Accept( signature, decomposeContext );
       return decomposeContext.Elements;
@@ -1300,7 +1300,7 @@ public static partial class E_CILPhysical
    /// <returns>Whether <paramref name="firstSignature"/> and <paramref name="secondSignature"/> match structurally and using the given <paramref name="matcher"/>.</returns>
    public static Boolean MatchSignatures( this SignatureProvider provider, CILMetaData firstMD, AbstractSignature firstSignature, CILMetaData secondMD, AbstractSignature secondSignature, SignatureMatcher matcher )
    {
-      return provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, Int32, SignatureMatchingContext>>()
+      return provider.GetFunctionality<AcceptorWithContext<SignatureElement, SignatureMatchingContext>>()
          .Accept( firstSignature, new SignatureMatchingContext( secondSignature, firstMD, secondMD, matcher ) );
    }
 
@@ -1313,7 +1313,7 @@ public static partial class E_CILPhysical
    /// <returns>A list of all <see cref="SignatureTableIndexInfo"/> related to a single signature. Will be empty if <paramref name="signature"/> is <c>null</c>.</returns>
    public static IEnumerable<SignatureTableIndexInfo> GetSignatureTableIndexInfos( this SignatureProvider provider, AbstractSignature signature )
    {
-      var collector = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, Int32, TableIndexCollectorContext>>();
+      var collector = provider.GetFunctionality<AcceptorWithContext<SignatureElement, TableIndexCollectorContext>>();
       var collectorContext = new TableIndexCollectorContext();
       collector.Accept( signature, collectorContext );
       return collectorContext.Elements;
@@ -1340,9 +1340,9 @@ public static partial class E_CILPhysical
       }
       else
       {
-         var acceptor = provider.GetFunctionality<TypeBasedAcceptor<SignatureElement, Int32, CopyingContext>>();
+         var acceptor = provider.GetFunctionality<AcceptorWithContext<SignatureElement, CopyingContext>>();
          var ctx = new CopyingContext( isDeep, tableIndexTranslator );
-         if ( !acceptor.AcceptExplicit( sig, ctx ) )
+         if ( !acceptor.Accept( sig, ctx ) )
          {
             throw new NotSupportedException( "Could not find functionality to copy signature or part of it." );
          }
@@ -1364,60 +1364,60 @@ public static partial class E_CILPhysical
    //}
 
 
-   internal static void RegisterSignatureDecomposer<TSignature>( this TypeBasedAcceptor<SignatureElement, Int32, DecomposeSignatureContext> acceptorAggregator, AcceptVertexDelegate<TSignature, DecomposeSignatureContext> acceptor )
+   internal static void RegisterSignatureDecomposer<TSignature>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<SignatureElement, DecomposeSignatureContext>, SignatureElement, Int32, DecomposeSignatureContext> acceptorAggregator, AcceptVertexDelegate<TSignature, DecomposeSignatureContext> acceptor )
       where TSignature : SignatureElement
    {
-      acceptorAggregator.RegisterAcceptor( acceptor );
+      acceptorAggregator.RegisterVertexAcceptor( acceptor );
    }
 
-   internal static void RegisterSignatureMatcher<TSignature>( this TypeBasedAcceptor<SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, EqualityWithContext<TSignature, SignatureMatchingContext> acceptor )
-      where TSignature : class, SignatureElement
-   {
-      acceptorAggregator.RegisterVertexAcceptor( typeof( TSignature ), ( el, ctx ) =>
-      {
-         var fromCtx = ctx.GetCurrentElement();
-         TSignature fromCtxTyped;
-         return ReferenceEquals( el, fromCtx )
-         || ( el != null && ( fromCtxTyped = fromCtx as TSignature ) != null
-         && acceptor( (TSignature) el, fromCtxTyped, ctx ) );
-      } );
-   }
+   //internal static void RegisterSignatureMatcher<TSignature>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<SignatureElement, SignatureMatchingContext>, SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, EqualityWithContext<TSignature, SignatureMatchingContext> acceptor )
+   //   where TSignature : class, SignatureElement
+   //{
+   //   acceptorAggregator.RegisterVertexAcceptor( typeof( TSignature ), ( el, ctx ) =>
+   //   {
+   //      var fromCtx = ctx.GetCurrentElement();
+   //      TSignature fromCtxTyped;
+   //      return ReferenceEquals( el, fromCtx )
+   //      || ( el != null && ( fromCtxTyped = fromCtx as TSignature ) != null
+   //      && acceptor( (TSignature) el, fromCtxTyped, ctx ) );
+   //   } );
+   //}
 
-   internal static void RegisterSignatureMatcherTransitionForSimple<TSignature>( this TypeBasedAcceptor<SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, String propertyName, Func<TSignature, SignatureElement> getter )
-   {
-      acceptorAggregator.RegisterEdgeAcceptor(
-         typeof( TSignature ),
-         propertyName,
-         ( el, info, ctx ) =>
-         {
-            ctx.CurrentElementStack.Push( getter( (TSignature) ctx.GetCurrentElement() ) );
-            return true;
-         },
-         ( el, info, ctx ) =>
-         {
-            ctx.CurrentElementStack.Pop();
-            return true;
-         } );
-   }
+   //internal static void RegisterSignatureMatcherTransitionForSimple<TSignature>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<SignatureElement, SignatureMatchingContext>, SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, String propertyName, Func<TSignature, SignatureElement> getter )
+   //{
+   //   acceptorAggregator.RegisterEdgeAcceptor(
+   //      typeof( TSignature ),
+   //      propertyName,
+   //      ( el, info, ctx ) =>
+   //      {
+   //         ctx.CurrentElementStack.Push( getter( (TSignature) ctx.GetCurrentElement() ) );
+   //         return true;
+   //      },
+   //      ( el, info, ctx ) =>
+   //      {
+   //         ctx.CurrentElementStack.Pop();
+   //         return true;
+   //      } );
+   //}
 
-   internal static void RegisterSignatureMatcherTransitionForLists<TSignature, TListElement>( this TypeBasedAcceptor<SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, String propertyName, Func<TSignature, List<TListElement>> listGetter )
-      where TListElement : SignatureElement
-   {
-      acceptorAggregator.RegisterEdgeAcceptor(
-         typeof( TSignature ),
-         propertyName,
-         ( el, info, ctx ) =>
-         {
-            var list = listGetter( (TSignature) ctx.GetCurrentElement() );
-            ctx.CurrentElementStack.Push( list[(Int32) info] );
-            return true;
-         },
-         ( el, info, ctx ) =>
-         {
-            ctx.CurrentElementStack.Pop();
-            return true;
-         } );
-   }
+   //internal static void RegisterSignatureMatcherTransitionForLists<TSignature, TListElement>( this AcceptorWithContext<SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, String propertyName, Func<TSignature, List<TListElement>> listGetter )
+   //   where TListElement : SignatureElement
+   //{
+   //   acceptorAggregator.RegisterEdgeAcceptor(
+   //      typeof( TSignature ),
+   //      propertyName,
+   //      ( el, info, ctx ) =>
+   //      {
+   //         var list = listGetter( (TSignature) ctx.GetCurrentElement() );
+   //         ctx.CurrentElementStack.Push( list[(Int32) info] );
+   //         return true;
+   //      },
+   //      ( el, info, ctx ) =>
+   //      {
+   //         ctx.CurrentElementStack.Pop();
+   //         return true;
+   //      } );
+   //}
 
 
    //internal static void RegisterSignatureElementDecomposer<TElement>( this TypeBasedAcceptor<AbstractSignature, DecomposeSignatureContext> acceptorAggregator, AcceptElementDelegateWithContext<TElement, DefaultSignatureProvider.DecomposeSignatureContext> acceptor )
@@ -1427,12 +1427,12 @@ public static partial class E_CILPhysical
    //}
 
 
-   internal static TSignature CloneSingle<TSignature>( this CopyingContext context, TSignature signature, AcceptVertexExplicitCallbackDelegate<SignatureElement, CopyingContext> callback )
+   internal static TSignature CloneSingle<TSignature>( this CopyingContext context, TSignature signature, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback )
       where TSignature : class, SignatureElement
    {
       if ( signature != null && context.IsDeepCopy )
       {
-         callback( signature, context );
+         callback( signature );
          return (TSignature) context.CurrentObject;
       }
       else
@@ -1441,7 +1441,7 @@ public static partial class E_CILPhysical
       }
    }
 
-   internal static void CloneList<TSignature>( this CopyingContext context, List<TSignature> listToWrite, List<TSignature> listToRead, AcceptVertexExplicitCallbackDelegate<SignatureElement, CopyingContext> callback )
+   internal static void CloneList<TSignature>( this CopyingContext context, List<TSignature> listToWrite, List<TSignature> listToRead, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback )
       where TSignature : class, SignatureElement
    {
       if ( context.IsDeepCopy )

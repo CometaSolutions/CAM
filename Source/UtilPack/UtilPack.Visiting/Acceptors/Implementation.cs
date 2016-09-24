@@ -25,7 +25,7 @@ using UtilPack.CollectionsWithRoles;
 
 namespace UtilPack.Visiting.Implementation
 {
-   internal abstract class AbstractAcceptor<TAcceptor, TElement, TVisitor, TVertexDelegate> : AcceptorSetup<TAcceptor, TVertexDelegate>
+   internal abstract class AbstractAcceptor<TAcceptor, TElement, TVisitor, TVertexDelegate> : AcceptorSetup<TAcceptor, TVisitor, TVertexDelegate>
       where TVertexDelegate : class
       where TVisitor : class
    {
@@ -55,7 +55,7 @@ namespace UtilPack.Visiting.Implementation
       }
    }
 
-   internal abstract class AbstractAutomaticAcceptor<TAcceptor, TElement, TVertexDelegate, TEdgeInfo, TEdgeDelegate, TEdgeDelegateInfo> : AbstractAcceptor<TAcceptor, TElement, TypeBasedVisitor<TElement, TEdgeInfo>, TVertexDelegate>, AcceptorSetup<TAcceptor, TVertexDelegate, TEdgeDelegate>
+   internal abstract class AbstractAutomaticAcceptor<TAcceptor, TElement, TVertexDelegate, TEdgeInfo, TEdgeDelegate, TEdgeDelegateInfo> : AbstractAcceptor<TAcceptor, TElement, TypeBasedVisitor<TElement, TEdgeInfo>, TVertexDelegate>, AcceptorSetup<TAcceptor, TypeBasedVisitor<TElement, TEdgeInfo>, TVertexDelegate, TEdgeDelegate>
       where TVertexDelegate : class
       where TEdgeDelegateInfo : class
    {

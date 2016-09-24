@@ -25,6 +25,12 @@ using UtilPack.Visiting.Implementation;
 
 namespace UtilPack.Visiting
 {
+   // TODO: One could use ManualTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TElement>, TElement, TElement> for manual-transition based equality comparison.
+   // EXCEPT THAT you can't specify context in callback!!
+   // However, the problem of that is that when one does ListEquality(x.FirstList, y.FirstList) && ListEquality(x.SecondList, y.SecondList), if FirstList equals, but SecondList differ in length, potentially a lot of extra effort is wasted.
+   // Automatic transition acceptor forces one to check all lists lengths before further ascending to recursive traversing.
+
+   // BUT: Optimal result may be gained by using manual transition and providing methods like "ListEqualityForSameLength"... ?
 
    /// <summary>
    /// This class contains methods to easily create certain kinds of acceptors.
@@ -138,7 +144,7 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
-   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
+   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVisitor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
    /// </summary>
    /// <typeparam name="TElement">The common type of elements.</typeparam>
    /// <typeparam name="TEdgeInfo">The type of edge information.</typeparam>
@@ -165,7 +171,7 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
-   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
+   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVisitor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
    /// </summary>
    /// <typeparam name="TElement">The common type of elements.</typeparam>
    /// <typeparam name="TContext">The context type, must be subclass of <see cref="ObjectGraphEqualityContext{TElement}"/>.</typeparam>
@@ -191,7 +197,7 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
-   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
+   /// This is helper method to invoke <see cref="AcceptorSetup{TAcceptor, TVisitor, TVertexDelegate, TEdgeDelegate}.RegisterEdgeAcceptor(int, TEdgeDelegate, TEdgeDelegate)"/> method with arguments suitable for equality comparison of hierarchical structures.
    /// </summary>
    /// <typeparam name="TElement">The common type of elements.</typeparam>
    /// <typeparam name="TContext">The context type, must be subclass of <see cref="ObjectGraphEqualityContext{TElement}"/>.</typeparam>
