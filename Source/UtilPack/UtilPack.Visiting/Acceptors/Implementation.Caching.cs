@@ -66,10 +66,41 @@ namespace UtilPack.Visiting.Implementation
    }
 
 
-   internal sealed class AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext> : AbstractTypeBasedCachingAcceptor_WithContext<Acceptor<TElement>, TElement, TEdgeInfo, TContext, Action<TElement, TContext>>, AutomaticTransitionAcceptor_WithContext<Acceptor<TElement>, TElement, TEdgeInfo, TContext>, Acceptor<TElement>
+   internal sealed class AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext> : AbstractTypeBasedCachingAcceptor_WithContext<Acceptor<TElement>, TElement, TEdgeInfo, TContext, Action<TElement, TContext>>, AutomaticTransitionAcceptor_WithContext<Acceptor<TElement>, TElement, TEdgeInfo, TContext>
    {
-      //private readonly LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ManualVisitorInformation<TElement, TContext>>> _explicitVisitorInfoPool;
+      private sealed class AcceptorImpl : Acceptor<TElement>
+      {
+         private readonly AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext> _setup;
 
+         internal AcceptorImpl(
+             AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext> setup
+            )
+         {
+            this._setup = ArgumentValidator.ValidateNotNull( "Setup", setup );
+         }
+
+         public Boolean Accept( TElement element )
+         {
+            var pool = this._setup.VisitorInfoPool;
+            var instance = pool.TakeInstance();
+            try
+            {
+               if ( instance == null )
+               {
+                  instance = new InstanceHolder<AutomaticVisitorInformation<TElement, TEdgeInfo, TContext>>( this._setup.Visitor.CreateVisitorInfo( this._setup.AcceptorInfo, this._setup.ContextFactory() ) );
+               }
+               var info = instance.Instance;
+               this._setup.ContextInitializer( element, info.Context );
+               return this._setup.Visitor.Visit( element, info );
+            }
+            finally
+            {
+               pool.ReturnInstance( instance );
+            }
+         }
+      }
+
+      private readonly AcceptorImpl _acceptor;
       public AutomaticTransitionAcceptor_WithContextImpl_Caching(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
@@ -78,34 +109,14 @@ namespace UtilPack.Visiting.Implementation
          Action<TElement, TContext> contextInitializer
          ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer )
       {
-         //this._explicitVisitorInfoPool = new LocklessInstancePoolForClassesNoHeapAllocations<InstanceHolder<ManualVisitorInformation<TElement, TContext>>>();
+         this._acceptor = new AcceptorImpl( this );
       }
 
       public override Acceptor<TElement> Acceptor
       {
          get
          {
-            return this;
-         }
-      }
-
-      public Boolean Accept( TElement element )
-      {
-         var pool = this.VisitorInfoPool;
-         var instance = pool.TakeInstance();
-         try
-         {
-            if ( instance == null )
-            {
-               instance = new InstanceHolder<AutomaticVisitorInformation<TElement, TEdgeInfo, TContext>>( this.Visitor.CreateVisitorInfo( this.AcceptorInfo, this.ContextFactory() ) );
-            }
-            var info = instance.Instance;
-            this.ContextInitializer( element, info.Context );
-            return this.Visitor.Visit( element, info );
-         }
-         finally
-         {
-            pool.ReturnInstance( instance );
+            return this._acceptor;
          }
       }
 
@@ -130,8 +141,41 @@ namespace UtilPack.Visiting.Implementation
       //}
    }
 
-   internal sealed class AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo> : AbstractTypeBasedCachingAcceptor_WithContext<AcceptorWithContext<TElement, TAdditionalInfo>, TElement, TEdgeInfo, TContext, Action<TElement, TContext, TAdditionalInfo>>, AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TAdditionalInfo>, TElement, TEdgeInfo, TContext>, AcceptorWithContext<TElement, TAdditionalInfo>
+   internal sealed class AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo> : AbstractTypeBasedCachingAcceptor_WithContext<AcceptorWithContext<TElement, TAdditionalInfo>, TElement, TEdgeInfo, TContext, Action<TElement, TContext, TAdditionalInfo>>, AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TAdditionalInfo>, TElement, TEdgeInfo, TContext>
    {
+      private sealed class AcceptorImpl : AcceptorWithContext<TElement, TAdditionalInfo>
+      {
+         private readonly AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo> _setup;
+
+         internal AcceptorImpl(
+             AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo> setup
+            )
+         {
+            this._setup = ArgumentValidator.ValidateNotNull( "Setup", setup );
+         }
+
+         public Boolean Accept( TElement element, TAdditionalInfo additionalInfo )
+         {
+            var pool = this._setup.VisitorInfoPool;
+            var instance = pool.TakeInstance();
+            try
+            {
+               if ( instance == null )
+               {
+                  instance = new InstanceHolder<AutomaticVisitorInformation<TElement, TEdgeInfo, TContext>>( this._setup.Visitor.CreateVisitorInfo( this._setup.AcceptorInfo, this._setup.ContextFactory() ) );
+               }
+               var info = instance.Instance;
+               this._setup.ContextInitializer( element, info.Context, additionalInfo );
+               return this._setup.Visitor.Visit( element, info );
+            }
+            finally
+            {
+               pool.ReturnInstance( instance );
+            }
+         }
+      }
+
+      private readonly AcceptorImpl _acceptor;
 
       public AutomaticTransitionAcceptor_WithContextImpl_Caching(
          TypeBasedVisitor<TElement, TEdgeInfo> visitor,
@@ -141,34 +185,16 @@ namespace UtilPack.Visiting.Implementation
          Action<TElement, TContext, TAdditionalInfo> contextInitializer
          ) : base( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer )
       {
+         this._acceptor = new AcceptorImpl( this );
       }
 
       public override AcceptorWithContext<TElement, TAdditionalInfo> Acceptor
       {
          get
          {
-            return this;
+            return this._acceptor;
          }
       }
 
-      public Boolean Accept( TElement element, TAdditionalInfo additionalInfo )
-      {
-         var pool = this.VisitorInfoPool;
-         var instance = pool.TakeInstance();
-         try
-         {
-            if ( instance == null )
-            {
-               instance = new InstanceHolder<AutomaticVisitorInformation<TElement, TEdgeInfo, TContext>>( this.Visitor.CreateVisitorInfo( this.AcceptorInfo, this.ContextFactory() ) );
-            }
-            var info = instance.Instance;
-            this.ContextInitializer( element, info.Context, additionalInfo );
-            return this.Visitor.Visit( element, info );
-         }
-         finally
-         {
-            pool.ReturnInstance( instance );
-         }
-      }
    }
 }
