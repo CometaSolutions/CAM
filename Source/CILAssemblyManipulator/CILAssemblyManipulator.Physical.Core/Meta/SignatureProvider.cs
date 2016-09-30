@@ -287,11 +287,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             // Edges
             using ( var factory = visitor.CreateVertexInfoFactory( sigType ) )
             {
-               var visitorEdgeRegister = typeInfo.RegisterEdgesForVisitor;
-               if ( visitorEdgeRegister != null )
-               {
-                  visitorEdgeRegister( factory );
-               }
+               typeInfo.RegisterEdgesForVisitor?.Invoke( factory );
             }
 
             // Table index collector
