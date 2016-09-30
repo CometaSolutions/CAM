@@ -55,13 +55,13 @@ namespace UtilPack.Visiting.Implementation
       }
    }
 
-   internal abstract class AbstractAutomaticAcceptor<TAcceptor, TElement, TVertexDelegate, TEdgeInfo, TEdgeDelegate, TEdgeDelegateInfo> : AbstractAcceptor<TAcceptor, TElement, TypeBasedVisitor<TElement, TEdgeInfo>, TVertexDelegate>, AcceptorSetup<TAcceptor, TypeBasedVisitor<TElement, TEdgeInfo>, TVertexDelegate, TEdgeDelegate>
+   internal abstract class AbstractAutomaticAcceptor<TAcceptor, TElement, TVertexDelegate, TEdgeInfo, TEdgeDelegate, TEdgeDelegateInfo> : AbstractAcceptor<TAcceptor, TElement, AutomaticTypeBasedVisitor<TElement, TEdgeInfo>, TVertexDelegate>, AcceptorSetup<TAcceptor, AutomaticTypeBasedVisitor<TElement, TEdgeInfo>, TVertexDelegate, TEdgeDelegate>
       where TVertexDelegate : class
       where TEdgeDelegateInfo : class
    {
       private readonly ListProxy<TEdgeDelegateInfo> _edgeAcceptors;
 
-      internal AbstractAutomaticAcceptor( TypeBasedVisitor<TElement, TEdgeInfo> visitor )
+      internal AbstractAutomaticAcceptor( AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor )
          : base( visitor )
       {
          this._edgeAcceptors = new List<TEdgeDelegateInfo>().ToListProxy();
@@ -106,10 +106,10 @@ namespace UtilPack.Visiting.Implementation
 
    }
 
-   internal abstract class AbstractManualAcceptor<TAcceptor, TElement, TVertexDelegate> : AbstractAcceptor<TAcceptor, TElement, ExplicitTypeBasedVisitor<TElement>, TVertexDelegate>
+   internal abstract class AbstractManualAcceptor<TAcceptor, TElement, TVertexDelegate> : AbstractAcceptor<TAcceptor, TElement, ManualTypeBasedVisitor<TElement>, TVertexDelegate>
       where TVertexDelegate : class
    {
-      public AbstractManualAcceptor( ExplicitTypeBasedVisitor<TElement> visitor )
+      public AbstractManualAcceptor( ManualTypeBasedVisitor<TElement> visitor )
          : base( visitor )
       {
 
@@ -120,11 +120,11 @@ namespace UtilPack.Visiting.Implementation
    {
       private sealed class AcceptorImpl : Acceptor<TElement>
       {
-         private readonly TypeBasedVisitor<TElement, TEdgeInfo> _visitor;
+         private readonly AutomaticTypeBasedVisitor<TElement, TEdgeInfo> _visitor;
          private readonly AutomaticVisitorInformation<TElement, TEdgeInfo> _visitorInfo;
 
          internal AcceptorImpl(
-            TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+            AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
             AutomaticVisitorInformation<TElement, TEdgeInfo> visitorInfo
             )
          {
@@ -141,7 +141,7 @@ namespace UtilPack.Visiting.Implementation
       private readonly AcceptorImpl _acceptor;
 
       public AutomaticTransitionAcceptor_NoContextImpl(
-         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex
          )
@@ -168,11 +168,11 @@ namespace UtilPack.Visiting.Implementation
    {
       private sealed class AcceptorImpl : AcceptorWithContext<TElement, TContext>
       {
-         private readonly TypeBasedVisitor<TElement, TEdgeInfo> _visitor;
+         private readonly AutomaticTypeBasedVisitor<TElement, TEdgeInfo> _visitor;
          private readonly AcceptorInformation<TElement, TEdgeInfo, TContext> _acceptorInfo;
 
          internal AcceptorImpl(
-            TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+            AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
             AcceptorInformation<TElement, TEdgeInfo, TContext> acceptorInfo
             )
          {
@@ -189,7 +189,7 @@ namespace UtilPack.Visiting.Implementation
       private readonly AcceptorImpl _acceptor;
 
       public AutomaticTransitionAcceptor_WithContextImpl(
-         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex
          )
@@ -232,11 +232,11 @@ namespace UtilPack.Visiting.Implementation
    {
       private sealed class AcceptorImpl : Acceptor<TElement>
       {
-         private readonly ExplicitTypeBasedVisitor<TElement> _visitor;
+         private readonly ManualTypeBasedVisitor<TElement> _visitor;
          private readonly ManualVisitorInformation<TElement> _visitorInfo;
 
          internal AcceptorImpl(
-            ExplicitTypeBasedVisitor<TElement> visitor,
+            ManualTypeBasedVisitor<TElement> visitor,
             ManualVisitorInformation<TElement> visitorInfo
             )
          {
@@ -252,7 +252,7 @@ namespace UtilPack.Visiting.Implementation
 
       private readonly AcceptorImpl _acceptor;
 
-      public ManualTransitionAcceptor_NoContextImpl( ExplicitTypeBasedVisitor<TElement> visitor )
+      public ManualTransitionAcceptor_NoContextImpl( ManualTypeBasedVisitor<TElement> visitor )
          : base( visitor )
       {
          this._acceptor = new AcceptorImpl( visitor, visitor.CreateExplicitVisitorInfo( new ExplicitAcceptorInformation<TElement>( this.VertexAcceptors ) ) );
@@ -271,11 +271,11 @@ namespace UtilPack.Visiting.Implementation
    {
       private sealed class AcceptorImpl : AcceptorWithContext<TElement, TContext>
       {
-         private readonly ExplicitTypeBasedVisitor<TElement> _visitor;
+         private readonly ManualTypeBasedVisitor<TElement> _visitor;
          private readonly ExplicitAcceptorInformation<TElement, TContext> _acceptorInfo;
 
          internal AcceptorImpl(
-            ExplicitTypeBasedVisitor<TElement> visitor,
+            ManualTypeBasedVisitor<TElement> visitor,
             ExplicitAcceptorInformation<TElement, TContext> acceptorInfo
             )
          {
@@ -291,7 +291,7 @@ namespace UtilPack.Visiting.Implementation
 
       private readonly AcceptorImpl _acceptor;
 
-      public ManualTransitionAcceptor_WithContextImpl( ExplicitTypeBasedVisitor<TElement> visitor )
+      public ManualTransitionAcceptor_WithContextImpl( ManualTypeBasedVisitor<TElement> visitor )
          : base( visitor )
       {
          this._acceptor = new AcceptorImpl( visitor, new ExplicitAcceptorInformation<TElement, TContext>( this.VertexAcceptors ) );
@@ -311,11 +311,11 @@ namespace UtilPack.Visiting.Implementation
    {
       private sealed class AcceptorImpl : AcceptorWithReturnValue<TElement, TResult>
       {
-         private readonly ExplicitTypeBasedVisitor<TElement> _visitor;
+         private readonly ManualTypeBasedVisitor<TElement> _visitor;
          private readonly ManualVisitorInformationWithResult<TElement, TResult> _visitorInfo;
 
          internal AcceptorImpl(
-            ExplicitTypeBasedVisitor<TElement> visitor,
+            ManualTypeBasedVisitor<TElement> visitor,
             ManualVisitorInformationWithResult<TElement, TResult> visitorInfo
             )
          {
@@ -331,7 +331,7 @@ namespace UtilPack.Visiting.Implementation
 
       private readonly AcceptorImpl _acceptor;
 
-      public ManualTransitionAcceptor_WithReturnValueImpl( ExplicitTypeBasedVisitor<TElement> visitor )
+      public ManualTransitionAcceptor_WithReturnValueImpl( ManualTypeBasedVisitor<TElement> visitor )
          : base( visitor )
       {
          this._acceptor = new AcceptorImpl( visitor, visitor.CreateExplicitVisitorInfo( new ExplicitAcceptorInformationWithResult<TElement, TResult>( this.VertexAcceptors ) ) );
@@ -351,11 +351,11 @@ namespace UtilPack.Visiting.Implementation
    {
       private sealed class AcceptorImpl : AcceptorWithContextAndReturnValue<TElement, TContext, TResult>
       {
-         private readonly ExplicitTypeBasedVisitor<TElement> _visitor;
+         private readonly ManualTypeBasedVisitor<TElement> _visitor;
          private readonly ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> _acceptorInfo;
 
          internal AcceptorImpl(
-            ExplicitTypeBasedVisitor<TElement> visitor,
+            ManualTypeBasedVisitor<TElement> visitor,
             ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> acceptorInfo
             )
          {
@@ -371,7 +371,7 @@ namespace UtilPack.Visiting.Implementation
 
       private readonly AcceptorImpl _acceptor;
 
-      public ManualTransitionAcceptor_WithContextAndReturnValueImpl( ExplicitTypeBasedVisitor<TElement> visitor )
+      public ManualTransitionAcceptor_WithContextAndReturnValueImpl( ManualTypeBasedVisitor<TElement> visitor )
          : base( visitor )
       {
          this._acceptor = new AcceptorImpl( visitor, new ExplicitAcceptorInformationWithResult<TElement, TContext, TResult>( this.VertexAcceptors ) );

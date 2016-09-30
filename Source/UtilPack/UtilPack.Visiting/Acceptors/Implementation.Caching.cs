@@ -26,7 +26,7 @@ namespace UtilPack.Visiting.Implementation
       where TContextInitializer : class
    {
       internal AbstractTypeBasedCachingAcceptor(
-         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
          Func<TContext> contextFactory,
          TContextInitializer contextInitializer
          ) : base( visitor )
@@ -49,7 +49,7 @@ namespace UtilPack.Visiting.Implementation
       where TContextInitializer : class
    {
       public AbstractTypeBasedCachingAcceptor_WithContext(
-         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          Func<TContext> contextFactory,
@@ -102,7 +102,7 @@ namespace UtilPack.Visiting.Implementation
 
       private readonly AcceptorImpl _acceptor;
       public AutomaticTransitionAcceptor_WithContextImpl_Caching(
-         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          Func<TContext> contextFactory,
@@ -178,7 +178,7 @@ namespace UtilPack.Visiting.Implementation
       private readonly AcceptorImpl _acceptor;
 
       public AutomaticTransitionAcceptor_WithContextImpl_Caching(
-         TypeBasedVisitor<TElement, TEdgeInfo> visitor,
+         AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor,
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          Func<TContext> contextFactory,

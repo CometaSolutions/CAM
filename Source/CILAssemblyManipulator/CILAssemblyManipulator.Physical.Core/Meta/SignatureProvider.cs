@@ -135,19 +135,28 @@ namespace CILAssemblyManipulator.Physical.Meta
    public class DefaultSignatureProvider : DefaultSelfDescribingExtensionByCompositionProvider<Object>, SignatureProvider
    {
       /// <summary>
-      /// This class contains information to implement visitor logic and various acceptor logic for signatures.
+      /// This class contains required callbacks and information for various functionalities required from signature type by CAM framework.
       /// </summary>
-      /// <typeparam name="TFunctionality">The type of functionality</typeparam>
-      public class SignatureTypeInfo<TFunctionality>
+      /// <seealso cref="SignatureElementTypeInfo.NewInfo"/>
+      public class SignatureElementTypeInfo
       {
          /// <summary>
-         /// Creates a new instance of <see cref="SignatureTypeInfo{TFunctionality}"/> with given parameters.
+         /// Creates a new instance of <see cref="SignatureElementTypeInfo"/> with given callbacks for functionality.
          /// </summary>
-         /// <param name="signatureElementType">The type of signature element.</param>
-         /// <param name="factory">The callback to create <see cref="SignatureTableIndexInfo"/>s from signature element.</param>
-         /// <exception cref="ArgumentNullException">If <paramref name="signatureElementType"/> is <c>null</c>.</exception>
-         /// <exception cref="ArgumentException">If <paramref name="signatureElementType"/> is generic type or it is not assignable from <see cref="SignatureElement"/>.</exception>
-         public SignatureTypeInfo( Type signatureElementType, TFunctionality factory )
+         /// <param name="signatureElementType">The type of the signature. Must be subtype of <see cref="SignatureElement"/>.</param>
+         /// <param name="registerEdgesForVisitor">The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>. May be <c>null</c>.</param>
+         /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
+         /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
+         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
+         /// <exception cref="ArgumentNullException">If any of <paramref name="signatureElementType"/> or <paramref name="matchingFunctionality"/> is <c>null</c>.</exception>
+         /// <exception cref="ArgumentException">If <paramref name="signatureElementType"/> is generic type, or not subtype of <see cref="SignatureElement"/>.</exception>
+         public SignatureElementTypeInfo(
+            Type signatureElementType,
+            Action<VisitorVertexInfoFactory<SignatureElement, Int32>> registerEdgesForVisitor,
+            AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext> tableIndexCollectionFunctionality,
+            SignatureVertexMatchingFunctionality matchingFunctionality,
+            AcceptVertexExplicitDelegate<SignatureElement, CopyingContext> cloningFunctionality
+            )
          {
             this.SignatureElementType = ArgumentValidator.ValidateNotNull( "Signature element type", signatureElementType );
             if ( this.SignatureElementType.GetGenericArguments().Length > 0 )
@@ -159,7 +168,10 @@ namespace CILAssemblyManipulator.Physical.Meta
                throw new ArgumentException( "Signature element type must be sub-type of " + typeof( SignatureElement ) + "." );
             }
 
-            this.Functionality = factory;
+            this.RegisterEdgesForVisitor = registerEdgesForVisitor;
+            this.TableIndexCollectionFunctionality = tableIndexCollectionFunctionality;
+            this.MatchingFunctionality = ArgumentValidator.ValidateNotNull( "Matching functionality", matchingFunctionality );
+            this.CloningFunctionality = cloningFunctionality;
          }
 
          /// <summary>
@@ -169,10 +181,57 @@ namespace CILAssemblyManipulator.Physical.Meta
          public Type SignatureElementType { get; }
 
          /// <summary>
-         /// Gets the factory callback to create enumerable of <see cref="SignatureTableIndexInfo"/>s from single <see cref="SignatureElement"/>.
+         /// Gets the callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>.
          /// </summary>
-         /// <value>The factory callback to create enumerable of <see cref="SignatureTableIndexInfo"/>s from single <see cref="SignatureElement"/>.</value>
-         public TFunctionality Functionality { get; }
+         /// <value>The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>.</value>
+         public Action<VisitorVertexInfoFactory<SignatureElement, Int32>> RegisterEdgesForVisitor { get; }
+
+         /// <summary>
+         /// Gets the callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method.
+         /// </summary>
+         /// <value>The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method.</value>
+         public AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext> TableIndexCollectionFunctionality { get; }
+
+         /// <summary>
+         /// Gets the callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.
+         /// </summary>
+         /// <value>The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</value>
+         public SignatureVertexMatchingFunctionality MatchingFunctionality { get; }
+
+         /// <summary>
+         /// Gets the callback used by <see cref="E_CILPhysical.CreateCopy"/> method.
+         /// </summary>
+         /// <value>The callback used by <see cref="E_CILPhysical.CreateCopy"/> method.</value>
+         public AcceptVertexExplicitDelegate<SignatureElement, CopyingContext> CloningFunctionality { get; }
+
+         /// <summary>
+         /// Convenience method to create a new instance of <see cref="SignatureElementTypeInfo"/> when the type of the signature is known at compile-time.
+         /// </summary>
+         /// <typeparam name="TSignature">The type of the signature.</typeparam>
+         /// <param name="registerEdgesForVisitor">The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>. May be <c>null</c>.</param>
+         /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
+         /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
+         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
+         /// <returns>A new instance of <see cref="SignatureElementTypeInfo"/> with given parameters.</returns>
+         public static SignatureElementTypeInfo NewInfo<TSignature>(
+            Action<VisitorVertexInfoFactory<SignatureElement, Int32>> registerEdgesForVisitor,
+            AcceptVertexDelegate<TSignature, TableIndexCollectorContext> tableIndexCollectionFunctionality,
+            SignatureVertexMatchingFunctionality matchingFunctionality,
+            CopySignatureDelegate<TSignature> cloningFunctionality
+            )
+            where TSignature : SignatureElement
+         {
+            return new SignatureElementTypeInfo(
+               typeof( TSignature ),
+               registerEdgesForVisitor,
+               tableIndexCollectionFunctionality == null ? (AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>) null : ( el, ctx ) => tableIndexCollectionFunctionality( (TSignature) el, ctx ),
+               matchingFunctionality,
+               cloningFunctionality == null ? (AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>) null : ( el, ctx, cb ) =>
+               {
+                  ctx.CurrentObject = cloningFunctionality( (TSignature) el, ctx, cb );
+               }
+               );
+         }
       }
 
       /// <summary>
@@ -196,17 +255,11 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// </summary>
       /// <param name="simpleTypeSignatures">The supported <see cref="SimpleTypeSignature"/>. If <c>null</c>, the return value of <see cref="GetDefaultSimpleTypeSignatures"/> will be used.</param>
       /// <param name="simpleCATypes">The supported <see cref="CustomAttributeArgumentTypeSimple"/>. If <c>null</c>, the return value of <see cref="GetDefaultSimpleCATypes"/> will be used.</param>
-      /// <param name="signatureTableIndexInfoProviders">The <see cref="SignatureTypeInfo{TFunctionality}"/> functionality. If <c>null</c>, the return value of <see cref="GetDefaultSignatureTableIndexInfoCollectors"/> will be used.</param>
-      /// <param name="signatureVisitors">The enumerable of signature visitors.</param>
-      /// <param name="matchers">The enumerable of signature matchers.</param>
-      /// <param name="cloners">The enumerable of signature cloners.</param>
+      /// <param name="signatureElementTypes">The collection of <see cref="SignatureElementTypeInfo"/>s that contain callbacks necessary for each signature element type. If <c>null</c>, the return value of <see cref="GetDefaultSignatureElementTypeInfos"/> will be used.</param>
       public DefaultSignatureProvider(
          IEnumerable<SimpleTypeSignature> simpleTypeSignatures = null,
          IEnumerable<CustomAttributeArgumentTypeSimple> simpleCATypes = null,
-         IEnumerable<SignatureTypeInfo<Func<VisitorVertexInfoFactory<SignatureElement, Int32>, IEnumerable<VisitorEdgeInfo<SignatureElement, Int32>>>>> signatureVisitors = null,
-         IEnumerable<SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>>> signatureTableIndexInfoProviders = null,
-         IEnumerable<SignatureTypeInfo<SignatureVertexMatchingFunctionality>> matchers = null,
-         IEnumerable<SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>>> cloners = null
+         IEnumerable<SignatureElementTypeInfo> signatureElementTypes = null
          )
       {
          this._simpleTypeSignatures = ( simpleTypeSignatures ?? GetDefaultSimpleTypeSignatures() )
@@ -217,49 +270,58 @@ namespace CILAssemblyManipulator.Physical.Meta
             .ToDictionary_Overwrite( s => s.SimpleType, s => s );
 
          // Signature visitor
-         var visitor = new TypeBasedVisitor<SignatureElement, Int32>();
-         foreach ( var visitorInfo in signatureVisitors ?? GetDefaultSignatureVisitors( visitor ) )
-         {
-            using ( var factory = visitor.CreateVertexInfoFactory( visitorInfo.SignatureElementType ) )
-            {
-               visitorInfo.Functionality( factory );
-            }
-         }
-         this.RegisterFunctionalityDirect( visitor );
+         var visitor = new AutomaticTypeBasedVisitor<SignatureElement, Int32>();
 
+         // Acceptors
          // Signature acceptor: decomposing
          var decomposer = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, DecomposeSignatureContext>( visitor, TopMostTypeVisitingStrategy.IfNotOverridingType, true );
-         decomposer.RegisterSignatureDecomposer<SignatureElement>( ( el, ctx ) => ctx.AddElement( el ) );
-         this.RegisterFunctionalityDirect( decomposer.Acceptor );
-
-         // Signature acceptor: table index collector
+         decomposer.RegisterVertexAcceptor( typeof( SignatureElement ), ( el, ctx ) => ctx.AddElement( el ) );
          var tableIndexCollector = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, TableIndexCollectorContext>( visitor, TopMostTypeVisitingStrategy.Never, true );
-         foreach ( var tableIndexCollectorInfo in signatureTableIndexInfoProviders ?? GetDefaultSignatureTableIndexInfoCollectors() )
-         {
-            tableIndexCollector.RegisterVertexAcceptor( tableIndexCollectorInfo.SignatureElementType, tableIndexCollectorInfo.Functionality );
-         }
-         this.RegisterFunctionalityDirect( tableIndexCollector.Acceptor );
-
-         // Signature matching
          var matcher = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, SignatureMatchingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
-         foreach ( var matcherInfo in matchers ?? GetDefaultMatchingFunctionality() )
+         var cloner = AcceptorFactory.NewManualAcceptor_WithContext<SignatureElement, CopyingContext>( visitor );
+
+         // Walk type infos
+         foreach ( var typeInfo in signatureElementTypes ?? GetDefaultSignatureElementTypeInfos() )
          {
-            var type = matcherInfo.SignatureElementType;
-            var info = matcherInfo.Functionality;
-            matcher.RegisterVertexAcceptor( type, info.VertexAcceptor );
-            foreach ( var edge in info.Edges )
+            var sigType = typeInfo.SignatureElementType;
+            // Edges
+            using ( var factory = visitor.CreateVertexInfoFactory( sigType ) )
             {
-               matcher.RegisterEdgeAcceptor( type, edge.EdgeName, edge.Enter, edge.Exit );
+               var visitorEdgeRegister = typeInfo.RegisterEdgesForVisitor;
+               if ( visitorEdgeRegister != null )
+               {
+                  visitorEdgeRegister( factory );
+               }
+            }
+
+            // Table index collector
+            var tableIndexInfo = typeInfo.TableIndexCollectionFunctionality;
+            if ( tableIndexInfo != null )
+            {
+               tableIndexCollector.RegisterVertexAcceptor( sigType, tableIndexInfo );
+            }
+
+            // Matcher
+            var matcherFunc = typeInfo.MatchingFunctionality;
+            matcher.RegisterVertexAcceptor( sigType, matcherFunc.VertexAcceptor );
+            foreach ( var matcherEdge in matcherFunc.Edges )
+            {
+               matcher.RegisterEdgeAcceptor( sigType, matcherEdge.EdgeName, matcherEdge.Enter, matcherEdge.Exit );
+            }
+
+            // Cloning
+            var cloningFunc = typeInfo.CloningFunctionality;
+            if ( cloningFunc != null )
+            {
+               cloner.RegisterVertexAcceptor( sigType, cloningFunc );
             }
          }
-         this.RegisterFunctionalityDirect( matcher.Acceptor );
 
-         // Signature cloning
-         var cloner = AcceptorFactory.NewManualAcceptor_WithContext<SignatureElement, CopyingContext>( visitor );
-         foreach ( var clonerInfo in cloners ?? GetDefaultCopyingFunctionality() )
-         {
-            cloner.RegisterVertexAcceptor( clonerInfo.SignatureElementType, clonerInfo.Functionality );
-         }
+         // Expose visitor and acceptors via types.
+         this.RegisterFunctionalityDirect( visitor );
+         this.RegisterFunctionalityDirect( decomposer.Acceptor );
+         this.RegisterFunctionalityDirect( tableIndexCollector.Acceptor );
+         this.RegisterFunctionalityDirect( matcher.Acceptor );
          this.RegisterFunctionalityDirect( cloner.Acceptor );
       }
 
@@ -382,440 +444,405 @@ namespace CILAssemblyManipulator.Physical.Meta
       }
 
       /// <summary>
-      /// Returns <see cref="SignatureTypeInfo{TFunctionality}"/> functionality for <see cref="ClassOrValueTypeSignature"/> and <see cref="CustomModifierSignature"/>.
+      /// Returns enumerable of <see cref="SignatureElementTypeInfo"/>s for each signature type provided by default with CAM framework.
       /// </summary>
-      /// <returns>Default <see cref="SignatureTypeInfo{TFunctionality}"/> functionality for <see cref="ClassOrValueTypeSignature"/> and <see cref="CustomModifierSignature"/>.</returns>
-      public static IEnumerable<SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>>> GetDefaultSignatureTableIndexInfoCollectors()
+      /// <returns>The enumerable of <see cref="SignatureElementTypeInfo"/>s for each signature type provided by default with CAM framework.</returns>
+      public static IEnumerable<SignatureElementTypeInfo> GetDefaultSignatureElementTypeInfos()
       {
-         yield return NewAcceptFunctionality<ClassOrValueTypeSignature, TableIndexCollectorContext>( ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.Type, tIdx => sig.Type = tIdx ) ) );
-         yield return NewAcceptFunctionality<CustomModifierSignature, TableIndexCollectorContext>( ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.CustomModifierType, tIdx => sig.CustomModifierType = tIdx ) ) );
-      }
-
-      /// <summary>
-      /// Gets enumerable of visitor functionalities for default signatures.
-      /// </summary>
-      /// <returns>The enumerable of visitor functionalities for default signatures.</returns>
-      public static IEnumerable<SignatureTypeInfo<Func<VisitorVertexInfoFactory<SignatureElement, Int32>, IEnumerable<VisitorEdgeInfo<SignatureElement, Int32>>>>> GetDefaultSignatureVisitors( TypeBasedVisitor<SignatureElement, Int32> visitor )
-      {
-         yield return NewVisitFunctionality<ParameterOrLocalSignature>( factory =>
-         {
-            return new[]
+         // CustomModifierSignature
+         yield return SignatureElementTypeInfo.NewInfo<CustomModifierSignature>(
+            null,
+            ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.CustomModifierType, tIdx => sig.CustomModifierType = tIdx ) ),
+            SignatureVertexMatchingFunctionality.NewFunctionality<CustomModifierSignature>(
+               ( x, y, ctx ) => x.Optionality == y.Optionality && MatchTypeDefOrRefOrSpec( ctx, x.CustomModifierType, y.CustomModifierType )
+            ),
+            ( sig, ctx, cb ) => new CustomModifierSignature()
             {
-               factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) ),
-               factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge(  sig.Type, edgeID ) ),
-             };
-         } );
-
-         yield return NewVisitFunctionality<ParameterSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreateBaseTypeEdge<SignatureElement, Int32, ParameterSignature, ParameterOrLocalSignature>()
-            };
-         } );
-
-         yield return NewVisitFunctionality<LocalSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreateBaseTypeEdge<SignatureElement, Int32, LocalSignature, ParameterOrLocalSignature>()
-            };
-         } );
-
-         yield return NewVisitFunctionality<FieldSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, FieldSignature>( nameof( FieldSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge(edgeID, sig.CustomModifiers ) ),
-               factory.CreatePropertyEdge<SignatureElement, Int32, FieldSignature>( nameof( FieldSignature.Type ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, edgeID ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<AbstractMethodSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.ReturnType, edgeID ) ),
-               factory.CreatePropertyEdge<SignatureElement, Int32, AbstractMethodSignature>( nameof( AbstractMethodSignature.Parameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Parameters ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<MethodDefinitionSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreateBaseTypeEdge<SignatureElement, Int32, MethodDefinitionSignature, AbstractMethodSignature>()
-            };
-         } );
-
-         yield return NewVisitFunctionality<MethodReferenceSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreateBaseTypeEdge<SignatureElement, Int32, MethodDefinitionSignature, AbstractMethodSignature>(),
-               factory.CreatePropertyEdge<SignatureElement, Int32, MethodReferenceSignature>( nameof( MethodReferenceSignature.VarArgsParameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.VarArgsParameters ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<PropertySignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) ),
-               factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.PropertyType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.PropertyType, edgeID ) ),
-               factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.Parameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Parameters ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<LocalVariablesSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, LocalVariablesSignature>( nameof( LocalVariablesSignature.Locals ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Locals ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<GenericMethodSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, GenericMethodSignature>( nameof( GenericMethodSignature.GenericArguments ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.GenericArguments ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<AbstractArrayTypeSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.ArrayType, edgeID ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<ComplexArrayTypeSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreateBaseTypeEdge<SignatureElement, Int32, ComplexArrayTypeSignature, AbstractArrayTypeSignature>()
-            };
-         } );
-
-         yield return NewVisitFunctionality<SimpleArrayTypeSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, SimpleArrayTypeSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) ),
-               factory.CreateBaseTypeEdge<SignatureElement, Int32, SimpleArrayTypeSignature, AbstractArrayTypeSignature>()
-            };
-         } );
-
-         yield return NewVisitFunctionality<ClassOrValueTypeSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, ClassOrValueTypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.GenericArguments ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<FunctionPointerTypeSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.MethodSignature, edgeID ) )
-            };
-         } );
-
-         yield return NewVisitFunctionality<PointerTypeSignature>( factory =>
-         {
-            return new[]
-            {
-               factory.CreatePropertyEdge<SignatureElement, Int32, PointerTypeSignature>( nameof( PointerTypeSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) ),
-               factory.CreatePropertyEdge<SignatureElement, Int32, PointerTypeSignature>( nameof( PointerTypeSignature.PointerType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.PointerType, edgeID ) )
-            };
-         } );
-      }
-
-      /// <summary>
-      /// Gets the default functionality about performing signature matching.
-      /// </summary>
-      /// <returns>The default functionality about performing signature matching.</returns>
-      public static IEnumerable<SignatureTypeInfo<SignatureVertexMatchingFunctionality>> GetDefaultMatchingFunctionality()
-      {
-         yield return NewMatchingFunctionality<CustomModifierSignature>(
-            ( x, y, ctx ) => x.Optionality == y.Optionality && MatchTypeDefOrRefOrSpec( ctx, x.CustomModifierType, y.CustomModifierType )
+               Optionality = sig.Optionality,
+               CustomModifierType = ctx.TableIndexTransformer?.Invoke( sig.CustomModifierType ) ?? sig.CustomModifierType
+            }
             );
-         yield return NewMatchingFunctionality<ParameterOrLocalSignature>(
-            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.IsByRef == y.IsByRef,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<ParameterOrLocalSignature, CustomModifierSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), sig => sig.CustomModifiers ),
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), sig => sig.Type )
-            );
-         yield return NewMatchingFunctionality<ParameterSignature>(
-            ( x, y, ctx ) => true
-            );
-         yield return NewMatchingFunctionality<LocalSignature>(
-            ( x, y, ctx ) => x.IsPinned == y.IsPinned
-            );
-         yield return NewMatchingFunctionality<FieldSignature>(
-            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<FieldSignature, CustomModifierSignature>( nameof( FieldSignature.CustomModifiers ), sig => sig.CustomModifiers ),
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<FieldSignature>( nameof( FieldSignature.Type ), sig => sig.Type )
-            );
-         yield return NewMatchingFunctionality<AbstractMethodSignature>(
-            ( x, y, ctx ) => x.MethodSignatureInformation == y.MethodSignatureInformation && x.Parameters.Count == y.Parameters.Count && x.GenericArgumentCount == y.GenericArgumentCount,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), sig => sig.ReturnType ),
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<AbstractMethodSignature, ParameterSignature>( nameof( AbstractMethodSignature.Parameters ), sig => sig.Parameters )
-            );
-         yield return NewMatchingFunctionality<MethodDefinitionSignature>(
+
+         // ParameterOrLocalSignature
+         yield return SignatureElementTypeInfo.NewInfo<ParameterOrLocalSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
+               factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, edgeID ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<ParameterOrLocalSignature>(
+               ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.IsByRef == y.IsByRef,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<ParameterOrLocalSignature, CustomModifierSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), sig => sig.CustomModifiers ),
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), sig => sig.Type )
+            ),
             null
             );
-         yield return NewMatchingFunctionality<MethodReferenceSignature>(
+
+         // ParameterSignature
+         yield return SignatureElementTypeInfo.NewInfo<ParameterSignature>(
+            factory =>
+            {
+               factory.CreateBaseTypeEdge<SignatureElement, Int32, ParameterSignature, ParameterOrLocalSignature>();
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<ParameterSignature>(
+               ( x, y, ctx ) => true
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new ParameterSignature( sig.CustomModifiers.Count )
+               {
+                  IsByRef = sig.IsByRef,
+                  Type = ctx.CloneSingle( sig.Type, cb )
+               };
+               ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+               return retVal;
+            }
+            );
+
+         // LocalSignature
+         yield return SignatureElementTypeInfo.NewInfo<LocalSignature>(
+            factory =>
+            {
+               factory.CreateBaseTypeEdge<SignatureElement, Int32, LocalSignature, ParameterOrLocalSignature>();
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<LocalSignature>(
+               ( x, y, ctx ) => x.IsPinned == y.IsPinned
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new LocalSignature( sig.CustomModifiers.Count )
+               {
+                  IsByRef = sig.IsByRef,
+                  Type = ctx.CloneSingle( sig.Type, cb ),
+                  IsPinned = sig.IsPinned
+               };
+               ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+               return retVal;
+            }
+            );
+
+         // FieldSignature
+         yield return SignatureElementTypeInfo.NewInfo<FieldSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, FieldSignature>( nameof( FieldSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
+               factory.CreatePropertyEdge<SignatureElement, Int32, FieldSignature>( nameof( FieldSignature.Type ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, edgeID ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<FieldSignature>(
+               ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<FieldSignature, CustomModifierSignature>( nameof( FieldSignature.CustomModifiers ), sig => sig.CustomModifiers ),
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<FieldSignature>( nameof( FieldSignature.Type ), sig => sig.Type )
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new FieldSignature( sig.CustomModifiers.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy(),
+                  Type = ctx.CloneSingle( sig.Type, cb )
+               };
+               ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+               return retVal;
+            }
+            );
+
+         // AbstractMethodSignature
+         yield return SignatureElementTypeInfo.NewInfo<AbstractMethodSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.ReturnType, edgeID ) );
+               factory.CreatePropertyEdge<SignatureElement, Int32, AbstractMethodSignature>( nameof( AbstractMethodSignature.Parameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Parameters ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<AbstractMethodSignature>(
+               ( x, y, ctx ) => x.MethodSignatureInformation == y.MethodSignatureInformation && x.Parameters.Count == y.Parameters.Count && x.GenericArgumentCount == y.GenericArgumentCount,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), sig => sig.ReturnType ),
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<AbstractMethodSignature, ParameterSignature>( nameof( AbstractMethodSignature.Parameters ), sig => sig.Parameters )
+            ),
             null
             );
-         yield return NewMatchingFunctionality<PropertySignature>(
-            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.HasThis == y.HasThis && x.Parameters.Count == y.Parameters.Count,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<PropertySignature>( nameof( PropertySignature.PropertyType ), sig => sig.PropertyType ),
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<PropertySignature, ParameterSignature>( nameof( PropertySignature.Parameters ), sig => sig.Parameters )
-            );
-         yield return NewMatchingFunctionality<LocalVariablesSignature>(
-            ( x, y, ctx ) => x.Locals.Count == y.Locals.Count,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<LocalVariablesSignature, LocalSignature>( nameof( LocalVariablesSignature.Locals ), sig => sig.Locals )
-            );
-         yield return NewMatchingFunctionality<GenericMethodSignature>(
-            ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<GenericMethodSignature, TypeSignature>( nameof( GenericMethodSignature.GenericArguments ), sig => sig.GenericArguments )
-            );
-         yield return NewMatchingFunctionality<RawSignature>(
-            ( x, y, ctx ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes )
-            );
-         yield return NewMatchingFunctionality<AbstractArrayTypeSignature>(
-            ( x, y, ctx ) => true,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), sig => sig.ArrayType )
-            );
-         yield return NewMatchingFunctionality<ComplexArrayTypeSignature>(
-            ( x, y, ctx ) => Comparers.ComplexArrayInfoEqualityComparer.Equals( x.ComplexArrayInfo, y.ComplexArrayInfo )
-            );
-         yield return NewMatchingFunctionality<SimpleArrayTypeSignature>(
-            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<SimpleArrayTypeSignature, CustomModifierSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), sig => sig.CustomModifiers )
-            );
-         yield return NewMatchingFunctionality<ClassOrValueTypeSignature>(
-            ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count && x.TypeReferenceKind == y.TypeReferenceKind && MatchTypeDefOrRefOrSpec( ctx, x.Type, y.Type ),
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<ClassOrValueTypeSignature, TypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), sig => sig.GenericArguments )
-            );
-         yield return NewMatchingFunctionality<GenericParameterTypeSignature>(
-            ( x, y, ctx ) => x.GenericParameterIndex == y.GenericParameterIndex && x.GenericParameterKind == y.GenericParameterKind
-            );
-         yield return NewMatchingFunctionality<PointerTypeSignature>(
-            ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<PointerTypeSignature, CustomModifierSignature>( nameof( PointerTypeSignature.CustomModifiers ), sig => sig.CustomModifiers )
-            );
-         yield return NewMatchingFunctionality<FunctionPointerTypeSignature>(
-            ( x, y, ctx ) => true,
-            SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), sig => sig.MethodSignature )
-            );
-         yield return NewMatchingFunctionality<SimpleTypeSignature>(
-            ( x, y, ctx ) => x.SimpleType == y.SimpleType
-            );
-      }
 
-      /// <summary>
-      /// Returns cloning functionality for default signature types.
-      /// </summary>
-      /// <returns>The cloning functionality for default signature types.</returns>
-      public static IEnumerable<SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>>> GetDefaultCopyingFunctionality()
-      {
-         yield return NewCopyingFunctionality<CustomModifierSignature>( ( sig, ctx, cb ) => new CustomModifierSignature()
-         {
-            Optionality = sig.Optionality,
-            CustomModifierType = ctx.TableIndexTransformer?.Invoke( sig.CustomModifierType ) ?? sig.CustomModifierType
-         } );
-         yield return NewCopyingFunctionality<ParameterSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new ParameterSignature( sig.CustomModifiers.Count )
+         // MethodDefinitionSignature
+         yield return SignatureElementTypeInfo.NewInfo<MethodDefinitionSignature>(
+            factory =>
             {
-               IsByRef = sig.IsByRef,
-               Type = ctx.CloneSingle( sig.Type, cb )
-            };
-            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<LocalSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new LocalSignature( sig.CustomModifiers.Count )
+               factory.CreateBaseTypeEdge<SignatureElement, Int32, MethodDefinitionSignature, AbstractMethodSignature>();
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<MethodDefinitionSignature>( null ),
+            ( sig, ctx, cb ) =>
             {
-               IsByRef = sig.IsByRef,
-               Type = ctx.CloneSingle( sig.Type, cb ),
-               IsPinned = sig.IsPinned
-            };
-            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<FieldSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new FieldSignature( sig.CustomModifiers.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy(),
-               Type = ctx.CloneSingle( sig.Type, cb )
-            };
-            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<MethodDefinitionSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new MethodDefinitionSignature( sig.Parameters.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy(),
-               GenericArgumentCount = sig.GenericArgumentCount,
-               MethodSignatureInformation = sig.MethodSignatureInformation,
-               ReturnType = ctx.CloneSingle( sig.ReturnType, cb )
-            };
-            ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<MethodReferenceSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new MethodReferenceSignature( sig.Parameters.Count, sig.VarArgsParameters.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy(),
-               GenericArgumentCount = sig.GenericArgumentCount,
-               MethodSignatureInformation = sig.MethodSignatureInformation,
-               ReturnType = ctx.CloneSingle( sig.ReturnType, cb )
-            };
-            ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
-            ctx.CloneList( retVal.VarArgsParameters, sig.VarArgsParameters, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<PropertySignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new PropertySignature( sig.CustomModifiers.Count, sig.Parameters.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy(),
-               HasThis = sig.HasThis,
-               PropertyType = ctx.CloneSingle( sig.PropertyType, cb ),
-            };
-            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
-            ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<LocalVariablesSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new LocalVariablesSignature( sig.Locals.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy()
-            };
-            ctx.CloneList( retVal.Locals, sig.Locals, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<GenericMethodSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new GenericMethodSignature( sig.GenericArguments.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy()
-            };
-            ctx.CloneList( retVal.GenericArguments, sig.GenericArguments, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<RawSignature>( ( sig, ctx, cb ) => new RawSignature()
-         {
-            Bytes = sig.Bytes.CreateBlockCopy()
-         } );
-         yield return NewCopyingFunctionality<ComplexArrayTypeSignature>( ( sig, ctx, cb ) => new ComplexArrayTypeSignature()
-         {
-            ExtraData = sig.ExtraData.CreateBlockCopy(),
-            ArrayType = ctx.CloneSingle( sig.ArrayType, cb ),
-            ComplexArrayInfo = new ComplexArrayInfo( sig.ComplexArrayInfo )
-         } );
-         yield return NewCopyingFunctionality<SimpleArrayTypeSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new SimpleArrayTypeSignature( sig.CustomModifiers.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy(),
-               ArrayType = ctx.CloneSingle( sig.ArrayType, cb )
-            };
-            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<ClassOrValueTypeSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new ClassOrValueTypeSignature( sig.GenericArguments.Count )
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy(),
-               Type = ctx.TableIndexTransformer?.Invoke( sig.Type ) ?? sig.Type,
-               TypeReferenceKind = sig.TypeReferenceKind
-            };
-            ctx.CloneList( retVal.GenericArguments, sig.GenericArguments, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<GenericParameterTypeSignature>( ( sig, ctx, cb ) => new GenericParameterTypeSignature()
-         {
-            ExtraData = sig.ExtraData.CreateBlockCopy(),
-            GenericParameterIndex = sig.GenericParameterIndex,
-            GenericParameterKind = sig.GenericParameterKind
-         } );
-         yield return NewCopyingFunctionality<FunctionPointerTypeSignature>( ( sig, ctx, cb ) => new FunctionPointerTypeSignature()
-         {
-            ExtraData = sig.ExtraData.CreateBlockCopy(),
-            MethodSignature = ctx.CloneSingle( sig.MethodSignature, cb )
-         } );
-         yield return NewCopyingFunctionality<PointerTypeSignature>( ( sig, ctx, cb ) =>
-         {
-            var retVal = new PointerTypeSignature()
-            {
-               ExtraData = sig.ExtraData.CreateBlockCopy(),
-               PointerType = ctx.CloneSingle( sig.PointerType, cb )
-            };
-            ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
-            return retVal;
-         } );
-         yield return NewCopyingFunctionality<SimpleTypeSignature>( ( sig, ctx, cb ) => sig );
-      }
+               var retVal = new MethodDefinitionSignature( sig.Parameters.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy(),
+                  GenericArgumentCount = sig.GenericArgumentCount,
+                  MethodSignatureInformation = sig.MethodSignatureInformation,
+                  ReturnType = ctx.CloneSingle( sig.ReturnType, cb )
+               };
+               ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
+               return retVal;
+            }
+            );
 
+         // MethodReferenceSignature
+         yield return SignatureElementTypeInfo.NewInfo<MethodReferenceSignature>(
+            factory =>
+            {
+               factory.CreateBaseTypeEdge<SignatureElement, Int32, MethodDefinitionSignature, AbstractMethodSignature>();
+               factory.CreatePropertyEdge<SignatureElement, Int32, MethodReferenceSignature>( nameof( MethodReferenceSignature.VarArgsParameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.VarArgsParameters ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<MethodReferenceSignature>( null ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new MethodReferenceSignature( sig.Parameters.Count, sig.VarArgsParameters.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy(),
+                  GenericArgumentCount = sig.GenericArgumentCount,
+                  MethodSignatureInformation = sig.MethodSignatureInformation,
+                  ReturnType = ctx.CloneSingle( sig.ReturnType, cb )
+               };
+               ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
+               ctx.CloneList( retVal.VarArgsParameters, sig.VarArgsParameters, cb );
+               return retVal;
+            }
+            );
 
-      /// <summary>
-      /// Creates a new <see cref="SignatureTypeInfo{TFunctionality}"/> with functionality for visiting signatures according to visitor pattern.
-      /// </summary>
-      /// <typeparam name="TSignature">The type of the signature element.</typeparam>
-      /// <param name="functionality">The visitor functionality.</param>
-      /// <returns>A new instance of <see cref="SignatureTypeInfo{TFunctionality}"/>.</returns>
-      public static SignatureTypeInfo<Func<VisitorVertexInfoFactory<SignatureElement, Int32>, IEnumerable<VisitorEdgeInfo<SignatureElement, Int32>>>> NewVisitFunctionality<TSignature>(
-         Func<VisitorVertexInfoFactory<SignatureElement, Int32>, IEnumerable<VisitorEdgeInfo<SignatureElement, Int32>>> functionality
-         )
-         where TSignature : SignatureElement
-      {
-         return new SignatureTypeInfo<Func<VisitorVertexInfoFactory<SignatureElement, Int32>, IEnumerable<VisitorEdgeInfo<SignatureElement, Int32>>>>( typeof( TSignature ), functionality );
-      }
+         // PropertySignature
+         yield return SignatureElementTypeInfo.NewInfo<PropertySignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
+               factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.PropertyType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.PropertyType, edgeID ) );
+               factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.Parameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Parameters ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<PropertySignature>(
+               ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.HasThis == y.HasThis && x.Parameters.Count == y.Parameters.Count,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<PropertySignature>( nameof( PropertySignature.PropertyType ), sig => sig.PropertyType ),
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<PropertySignature, ParameterSignature>( nameof( PropertySignature.Parameters ), sig => sig.Parameters )
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new PropertySignature( sig.CustomModifiers.Count, sig.Parameters.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy(),
+                  HasThis = sig.HasThis,
+                  PropertyType = ctx.CloneSingle( sig.PropertyType, cb ),
+               };
+               ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+               ctx.CloneList( retVal.Parameters, sig.Parameters, cb );
+               return retVal;
+            }
+            );
 
-      /// <summary>
-      /// Creates a new <see cref="SignatureTypeInfo{TFunctionality}"/> with functionality for accepting signatures according to visitor pattern.
-      /// </summary>
-      /// <typeparam name="TSignature">The type of the signature element.</typeparam>
-      /// <typeparam name="TContext">The type of context.</typeparam>
-      /// <param name="acceptor">The acceptor functionality.</param>
-      /// <returns>A new instance of <see cref="SignatureTypeInfo{TFunctionality}"/>.</returns>
-      public static SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TContext>> NewAcceptFunctionality<TSignature, TContext>( AcceptVertexDelegate<TSignature, TContext> acceptor )
-         where TSignature : SignatureElement
-      {
-         return new SignatureTypeInfo<AcceptVertexDelegate<SignatureElement, TContext>>( typeof( TSignature ), ( el, ctx ) => acceptor( (TSignature) el, ctx ) );
-      }
+         // LocalVariablesSignature
+         yield return SignatureElementTypeInfo.NewInfo<LocalVariablesSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, LocalVariablesSignature>( nameof( LocalVariablesSignature.Locals ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Locals ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<LocalVariablesSignature>(
+               ( x, y, ctx ) => x.Locals.Count == y.Locals.Count,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<LocalVariablesSignature, LocalSignature>( nameof( LocalVariablesSignature.Locals ), sig => sig.Locals )
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new LocalVariablesSignature( sig.Locals.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy()
+               };
+               ctx.CloneList( retVal.Locals, sig.Locals, cb );
+               return retVal;
+            }
+            );
 
-      internal static SignatureTypeInfo<SignatureVertexMatchingFunctionality> NewMatchingFunctionality<TSignature>(
-         EqualityWithContext<TSignature, SignatureMatchingContext> vertexEquality,
-         params SignatureEdgeMatchingFunctionality[] edges
-         )
-         where TSignature : class, SignatureElement
-      {
-         return new SignatureTypeInfo<SignatureVertexMatchingFunctionality>( typeof( TSignature ), SignatureVertexMatchingFunctionality.NewFunctionality( vertexEquality, edges ) );
-      }
+         // GenericMethodSignature
+         yield return SignatureElementTypeInfo.NewInfo<GenericMethodSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, GenericMethodSignature>( nameof( GenericMethodSignature.GenericArguments ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.GenericArguments ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<GenericMethodSignature>(
+               ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<GenericMethodSignature, TypeSignature>( nameof( GenericMethodSignature.GenericArguments ), sig => sig.GenericArguments )
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new GenericMethodSignature( sig.GenericArguments.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy()
+               };
+               ctx.CloneList( retVal.GenericArguments, sig.GenericArguments, cb );
+               return retVal;
+            }
+            );
 
-      internal static SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>> NewCopyingFunctionality<TSignature>(
-         CopySignatureDelegate<TSignature> functionality
-         )
-         where TSignature : class, SignatureElement
-      {
-         return new SignatureTypeInfo<AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>>( typeof( TSignature ), ( el, ctx, cb ) =>
-         {
-            var result = functionality( (TSignature) el, ctx, cb );
-            ctx.CurrentObject = result;
-         } );
+         // RawSignature
+         yield return SignatureElementTypeInfo.NewInfo<RawSignature>(
+            null,
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<RawSignature>(
+               ( x, y, ctx ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes )
+            ),
+            ( sig, ctx, cb ) => new RawSignature()
+            {
+               Bytes = sig.Bytes.CreateBlockCopy()
+            }
+            );
+
+         // AbstractArrayTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<AbstractArrayTypeSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.ArrayType, edgeID ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<AbstractArrayTypeSignature>(
+               ( x, y, ctx ) => true,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), sig => sig.ArrayType )
+            ),
+            null
+            );
+
+         // ComplexArrayTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<ComplexArrayTypeSignature>(
+            factory =>
+            {
+               factory.CreateBaseTypeEdge<SignatureElement, Int32, ComplexArrayTypeSignature, AbstractArrayTypeSignature>();
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<ComplexArrayTypeSignature>(
+               ( x, y, ctx ) => Comparers.ComplexArrayInfoEqualityComparer.Equals( x.ComplexArrayInfo, y.ComplexArrayInfo )
+            ),
+            ( sig, ctx, cb ) => new ComplexArrayTypeSignature()
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               ArrayType = ctx.CloneSingle( sig.ArrayType, cb ),
+               ComplexArrayInfo = new ComplexArrayInfo( sig.ComplexArrayInfo )
+            }
+            );
+
+         // SimpleArrayTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<SimpleArrayTypeSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, SimpleArrayTypeSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
+               factory.CreateBaseTypeEdge<SignatureElement, Int32, SimpleArrayTypeSignature, AbstractArrayTypeSignature>();
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<SimpleArrayTypeSignature>(
+               ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<SimpleArrayTypeSignature, CustomModifierSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), sig => sig.CustomModifiers )
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new SimpleArrayTypeSignature( sig.CustomModifiers.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy(),
+                  ArrayType = ctx.CloneSingle( sig.ArrayType, cb )
+               };
+               ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+               return retVal;
+            }
+            );
+
+         // ClassOrValueTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<ClassOrValueTypeSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, ClassOrValueTypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.GenericArguments ) );
+            },
+            ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.Type, tIdx => sig.Type = tIdx ) ),
+            SignatureVertexMatchingFunctionality.NewFunctionality<ClassOrValueTypeSignature>(
+               ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count && x.TypeReferenceKind == y.TypeReferenceKind && MatchTypeDefOrRefOrSpec( ctx, x.Type, y.Type ),
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<ClassOrValueTypeSignature, TypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), sig => sig.GenericArguments )
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new ClassOrValueTypeSignature( sig.GenericArguments.Count )
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy(),
+                  Type = ctx.TableIndexTransformer?.Invoke( sig.Type ) ?? sig.Type,
+                  TypeReferenceKind = sig.TypeReferenceKind
+               };
+               ctx.CloneList( retVal.GenericArguments, sig.GenericArguments, cb );
+               return retVal;
+            }
+            );
+
+         // GenericParameterTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<GenericParameterTypeSignature>(
+            null,
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<GenericParameterTypeSignature>(
+               ( x, y, ctx ) => x.GenericParameterIndex == y.GenericParameterIndex && x.GenericParameterKind == y.GenericParameterKind
+            ),
+            ( sig, ctx, cb ) => new GenericParameterTypeSignature()
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               GenericParameterIndex = sig.GenericParameterIndex,
+               GenericParameterKind = sig.GenericParameterKind
+            }
+            );
+
+         // PointerTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<PointerTypeSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, PointerTypeSignature>( nameof( PointerTypeSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
+               factory.CreatePropertyEdge<SignatureElement, Int32, PointerTypeSignature>( nameof( PointerTypeSignature.PointerType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.PointerType, edgeID ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<PointerTypeSignature>(
+               ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForListEdge<PointerTypeSignature, CustomModifierSignature>( nameof( PointerTypeSignature.CustomModifiers ), sig => sig.CustomModifiers )
+            ),
+            ( sig, ctx, cb ) =>
+            {
+               var retVal = new PointerTypeSignature()
+               {
+                  ExtraData = sig.ExtraData.CreateBlockCopy(),
+                  PointerType = ctx.CloneSingle( sig.PointerType, cb )
+               };
+               ctx.CloneList( retVal.CustomModifiers, sig.CustomModifiers, cb );
+               return retVal;
+            }
+            );
+
+         // FunctionPointerTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<FunctionPointerTypeSignature>(
+            factory =>
+            {
+               factory.CreatePropertyEdge<SignatureElement, Int32, FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.MethodSignature, edgeID ) );
+            },
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<FunctionPointerTypeSignature>(
+               ( x, y, ctx ) => true,
+               SignatureEdgeMatchingFunctionality.NewFunctionalityForSimpleEdge<FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), sig => sig.MethodSignature )
+            ),
+            ( sig, ctx, cb ) => new FunctionPointerTypeSignature()
+            {
+               ExtraData = sig.ExtraData.CreateBlockCopy(),
+               MethodSignature = ctx.CloneSingle( sig.MethodSignature, cb )
+            }
+            );
+
+         // SimpleTypeSignature
+         yield return SignatureElementTypeInfo.NewInfo<SimpleTypeSignature>(
+            null,
+            null,
+            SignatureVertexMatchingFunctionality.NewFunctionality<SimpleTypeSignature>(
+               ( x, y, ctx ) => x.SimpleType == y.SimpleType
+            ),
+            ( sig, ctx, cb ) => sig
+            );
+
       }
 
    }
@@ -1077,7 +1104,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       public Func<TableIndex, TableIndex> TableIndexTransformer { get; }
    }
 
-   internal delegate TSignature CopySignatureDelegate<TSignature>( TSignature signature, CopyingContext context, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback );
+   public delegate TSignature CopySignatureDelegate<TSignature>( TSignature signature, CopyingContext context, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback );
 }
 
 public static partial class E_CILPhysical
@@ -1351,82 +1378,6 @@ public static partial class E_CILPhysical
       return retVal;
    }
 
-   //internal static void RegisterVisitor<TElement, TActualElement>( this TypeBasedVisitor<TElement> visitorAggregator, VisitElementDelegateTyped<TElement, TActualElement> visitor )
-   //   where TActualElement : TElement
-   //{
-   //   visitorAggregator.RegisterVisitor( typeof( TActualElement ), ( el, cb ) => visitor( (TActualElement) el, cb ) );
-   //}
-
-   //internal static void RegisterSignatureVisitor<TSignature>( this TypeBasedVisitor<SignatureElement> visitorAggregator, VisitElementDelegateTyped<SignatureElement, TSignature> visitor )
-   //   where TSignature : SignatureElement
-   //{
-   //   visitorAggregator.RegisterVisitor( visitor );
-   //}
-
-
-   internal static void RegisterSignatureDecomposer<TSignature>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<SignatureElement, DecomposeSignatureContext>, SignatureElement, Int32, DecomposeSignatureContext> acceptorAggregator, AcceptVertexDelegate<TSignature, DecomposeSignatureContext> acceptor )
-      where TSignature : SignatureElement
-   {
-      acceptorAggregator.RegisterVertexAcceptor( acceptor );
-   }
-
-   //internal static void RegisterSignatureMatcher<TSignature>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<SignatureElement, SignatureMatchingContext>, SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, EqualityWithContext<TSignature, SignatureMatchingContext> acceptor )
-   //   where TSignature : class, SignatureElement
-   //{
-   //   acceptorAggregator.RegisterVertexAcceptor( typeof( TSignature ), ( el, ctx ) =>
-   //   {
-   //      var fromCtx = ctx.GetCurrentElement();
-   //      TSignature fromCtxTyped;
-   //      return ReferenceEquals( el, fromCtx )
-   //      || ( el != null && ( fromCtxTyped = fromCtx as TSignature ) != null
-   //      && acceptor( (TSignature) el, fromCtxTyped, ctx ) );
-   //   } );
-   //}
-
-   //internal static void RegisterSignatureMatcherTransitionForSimple<TSignature>( this AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<SignatureElement, SignatureMatchingContext>, SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, String propertyName, Func<TSignature, SignatureElement> getter )
-   //{
-   //   acceptorAggregator.RegisterEdgeAcceptor(
-   //      typeof( TSignature ),
-   //      propertyName,
-   //      ( el, info, ctx ) =>
-   //      {
-   //         ctx.CurrentElementStack.Push( getter( (TSignature) ctx.GetCurrentElement() ) );
-   //         return true;
-   //      },
-   //      ( el, info, ctx ) =>
-   //      {
-   //         ctx.CurrentElementStack.Pop();
-   //         return true;
-   //      } );
-   //}
-
-   //internal static void RegisterSignatureMatcherTransitionForLists<TSignature, TListElement>( this AcceptorWithContext<SignatureElement, Int32, SignatureMatchingContext> acceptorAggregator, String propertyName, Func<TSignature, List<TListElement>> listGetter )
-   //   where TListElement : SignatureElement
-   //{
-   //   acceptorAggregator.RegisterEdgeAcceptor(
-   //      typeof( TSignature ),
-   //      propertyName,
-   //      ( el, info, ctx ) =>
-   //      {
-   //         var list = listGetter( (TSignature) ctx.GetCurrentElement() );
-   //         ctx.CurrentElementStack.Push( list[(Int32) info] );
-   //         return true;
-   //      },
-   //      ( el, info, ctx ) =>
-   //      {
-   //         ctx.CurrentElementStack.Pop();
-   //         return true;
-   //      } );
-   //}
-
-
-   //internal static void RegisterSignatureElementDecomposer<TElement>( this TypeBasedAcceptor<AbstractSignature, DecomposeSignatureContext> acceptorAggregator, AcceptElementDelegateWithContext<TElement, DefaultSignatureProvider.DecomposeSignatureContext> acceptor )
-   //   where TElement : SignatureElement
-   //{
-   //   acceptorAggregator.RegisterNonConformingAcceptor( typeof( TElement ), ( el, nc, ctx ) => acceptor( (TElement) el, nc, ctx ) );
-   //}
-
-
    internal static TSignature CloneSingle<TSignature>( this CopyingContext context, TSignature signature, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback )
       where TSignature : class, SignatureElement
    {
@@ -1458,12 +1409,6 @@ public static partial class E_CILPhysical
       {
          listToWrite.AddRange( listToRead );
       }
-   }
-
-   internal static VisitorVertexInfoFactory<SignatureElement, Int32> CreateSignatureVertexInfoFactory<TSignature>( this TypeBasedVisitor<SignatureElement, Int32> visitor )
-      where TSignature : SignatureElement
-   {
-      return visitor.CreateVertexInfoFactory( typeof( TSignature ) );
    }
 
 }

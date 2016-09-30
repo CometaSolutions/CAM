@@ -88,9 +88,9 @@ namespace CILAssemblyManipulator.Tests.UtilPack
 
       }
 
-      private TypeBasedVisitor<Object, Int32> CreateVisitor( out Int32 edgeID )
+      private AutomaticTypeBasedVisitor<Object, Int32> CreateVisitor( out Int32 edgeID )
       {
-         var visitor = new TypeBasedVisitor<Object, Int32>();
+         var visitor = new AutomaticTypeBasedVisitor<Object, Int32>();
          using ( var a = visitor.CreateVertexInfoFactory( typeof( A ) ) )
          {
          }

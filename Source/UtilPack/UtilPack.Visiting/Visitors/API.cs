@@ -61,7 +61,7 @@ namespace UtilPack.Visiting
    /// <param name="edgeInfo">The edge-specific info object (e.g. list index).</param>
    /// <param name="overrideType">If parameter is supplied, then this type is used to lookup the visitor functionality for given <paramref name="element"/>, instead of <see cref="Object.GetType"/>.</param>
    /// <returns><c>true</c> if should continue visiting; <c>false</c> otherwise.</returns>
-   /// <seealso cref="TypeBasedVisitor{TElement, TEdgeInfo}"/>
+   /// <seealso cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>
    public delegate Boolean VisitElementCallbackDelegate<in TElement, in TEdgeInfo>( TElement element, Int32 edgeID, TEdgeInfo edgeInfo, Type overrideType = null );
 
 
@@ -101,11 +101,11 @@ namespace UtilPack.Visiting
 
    public class VisitorVertexInfoFactory<TElement, TEdgeInfo> : AbstractDisposable
    {
-      private readonly TypeBasedVisitor<TElement, TEdgeInfo> _visitor;
+      private readonly AutomaticTypeBasedVisitor<TElement, TEdgeInfo> _visitor;
       private readonly List<VisitorEdgeInfo<TElement, TEdgeInfo>> _edges;
       private readonly Type _vertexType;
 
-      public VisitorVertexInfoFactory( TypeBasedVisitor<TElement, TEdgeInfo> visitor, Type vertexType )
+      public VisitorVertexInfoFactory( AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor, Type vertexType )
       {
          this._visitor = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
          this._vertexType = ArgumentValidator.ValidateNotNull( "Vertex type", vertexType );
@@ -129,7 +129,7 @@ namespace UtilPack.Visiting
       }
    }
 
-   public abstract class ExplicitTypeBasedVisitor<TElement>
+   public abstract class ManualTypeBasedVisitor<TElement>
    {
       internal ManualVisitorInformation<TElement> CreateExplicitVisitorInfo( ExplicitAcceptorInformation<TElement> acceptorInfo )
       {
@@ -303,12 +303,12 @@ namespace UtilPack.Visiting
       }
    }
 
-   public class TypeBasedVisitor<TElement, TEdgeInfo> : ExplicitTypeBasedVisitor<TElement>
+   public class AutomaticTypeBasedVisitor<TElement, TEdgeInfo> : ManualTypeBasedVisitor<TElement>
    {
 
       private Int32 _currentEdgeID;
 
-      public TypeBasedVisitor()
+      public AutomaticTypeBasedVisitor()
       {
          this._currentEdgeID = 0;
          this.VerticeInfos = new Dictionary<Type, VisitorVertexInfo<TElement, TEdgeInfo>>();
@@ -577,13 +577,13 @@ public static partial class E_UtilPack
       return factory.AddEdge( typeof( TBaseType ), null, id => ( sig, cb ) => cb.VisitBaseType( sig, typeof( TBaseType ) ) );
    }
 
-   public static Int32 GetEdgeIDOrNegative<TElement, TEdgeInfo>( this TypeBasedVisitor<TElement, TEdgeInfo> visitor, Type type, String name )
+   public static Int32 GetEdgeIDOrNegative<TElement, TEdgeInfo>( this AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor, Type type, String name )
    {
       Boolean success;
       return visitor.TryGetEdgeInfo( type, name, out success )?.ID ?? -1;
    }
 
-   public static Int32 GetEdgeIDOrThrow<TElement, TEdgeInfo>( this TypeBasedVisitor<TElement, TEdgeInfo> visitor, Type type, String name )
+   public static Int32 GetEdgeIDOrThrow<TElement, TEdgeInfo>( this AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor, Type type, String name )
    {
       var edgeID = visitor.GetEdgeIDOrNegative( type, name );
       if ( edgeID < 0 )
