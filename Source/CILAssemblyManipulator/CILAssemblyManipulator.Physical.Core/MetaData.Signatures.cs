@@ -1057,7 +1057,7 @@ namespace CILAssemblyManipulator.Physical
    /// <summary>
    /// This type encapsulates information that is related to <see cref="ComplexArrayTypeSignature"/>.
    /// </summary>
-   public sealed class ComplexArrayInfo // : IEquatable<ComplexArrayInfo>
+   public sealed class ComplexArrayInfo : IEquatable<ComplexArrayInfo>
    {
       /// <summary>
       /// Creates a new instance of <see cref="ComplexArrayInfo"/> with given initial capacities for <see cref="Sizes"/> and <see cref="LowerBounds"/> lists.
@@ -1103,27 +1103,27 @@ namespace CILAssemblyManipulator.Physical
       /// <value>The list of lower bounds of dimensions for this <see cref="ComplexArrayTypeSignature"/>.</value>
       public List<Int32> LowerBounds { get; }
 
-      ///// <inheritdoc/>
-      //public override Boolean Equals( Object obj )
-      //{
-      //   return this.Equals( obj as ComplexArrayInfo );
-      //}
+      /// <inheritdoc/>
+      public override Boolean Equals( Object obj )
+      {
+         return this.Equals( obj as ComplexArrayInfo );
+      }
 
-      ///// <inheritdoc/>
-      //public override Int32 GetHashCode()
-      //{
-      //   return ( ( 17 * 23 + this.Rank ) * 23 + ListEqualityComparer<List<Int32>, Int32>.GetHashCode( this.Sizes ) ) * 23;
-      //}
+      /// <inheritdoc/>
+      public override Int32 GetHashCode()
+      {
+         return ( ( 17 * 23 + this.Rank ) * 23 + ListEqualityComparer<List<Int32>, Int32>.GetHashCode( this.Sizes ) ) * 23;
+      }
 
-      ///// <inheritdoc/>
-      //public Boolean Equals( ComplexArrayInfo other )
-      //{
-      //   return ReferenceEquals(this, other)
-      //      || (other != null &&this.Rank == other.Rank
-      //      && ListEqualityComparer<List<Int32>, Int32>.ListEquality( this.Sizes, other.Sizes )
-      //      && ListEqualityComparer<List<Int32>, Int32>.ListEquality( this.LowerBounds, other.LowerBounds )
-      //      );
-      //}
+      /// <inheritdoc/>
+      public Boolean Equals( ComplexArrayInfo other )
+      {
+         return ReferenceEquals( this, other )
+            || ( other != null && this.Rank == other.Rank
+            && ListEqualityComparer<List<Int32>, Int32>.ListEquality( this.Sizes, other.Sizes )
+            && ListEqualityComparer<List<Int32>, Int32>.ListEquality( this.LowerBounds, other.LowerBounds )
+            );
+      }
    }
 
    /// <summary>

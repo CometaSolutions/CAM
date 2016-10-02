@@ -1582,12 +1582,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Boolean Equality_ComplexArrayInfo( ComplexArrayInfo x, ComplexArrayInfo y )
       {
-         return ReferenceEquals( x, y )
-            || ( x != null && y != null
-            && x.Rank == y.Rank
-            && ListEqualityComparer<List<Int32>, Int32>.ListEquality( x.Sizes, y.Sizes )
-            && ListEqualityComparer<List<Int32>, Int32>.ListEquality( x.LowerBounds, y.LowerBounds )
-            );
+         return x.EqualsTypedEquatable( y );
       }
 
       private static Boolean Equality_SimpleArrayTypeSignature_NoReferenceEquals( SimpleArrayTypeSignature x, SimpleArrayTypeSignature y )
@@ -2251,7 +2246,7 @@ namespace CILAssemblyManipulator.Physical
 
       private static Int32 HashCode_ComplexArrayInfo( ComplexArrayInfo x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.Rank ) * 23 + ListEqualityComparer<List<Int32>, Int32>.GetHashCode( x.Sizes ) );
+         return x?.GetHashCode() ?? 0;
       }
 
       private static Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeSignature x )

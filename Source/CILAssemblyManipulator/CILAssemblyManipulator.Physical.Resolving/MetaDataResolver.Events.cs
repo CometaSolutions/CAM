@@ -184,7 +184,7 @@ namespace CILAssemblyManipulator.Physical.Resolving
       /// <remarks>
       /// The following properites are checked when matching data content:
       /// <list type="bullet">
-      /// <item><description><see cref="AssemblyInformation"/> (using <see cref="Comparers.AssemblyInformationEqualityComparer"/>), and</description></item>
+      /// <item><description><see cref="AssemblyInformation"/> (using <see cref="AssemblyInformation.Equals(AssemblyInformation)"/>), and</description></item>
       /// <item><description><see cref="IsFullPublicKey"/>.</description></item>
       /// </list>
       /// </remarks>
@@ -193,7 +193,7 @@ namespace CILAssemblyManipulator.Physical.Resolving
          return ReferenceEquals( this, other ) ||
             ( other != null
             && this.IsFullPublicKey == other.IsFullPublicKey
-            && Comparers.AssemblyInformationEqualityComparer.Equals( this.AssemblyInformation, other.AssemblyInformation )
+            && this.AssemblyInformation.EqualsTypedEquatable( other.AssemblyInformation )
             );
       }
    }

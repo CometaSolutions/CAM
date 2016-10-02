@@ -714,7 +714,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             },
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<ComplexArrayTypeSignature>(
-               ( x, y, ctx ) => Comparers.ComplexArrayInfoEqualityComparer.Equals( x.ComplexArrayInfo, y.ComplexArrayInfo )
+               ( x, y, ctx ) => x.ComplexArrayInfo.EqualsTypedEquatable( y.ComplexArrayInfo )
             ),
             ( sig, ctx, cb ) => new ComplexArrayTypeSignature()
             {
