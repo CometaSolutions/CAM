@@ -52,56 +52,61 @@ namespace CILAssemblyManipulator.Physical
          Int32[] sizes,
          out MetaDataTableInformation[] infos
          )
-         : base( tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.CreateDefault(), CILMetaDataTableInformationProviderFactory.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
+         : base( tableInfoProvider = tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.CreateDefault(), CILMetaDataTableInformationProviderFactory.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
       {
          this._extensionProvider = new DefaultSelfDescribingExtensionByCompositionProvider<Object>();
 
+         Func<MetaDataTableInformationProvider> defaultProviderCreator = () => CILMetaDataTableInformationProviderFactory.CreateDefault(
+            tableInfoProvider.GetFunctionality<SignatureProvider>(),
+            tableInfoProvider.GetFunctionality<CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider>()
+            );
+
          MetaDataTableInformation[] defaultTableInfos = null;
-         this.ModuleDefinitions = CreateFixedMDTable<ModuleDefinition>( Tables.Module, sizes, infos, ref defaultTableInfos );
-         this.TypeReferences = CreateFixedMDTable<TypeReference>( Tables.TypeRef, sizes, infos, ref defaultTableInfos );
-         this.TypeDefinitions = CreateFixedMDTable<TypeDefinition>( Tables.TypeDef, sizes, infos, ref defaultTableInfos );
-         this.FieldDefinitionPointers = CreateFixedMDTable<FieldDefinitionPointer>( Tables.FieldPtr, sizes, infos, ref defaultTableInfos );
-         this.FieldDefinitions = CreateFixedMDTable<FieldDefinition>( Tables.Field, sizes, infos, ref defaultTableInfos );
-         this.MethodDefinitionPointers = CreateFixedMDTable<MethodDefinitionPointer>( Tables.MethodPtr, sizes, infos, ref defaultTableInfos );
-         this.MethodDefinitions = CreateFixedMDTable<MethodDefinition>( Tables.MethodDef, sizes, infos, ref defaultTableInfos );
-         this.ParameterDefinitionPointers = CreateFixedMDTable<ParameterDefinitionPointer>( Tables.ParameterPtr, sizes, infos, ref defaultTableInfos );
-         this.ParameterDefinitions = CreateFixedMDTable<ParameterDefinition>( Tables.Parameter, sizes, infos, ref defaultTableInfos );
-         this.InterfaceImplementations = CreateFixedMDTable<InterfaceImplementation>( Tables.InterfaceImpl, sizes, infos, ref defaultTableInfos );
-         this.MemberReferences = CreateFixedMDTable<MemberReference>( Tables.MemberRef, sizes, infos, ref defaultTableInfos );
-         this.ConstantDefinitions = CreateFixedMDTable<ConstantDefinition>( Tables.Constant, sizes, infos, ref defaultTableInfos );
-         this.CustomAttributeDefinitions = CreateFixedMDTable<CustomAttributeDefinition>( Tables.CustomAttribute, sizes, infos, ref defaultTableInfos );
-         this.FieldMarshals = CreateFixedMDTable<FieldMarshal>( Tables.FieldMarshal, sizes, infos, ref defaultTableInfos );
-         this.SecurityDefinitions = CreateFixedMDTable<SecurityDefinition>( Tables.DeclSecurity, sizes, infos, ref defaultTableInfos );
-         this.ClassLayouts = CreateFixedMDTable<ClassLayout>( Tables.ClassLayout, sizes, infos, ref defaultTableInfos );
-         this.FieldLayouts = CreateFixedMDTable<FieldLayout>( Tables.FieldLayout, sizes, infos, ref defaultTableInfos );
-         this.StandaloneSignatures = CreateFixedMDTable<StandaloneSignature>( Tables.StandaloneSignature, sizes, infos, ref defaultTableInfos );
-         this.EventMaps = CreateFixedMDTable<EventMap>( Tables.EventMap, sizes, infos, ref defaultTableInfos );
-         this.EventDefinitionPointers = CreateFixedMDTable<EventDefinitionPointer>( Tables.EventPtr, sizes, infos, ref defaultTableInfos );
-         this.EventDefinitions = CreateFixedMDTable<EventDefinition>( Tables.Event, sizes, infos, ref defaultTableInfos );
-         this.PropertyMaps = CreateFixedMDTable<PropertyMap>( Tables.PropertyMap, sizes, infos, ref defaultTableInfos );
-         this.PropertyDefinitionPointers = CreateFixedMDTable<PropertyDefinitionPointer>( Tables.PropertyPtr, sizes, infos, ref defaultTableInfos );
-         this.PropertyDefinitions = CreateFixedMDTable<PropertyDefinition>( Tables.Property, sizes, infos, ref defaultTableInfos );
-         this.MethodSemantics = CreateFixedMDTable<MethodSemantics>( Tables.MethodSemantics, sizes, infos, ref defaultTableInfos );
-         this.MethodImplementations = CreateFixedMDTable<MethodImplementation>( Tables.MethodImpl, sizes, infos, ref defaultTableInfos );
-         this.ModuleReferences = CreateFixedMDTable<ModuleReference>( Tables.ModuleRef, sizes, infos, ref defaultTableInfos );
-         this.TypeSpecifications = CreateFixedMDTable<TypeSpecification>( Tables.TypeSpec, sizes, infos, ref defaultTableInfos );
-         this.MethodImplementationMaps = CreateFixedMDTable<MethodImplementationMap>( Tables.ImplMap, sizes, infos, ref defaultTableInfos );
-         this.FieldRVAs = CreateFixedMDTable<FieldRVA>( Tables.FieldRVA, sizes, infos, ref defaultTableInfos );
-         this.EditAndContinueLog = CreateFixedMDTable<EditAndContinueLog>( Tables.EncLog, sizes, infos, ref defaultTableInfos );
-         this.EditAndContinueMap = CreateFixedMDTable<EditAndContinueMap>( Tables.EncMap, sizes, infos, ref defaultTableInfos );
-         this.AssemblyDefinitions = CreateFixedMDTable<AssemblyDefinition>( Tables.Assembly, sizes, infos, ref defaultTableInfos );
-         this.AssemblyDefinitionProcessors = CreateFixedMDTable<AssemblyDefinitionProcessor>( Tables.AssemblyProcessor, sizes, infos, ref defaultTableInfos );
-         this.AssemblyDefinitionOSs = CreateFixedMDTable<AssemblyDefinitionOS>( Tables.AssemblyOS, sizes, infos, ref defaultTableInfos );
-         this.AssemblyReferences = CreateFixedMDTable<AssemblyReference>( Tables.AssemblyRef, sizes, infos, ref defaultTableInfos );
-         this.AssemblyReferenceProcessors = CreateFixedMDTable<AssemblyReferenceProcessor>( Tables.AssemblyRefProcessor, sizes, infos, ref defaultTableInfos );
-         this.AssemblyReferenceOSs = CreateFixedMDTable<AssemblyReferenceOS>( Tables.AssemblyRefOS, sizes, infos, ref defaultTableInfos );
-         this.FileReferences = CreateFixedMDTable<FileReference>( Tables.File, sizes, infos, ref defaultTableInfos );
-         this.ExportedTypes = CreateFixedMDTable<ExportedType>( Tables.ExportedType, sizes, infos, ref defaultTableInfos );
-         this.ManifestResources = CreateFixedMDTable<ManifestResource>( Tables.ManifestResource, sizes, infos, ref defaultTableInfos );
-         this.NestedClassDefinitions = CreateFixedMDTable<NestedClassDefinition>( Tables.NestedClass, sizes, infos, ref defaultTableInfos );
-         this.GenericParameterDefinitions = CreateFixedMDTable<GenericParameterDefinition>( Tables.GenericParameter, sizes, infos, ref defaultTableInfos );
-         this.MethodSpecifications = CreateFixedMDTable<MethodSpecification>( Tables.MethodSpec, sizes, infos, ref defaultTableInfos );
-         this.GenericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos );
+         this.ModuleDefinitions = CreateFixedMDTable<ModuleDefinition>( (Int32) Tables.Module, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.TypeReferences = CreateFixedMDTable<TypeReference>( (Int32) Tables.TypeRef, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.TypeDefinitions = CreateFixedMDTable<TypeDefinition>( (Int32) Tables.TypeDef, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.FieldDefinitionPointers = CreateFixedMDTable<FieldDefinitionPointer>( (Int32) Tables.FieldPtr, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.FieldDefinitions = CreateFixedMDTable<FieldDefinition>( (Int32) Tables.Field, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.MethodDefinitionPointers = CreateFixedMDTable<MethodDefinitionPointer>( (Int32) Tables.MethodPtr, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.MethodDefinitions = CreateFixedMDTable<MethodDefinition>( (Int32) Tables.MethodDef, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.ParameterDefinitionPointers = CreateFixedMDTable<ParameterDefinitionPointer>( (Int32) Tables.ParameterPtr, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.ParameterDefinitions = CreateFixedMDTable<ParameterDefinition>( (Int32) Tables.Parameter, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.InterfaceImplementations = CreateFixedMDTable<InterfaceImplementation>( (Int32) Tables.InterfaceImpl, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.MemberReferences = CreateFixedMDTable<MemberReference>( (Int32) Tables.MemberRef, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.ConstantDefinitions = CreateFixedMDTable<ConstantDefinition>( (Int32) Tables.Constant, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.CustomAttributeDefinitions = CreateFixedMDTable<CustomAttributeDefinition>( (Int32) Tables.CustomAttribute, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.FieldMarshals = CreateFixedMDTable<FieldMarshal>( (Int32) Tables.FieldMarshal, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.SecurityDefinitions = CreateFixedMDTable<SecurityDefinition>( (Int32) Tables.DeclSecurity, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.ClassLayouts = CreateFixedMDTable<ClassLayout>( (Int32) Tables.ClassLayout, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.FieldLayouts = CreateFixedMDTable<FieldLayout>( (Int32) Tables.FieldLayout, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.StandaloneSignatures = CreateFixedMDTable<StandaloneSignature>( (Int32) Tables.StandaloneSignature, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.EventMaps = CreateFixedMDTable<EventMap>( (Int32) Tables.EventMap, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.EventDefinitionPointers = CreateFixedMDTable<EventDefinitionPointer>( (Int32) Tables.EventPtr, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.EventDefinitions = CreateFixedMDTable<EventDefinition>( (Int32) Tables.Event, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.PropertyMaps = CreateFixedMDTable<PropertyMap>( (Int32) Tables.PropertyMap, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.PropertyDefinitionPointers = CreateFixedMDTable<PropertyDefinitionPointer>( (Int32) Tables.PropertyPtr, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.PropertyDefinitions = CreateFixedMDTable<PropertyDefinition>( (Int32) Tables.Property, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.MethodSemantics = CreateFixedMDTable<MethodSemantics>( (Int32) Tables.MethodSemantics, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.MethodImplementations = CreateFixedMDTable<MethodImplementation>( (Int32) Tables.MethodImpl, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.ModuleReferences = CreateFixedMDTable<ModuleReference>( (Int32) Tables.ModuleRef, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.TypeSpecifications = CreateFixedMDTable<TypeSpecification>( (Int32) Tables.TypeSpec, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.MethodImplementationMaps = CreateFixedMDTable<MethodImplementationMap>( (Int32) Tables.ImplMap, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.FieldRVAs = CreateFixedMDTable<FieldRVA>( (Int32) Tables.FieldRVA, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.EditAndContinueLog = CreateFixedMDTable<EditAndContinueLog>( (Int32) Tables.EncLog, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.EditAndContinueMap = CreateFixedMDTable<EditAndContinueMap>( (Int32) Tables.EncMap, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.AssemblyDefinitions = CreateFixedMDTable<AssemblyDefinition>( (Int32) Tables.Assembly, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.AssemblyDefinitionProcessors = CreateFixedMDTable<AssemblyDefinitionProcessor>( (Int32) Tables.AssemblyProcessor, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.AssemblyDefinitionOSs = CreateFixedMDTable<AssemblyDefinitionOS>( (Int32) Tables.AssemblyOS, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.AssemblyReferences = CreateFixedMDTable<AssemblyReference>( (Int32) Tables.AssemblyRef, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.AssemblyReferenceProcessors = CreateFixedMDTable<AssemblyReferenceProcessor>( (Int32) Tables.AssemblyRefProcessor, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.AssemblyReferenceOSs = CreateFixedMDTable<AssemblyReferenceOS>( (Int32) Tables.AssemblyRefOS, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.FileReferences = CreateFixedMDTable<FileReference>( (Int32) Tables.File, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.ExportedTypes = CreateFixedMDTable<ExportedType>( (Int32) Tables.ExportedType, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.ManifestResources = CreateFixedMDTable<ManifestResource>( (Int32) Tables.ManifestResource, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.NestedClassDefinitions = CreateFixedMDTable<NestedClassDefinition>( (Int32) Tables.NestedClass, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.GenericParameterDefinitions = CreateFixedMDTable<GenericParameterDefinition>( (Int32) Tables.GenericParameter, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.MethodSpecifications = CreateFixedMDTable<MethodSpecification>( (Int32) Tables.MethodSpec, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
+         this.GenericParameterConstraintDefinitions = CreateFixedMDTable<GenericParameterConstraintDefinition>( (Int32) Tables.GenericParameterConstraint, sizes, infos, ref defaultTableInfos, defaultProviderCreator );
 
          this.RegisterFunctionalityDirect( tableInfoProvider?.CreateOpCodeProvider() ?? DefaultOpCodeProvider.DefaultInstance );
          this.RegisterFunctionalityDirect( tableInfoProvider?.CreateSignatureProvider() ?? DefaultSignatureProvider.DefaultInstance );
@@ -415,24 +420,6 @@ namespace CILAssemblyManipulator.Physical
          yield return this.MethodSpecifications;
          yield return this.GenericParameterConstraintDefinitions;
       }
-
-      private static MetaDataTable<TRow> CreateFixedMDTable<TRow>(
-         Tables table,
-         Int32[] sizes,
-         MetaDataTableInformation[] infos,
-         ref MetaDataTableInformation[] defaultInfos
-         )
-         where TRow : class
-      {
-         return CreateFixedMDTable<TRow>(
-            (Int32) table,
-            sizes,
-            infos,
-            ref defaultInfos,
-            CILMetaDataTableInformationProviderFactory.CreateDefault
-            );
-      }
-
 
    }
 

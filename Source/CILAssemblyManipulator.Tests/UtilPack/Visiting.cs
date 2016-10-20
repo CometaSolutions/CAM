@@ -44,7 +44,7 @@ namespace CILAssemblyManipulator.Tests.UtilPack
       {
          Int32 edgeID;
          var visitor = this.CreateVisitor( out edgeID );
-         var acceptorSetup = AcceptorFactory.NewEqualityComparisonAcceptor( visitor, TopMostTypeVisitingStrategy.Never );
+         var acceptorSetup = AcceptorFactory.NewEqualityComparisonAcceptor( visitor );
          acceptorSetup.RegisterEqualityAcceptor( ( A x, A y ) => String.Equals( x.StringValue, y.StringValue ) );
          acceptorSetup.RegisterEqualityAcceptor( ( B x, B y ) => x.Int32Value == y.Int32Value );
          acceptorSetup.RegisterEqualityComparisonTransition_Simple( edgeID, ( B el ) => el.A );

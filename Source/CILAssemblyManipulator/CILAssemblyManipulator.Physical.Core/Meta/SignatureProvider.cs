@@ -28,6 +28,8 @@ using TabularMetaData.Meta;
 using UtilPack.Extension;
 using UtilPack.Visiting;
 
+using TSignatureEqualityAcceptor = UtilPack.Visiting.AutomaticTransitionAcceptor_WithContext<UtilPack.Visiting.AcceptorWithContext<CILAssemblyManipulator.Physical.SignatureElement, CILAssemblyManipulator.Physical.SignatureElement>, CILAssemblyManipulator.Physical.SignatureElement, System.Int32, UtilPack.Visiting.ObjectGraphEqualityContext<CILAssemblyManipulator.Physical.SignatureElement>>;
+
 namespace CILAssemblyManipulator.Physical.Meta
 {
    /// <summary>
@@ -152,7 +154,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <exception cref="ArgumentException">If <paramref name="signatureElementType"/> is generic type, or not subtype of <see cref="SignatureElement"/>.</exception>
          public SignatureElementTypeInfo(
             Type signatureElementType,
-            Action<VisitorVertexInfoFactory<SignatureElement, Int32>> registerEdgesForVisitor,
+            Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptor> registerEdgesForVisitor,
             AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext> tableIndexCollectionFunctionality,
             SignatureVertexMatchingFunctionality matchingFunctionality,
             AcceptVertexExplicitDelegate<SignatureElement, CopyingContext> cloningFunctionality
@@ -184,7 +186,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// Gets the callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>.
          /// </summary>
          /// <value>The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>.</value>
-         public Action<VisitorVertexInfoFactory<SignatureElement, Int32>> RegisterEdgesForVisitor { get; }
+         public Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptor> RegisterEdgesForVisitor { get; }
 
          /// <summary>
          /// Gets the callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method.
@@ -214,7 +216,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
          /// <returns>A new instance of <see cref="SignatureElementTypeInfo"/> with given parameters.</returns>
          public static SignatureElementTypeInfo NewInfo<TSignature>(
-            Action<VisitorVertexInfoFactory<SignatureElement, Int32>> registerEdgesForVisitor,
+            Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptor> registerEdgesForVisitor,
             AcceptVertexDelegate<TSignature, TableIndexCollectorContext> tableIndexCollectionFunctionality,
             SignatureVertexMatchingFunctionality matchingFunctionality,
             CopySignatureDelegate<TSignature> cloningFunctionality
@@ -279,6 +281,9 @@ namespace CILAssemblyManipulator.Physical.Meta
          var tableIndexCollector = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, TableIndexCollectorContext>( visitor, TopMostTypeVisitingStrategy.Never, true );
          var matcher = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, SignatureMatchingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
          var cloner = AcceptorFactory.NewManualAcceptor_WithContext<SignatureElement, CopyingContext>( visitor );
+         var equality = AcceptorFactory.NewEqualityComparisonAcceptor( visitor );
+         var hashCode = AcceptorFactory.NewHashCodeComputationAcceptor( visitor );
+
 
          // Walk type infos
          foreach ( var typeInfo in signatureElementTypes ?? GetDefaultSignatureElementTypeInfos() )
@@ -287,7 +292,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             // Edges
             using ( var factory = visitor.CreateVertexInfoFactory( sigType ) )
             {
-               typeInfo.RegisterEdgesForVisitor?.Invoke( factory );
+               typeInfo.RegisterEdgesForVisitor?.Invoke( factory, equality );
             }
 
             // Table index collector
@@ -461,10 +466,16 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // ParameterOrLocalSignature
          yield return SignatureElementTypeInfo.NewInfo<ParameterOrLocalSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
-               factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
-               factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, edgeID ) );
+               equality.RegisterEqualityComparisonTransition_List(
+                  factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) ).ID,
+                  ( ParameterOrLocalSignature sig ) => sig.CustomModifiers
+                  );
+               equality.RegisterEqualityComparisonTransition_Simple(
+                  factory.CreatePropertyEdge<SignatureElement, Int32, ParameterOrLocalSignature>( nameof( ParameterOrLocalSignature.Type ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, edgeID ) ).ID,
+                  ( ParameterOrLocalSignature sig ) => sig.Type
+                  );
             },
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<ParameterOrLocalSignature>(
@@ -477,7 +488,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // ParameterSignature
          yield return SignatureElementTypeInfo.NewInfo<ParameterSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreateBaseTypeEdge<SignatureElement, Int32, ParameterSignature, ParameterOrLocalSignature>();
             },
@@ -499,7 +510,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // LocalSignature
          yield return SignatureElementTypeInfo.NewInfo<LocalSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreateBaseTypeEdge<SignatureElement, Int32, LocalSignature, ParameterOrLocalSignature>();
             },
@@ -522,7 +533,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // FieldSignature
          yield return SignatureElementTypeInfo.NewInfo<FieldSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, FieldSignature>( nameof( FieldSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
                factory.CreatePropertyEdge<SignatureElement, Int32, FieldSignature>( nameof( FieldSignature.Type ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.Type, edgeID ) );
@@ -547,7 +558,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // AbstractMethodSignature
          yield return SignatureElementTypeInfo.NewInfo<AbstractMethodSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, AbstractMethodSignature>( nameof( AbstractMethodSignature.ReturnType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.ReturnType, edgeID ) );
                factory.CreatePropertyEdge<SignatureElement, Int32, AbstractMethodSignature>( nameof( AbstractMethodSignature.Parameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Parameters ) );
@@ -563,7 +574,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // MethodDefinitionSignature
          yield return SignatureElementTypeInfo.NewInfo<MethodDefinitionSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreateBaseTypeEdge<SignatureElement, Int32, MethodDefinitionSignature, AbstractMethodSignature>();
             },
@@ -585,7 +596,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // MethodReferenceSignature
          yield return SignatureElementTypeInfo.NewInfo<MethodReferenceSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreateBaseTypeEdge<SignatureElement, Int32, MethodDefinitionSignature, AbstractMethodSignature>();
                factory.CreatePropertyEdge<SignatureElement, Int32, MethodReferenceSignature>( nameof( MethodReferenceSignature.VarArgsParameters ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.VarArgsParameters ) );
@@ -609,7 +620,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // PropertySignature
          yield return SignatureElementTypeInfo.NewInfo<PropertySignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
                factory.CreatePropertyEdge<SignatureElement, Int32, PropertySignature>( nameof( PropertySignature.PropertyType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.PropertyType, edgeID ) );
@@ -637,7 +648,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // LocalVariablesSignature
          yield return SignatureElementTypeInfo.NewInfo<LocalVariablesSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, LocalVariablesSignature>( nameof( LocalVariablesSignature.Locals ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.Locals ) );
             },
@@ -659,7 +670,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // GenericMethodSignature
          yield return SignatureElementTypeInfo.NewInfo<GenericMethodSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, GenericMethodSignature>( nameof( GenericMethodSignature.GenericArguments ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.GenericArguments ) );
             },
@@ -694,7 +705,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // AbstractArrayTypeSignature
          yield return SignatureElementTypeInfo.NewInfo<AbstractArrayTypeSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, AbstractArrayTypeSignature>( nameof( AbstractArrayTypeSignature.ArrayType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.ArrayType, edgeID ) );
             },
@@ -708,7 +719,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // ComplexArrayTypeSignature
          yield return SignatureElementTypeInfo.NewInfo<ComplexArrayTypeSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreateBaseTypeEdge<SignatureElement, Int32, ComplexArrayTypeSignature, AbstractArrayTypeSignature>();
             },
@@ -726,7 +737,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // SimpleArrayTypeSignature
          yield return SignatureElementTypeInfo.NewInfo<SimpleArrayTypeSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, SimpleArrayTypeSignature>( nameof( SimpleArrayTypeSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
                factory.CreateBaseTypeEdge<SignatureElement, Int32, SimpleArrayTypeSignature, AbstractArrayTypeSignature>();
@@ -750,7 +761,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // ClassOrValueTypeSignature
          yield return SignatureElementTypeInfo.NewInfo<ClassOrValueTypeSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, ClassOrValueTypeSignature>( nameof( ClassOrValueTypeSignature.GenericArguments ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.GenericArguments ) );
             },
@@ -789,7 +800,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // PointerTypeSignature
          yield return SignatureElementTypeInfo.NewInfo<PointerTypeSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, PointerTypeSignature>( nameof( PointerTypeSignature.CustomModifiers ), edgeID => ( sig, cb ) => cb.VisitListEdge( edgeID, sig.CustomModifiers ) );
                factory.CreatePropertyEdge<SignatureElement, Int32, PointerTypeSignature>( nameof( PointerTypeSignature.PointerType ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.PointerType, edgeID ) );
@@ -813,7 +824,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          // FunctionPointerTypeSignature
          yield return SignatureElementTypeInfo.NewInfo<FunctionPointerTypeSignature>(
-            factory =>
+            ( factory, equality ) =>
             {
                factory.CreatePropertyEdge<SignatureElement, Int32, FunctionPointerTypeSignature>( nameof( FunctionPointerTypeSignature.MethodSignature ), edgeID => ( sig, cb ) => cb.VisitSimpleEdge( sig.MethodSignature, edgeID ) );
             },
