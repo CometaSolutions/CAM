@@ -49,6 +49,17 @@ namespace CILAssemblyManipulator.Physical.Meta
    {
       internal const Int32 AMOUNT_OF_FIXED_TABLES = 0x2D;
 
+      /// <summary>
+      /// Gets the default <see cref="MetaDataTableInformationProvider"/> suitable to understand CIL 2.0 metadata files.
+      /// </summary>
+      /// <value>The default <see cref="MetaDataTableInformationProvider"/> suitable to understand CIL 2.0 metadata files.</value>
+      public static MetaDataTableInformationProvider DefaultInstance { get; }
+
+      static CILMetaDataTableInformationProviderFactory()
+      {
+         DefaultInstance = CreateInstance( null, null, CreateFixedTableInformations() );
+      }
+
 
       private static MetaDataTableInformationProviderWithArray CreateInstance(
          SignatureProvider sigProvider,
@@ -88,19 +99,19 @@ namespace CILAssemblyManipulator.Physical.Meta
          }
       }
 
-      /// <summary>
-      /// This helper method creates the default instance of <see cref="MetaDataTableInformationProvider"/>.
-      /// </summary>
-      /// <param name="sigProvider">The optional <see cref="SignatureProvider"/> to use. If not supplied (is <c>null</c>), then <see cref="DefaultSignatureProvider.DefaultInstance"/> will be used.</param>
-      /// <param name="opCodeProvider">The optional <see cref="CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/> to use. If not supplied (is <c>null</c>), then <see cref="DefaultOpCodeProvider.DefaultInstance"/> will be used.</param>
-      /// <returns>The new instance of <see cref="MetaDataTableInformationProvider"/>.</returns>
-      public static MetaDataTableInformationProvider CreateDefault(
-         SignatureProvider sigProvider = null,
-         CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider = null
-         )
-      {
-         return CreateInstance( sigProvider, opCodeProvider, CreateFixedTableInformations( sigProvider, opCodeProvider ) );
-      }
+      ///// <summary>
+      ///// This helper method creates the default instance of <see cref="MetaDataTableInformationProvider"/>.
+      ///// </summary>
+      ///// <param name="sigProvider">The optional <see cref="SignatureProvider"/> to use. If not supplied (is <c>null</c>), then <see cref="DefaultSignatureProvider.DefaultInstance"/> will be used.</param>
+      ///// <param name="opCodeProvider">The optional <see cref="CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider"/> to use. If not supplied (is <c>null</c>), then <see cref="DefaultOpCodeProvider.DefaultInstance"/> will be used.</param>
+      ///// <returns>The new instance of <see cref="MetaDataTableInformationProvider"/>.</returns>
+      //public static MetaDataTableInformationProvider CreateDefault(
+      //   SignatureProvider sigProvider = null,
+      //   CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider = null
+      //   )
+      //{
+      //   return CreateInstance( sigProvider, opCodeProvider, CreateFixedTableInformations( sigProvider, opCodeProvider ) );
+      //}
 
       /// <summary>
       /// This helper method creates the default instance of <see cref="MetaDataTableInformationProvider"/> with given <see cref="MetaDataTableInformation"/> objects for any additional tables.
@@ -247,15 +258,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider = null
          )
       {
-         if ( sigProvider == null )
-         {
-            sigProvider = DefaultSignatureProvider.DefaultInstance;
-         }
-         if ( opCodeProvider == null )
-         {
-            opCodeProvider = DefaultOpCodeProvider.DefaultInstance;
-         }
-
+         CheckProviders( ref sigProvider, ref opCodeProvider );
 
          yield return CreateSingleTableInfo<ModuleDefinition, RawModuleDefinition>(
             Tables.Module,

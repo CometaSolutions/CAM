@@ -93,14 +93,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       /// Creates a new instance of <see cref="DefaultReaderFunctionality"/> with given <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> and optional <see cref="MetaDataTableInformationProvider"/>.
       /// </summary>
       /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/> for table stream.</param>
-      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/>. If not supplied, the result of <see cref="CILMetaDataTableInformationProviderFactory.CreateDefault"/> will be used.</param>
+      /// <param name="tableInfoProvider">The optional <see cref="MetaDataTableInformationProvider"/>. If not supplied, the result of <see cref="CILMetaDataTableInformationProviderFactory.DefaultInstance"/> will be used.</param>
       public DefaultReaderFunctionality(
          TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
          MetaDataTableInformationProvider tableInfoProvider = null
          )
       {
          this.SerializationCreationArgs = serializationCreationArgs;
-         this.TableInfoProvider = tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.CreateDefault();
+         this.TableInfoProvider = tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.DefaultInstance;
       }
 
       /// <inheritdoc />

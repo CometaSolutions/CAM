@@ -52,14 +52,11 @@ namespace CILAssemblyManipulator.Physical
          Int32[] sizes,
          out MetaDataTableInformation[] infos
          )
-         : base( tableInfoProvider = tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.CreateDefault(), CILMetaDataTableInformationProviderFactory.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
+         : base( tableInfoProvider = tableInfoProvider ?? CILMetaDataTableInformationProviderFactory.DefaultInstance, CILMetaDataTableInformationProviderFactory.AMOUNT_OF_FIXED_TABLES, sizes, out infos )
       {
          this._extensionProvider = new DefaultSelfDescribingExtensionByCompositionProvider<Object>();
 
-         Func<MetaDataTableInformationProvider> defaultProviderCreator = () => CILMetaDataTableInformationProviderFactory.CreateDefault(
-            tableInfoProvider.GetFunctionality<SignatureProvider>(),
-            tableInfoProvider.GetFunctionality<CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider>()
-            );
+         Func<MetaDataTableInformationProvider> defaultProviderCreator = () => CILMetaDataTableInformationProviderFactory.DefaultInstance;
 
          MetaDataTableInformation[] defaultTableInfos = null;
          this.ModuleDefinitions = CreateFixedMDTable<ModuleDefinition>( (Int32) Tables.Module, sizes, infos, ref defaultTableInfos, defaultProviderCreator );

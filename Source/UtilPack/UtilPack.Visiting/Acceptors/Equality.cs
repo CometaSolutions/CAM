@@ -133,10 +133,25 @@ public static partial class E_UtilPack
          ( el, ctx ) =>
          {
             var fromCtx = ctx.GetCurrentElement();
+            AcceptVertexResult retVal;
             TActualElement fromCtxTyped;
-            return ReferenceEquals( el, fromCtx )
-            || ( el != null && ( fromCtxTyped = fromCtx as TActualElement ) != null
-            && equality( (TActualElement) el, fromCtxTyped ) );
+            if ( ReferenceEquals( el, fromCtx ) )
+            {
+               // No need to visit sub-elements if reference equals
+               retVal = AcceptVertexResult.ContinueVisitingButSkipEdges;
+            }
+            else if ( ( el != null && ( fromCtxTyped = fromCtx as TActualElement ) != null
+               && equality( (TActualElement) el, fromCtxTyped ) ) )
+            {
+               // Non-deep by-value equality comparison ok, continue on edges (nested elements)
+               retVal = AcceptVertexResult.ContinueVisitingNormally;
+            }
+            else
+            {
+               // Not same reference and not equal by-value equality, stop visiting altogether
+               retVal = AcceptVertexResult.StopVisiting;
+            }
+            return retVal;
          }
          );
    }
@@ -162,7 +177,7 @@ public static partial class E_UtilPack
          ( el, info, ctx ) =>
          {
             ctx.CurrentElementStack.Push( getter( (TActualElement) ctx.GetCurrentElement() ) );
-            return true;
+            return AcceptEdgeResult.ContinueVisiting;
          },
          EdgeExit
          );
@@ -190,7 +205,7 @@ public static partial class E_UtilPack
          ( el, info, ctx ) =>
          {
             ctx.CurrentElementStack.Push( getter( (TSourceElement) ctx.GetCurrentElement() )[info] );
-            return true;
+            return AcceptEdgeResult.ContinueVisiting;
          },
          EdgeExit
          );
@@ -216,7 +231,7 @@ public static partial class E_UtilPack
          ( el, info, ctx ) =>
          {
             ctx.CurrentElementStack.Push( getter( (TActualElement) ctx.GetCurrentElement() )[info] );
-            return true;
+            return AcceptEdgeResult.ContinueVisiting;
          },
          EdgeExit
          );
@@ -324,11 +339,11 @@ public static partial class E_UtilPack
    //   }
    //}
 
-   private static Boolean EdgeExit<TElement, TEdgeInfo, TContext>( TElement element, TEdgeInfo info, TContext context )
+   private static AcceptEdgeResult EdgeExit<TElement, TEdgeInfo, TContext>( TElement element, TEdgeInfo info, TContext context )
       where TElement : class
       where TContext : ObjectGraphEqualityContext<TElement>
    {
       context.CurrentElementStack.Pop();
-      return true;
+      return AcceptEdgeResult.ContinueVisiting;
    }
 }

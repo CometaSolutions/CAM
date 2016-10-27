@@ -111,9 +111,9 @@ namespace UtilPack.Visiting
 
    // Delegate types
 
-   public delegate Boolean AcceptVertexDelegate<in TElement>( TElement element );
+   public delegate AcceptVertexResult AcceptVertexDelegate<in TElement>( TElement element );
 
-   public delegate Boolean AcceptEdgeDelegate<in TElement, in TEdgeInfo>( TElement element, TEdgeInfo edgeInfo );
+   public delegate AcceptEdgeResult AcceptEdgeDelegate<in TElement, in TEdgeInfo>( TElement element, TEdgeInfo edgeInfo );
 
    /// <summary>
    /// This is delegate that captures signature to 'accept', or visit, a single element in visitor pattern.
@@ -129,7 +129,21 @@ namespace UtilPack.Visiting
    /// The <see cref="AcceptVertexDelegate{TElement, TContext}"/> should only capture the functionality that is done for element.
    /// In other words, <see cref="VisitElementDelegate{TElement, TEdgeInfo}"/> captures how the hierarchical structure is explored, and <see cref="AcceptVertexDelegate{TElement, TContext}"/> captures what is done for nodes of hierarchical structure.
    /// </remarks>
-   public delegate Boolean AcceptVertexDelegate<in TElement, in TContext>( TElement element, TContext context );
+   public delegate AcceptVertexResult AcceptVertexDelegate<in TElement, in TContext>( TElement element, TContext context );
+
+
+   public enum AcceptVertexResult
+   {
+      StopVisiting,
+      ContinueVisitingNormally,
+      ContinueVisitingButSkipEdges,
+   }
+
+   public enum AcceptEdgeResult
+   {
+      StopVisiting,
+      ContinueVisiting,
+   }
 
    /// <summary>
    /// This is delegate that captures signature to 'accept', or visit, a single edge (transition between elements) in visitor pattern.
@@ -141,7 +155,7 @@ namespace UtilPack.Visiting
    /// <param name="edgeInfo">The domain-specific edge information.</param>
    /// <param name="context">The current context.</param>
    /// <returns><c>true</c> if visiting should be continued, <c>false</c> otherwise.</returns>
-   public delegate Boolean AcceptEdgeDelegate<in TElement, in TEdgeInfo, in TContext>( TElement element, TEdgeInfo edgeInfo, TContext context );
+   public delegate AcceptEdgeResult AcceptEdgeDelegate<in TElement, in TEdgeInfo, in TContext>( TElement element, TEdgeInfo edgeInfo, TContext context );
 
    //public delegate TResult AcceptVertexWithResultDelegate<in TElement, out TResult>( TElement element, out Boolean shouldContinue );
 

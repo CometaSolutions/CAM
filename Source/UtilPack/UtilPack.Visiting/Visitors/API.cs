@@ -419,12 +419,15 @@ namespace UtilPack.Visiting
          AcceptEdgeDelegateInformation<TElement, TEdgeInfo> edgeDelegateInfo = null;
          AcceptVertexDelegate<TElement> vertexAcceptor;
          Boolean hadAcceptor;
+         AcceptEdgeResult edgeResult;
+         AcceptVertexResult? vertexResult = null;
+         var typeKey = overrideType ?? element.GetType();
          return element != null
-            && ( ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo ) ?? true )
-            && this.CheckForTopMostTypeStrategy( element, acceptorInfo, overrideType )
-            && ( ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element ) ) || ( vertexAcceptor == null && acceptorInfo.ContinueOnMissingVertex ) )
-            && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
-            && ( edgeDelegateInfo?.Exit( element, edgeInfo ) ?? true );
+            && ( ( edgeResult = ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo ) ?? AcceptEdgeResult.ContinueVisiting ) == AcceptEdgeResult.ContinueVisiting )
+            && this.CheckForTopMostTypeStrategy( element, acceptorInfo, overrideType, typeKey )
+            && ( ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( typeKey, out hadAcceptor ) ) != null && ( vertexResult = vertexAcceptor( element ) ).Value != AcceptVertexResult.StopVisiting ) || ( vertexAcceptor == null && acceptorInfo.ContinueOnMissingVertex ) )
+            && ( ( vertexResult.HasValue && vertexResult.Value == AcceptVertexResult.ContinueVisitingButSkipEdges ) || this.VisitEdges( element, typeKey, callback ) )
+            && ( ( edgeResult = edgeDelegateInfo?.Exit( element, edgeInfo ) ?? AcceptEdgeResult.ContinueVisiting ) == AcceptEdgeResult.ContinueVisiting );
       }
 
       private Boolean VisitElementWithContext<TContext>(
@@ -440,12 +443,15 @@ namespace UtilPack.Visiting
          AcceptEdgeDelegateInformation<TElement, TEdgeInfo, TContext> edgeDelegateInfo = null;
          AcceptVertexDelegate<TElement, TContext> vertexAcceptor;
          Boolean hadAcceptor;
+         AcceptEdgeResult edgeResult;
+         AcceptVertexResult? vertexResult = null;
+         var typeKey = overrideType ?? element.GetType();
          return element != null
-            && ( ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo, context ) ?? true )
-            && this.CheckForTopMostTypeStrategy( element, acceptorInfo, context, overrideType )
-            && ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) == null || vertexAcceptor( element, context ) ) //( ( ( vertexAcceptor = acceptors.VertexAcceptors.TryGetValue( overrideType ?? element.GetType(), out hadAcceptor ) ) != null && vertexAcceptor( element, context ) ) || ( vertexAcceptor == null && acceptors.ContinueOnMissingVertex ) )
-            && this.VisitEdges( element, overrideType ?? element.GetType(), callback )
-            && ( edgeDelegateInfo?.Exit( element, edgeInfo, context ) ?? true );
+            && ( ( edgeResult = ( edgeDelegateInfo = acceptorInfo.EdgeAcceptors.GetElementOrDefault( edgeID ) )?.Entry?.Invoke( element, edgeInfo, context ) ?? AcceptEdgeResult.ContinueVisiting ) == AcceptEdgeResult.ContinueVisiting )
+            && this.CheckForTopMostTypeStrategy( element, acceptorInfo, context, overrideType, typeKey )
+            && ( ( ( vertexAcceptor = acceptorInfo.VertexAcceptors.TryGetValue( typeKey, out hadAcceptor ) ) != null && ( vertexResult = vertexAcceptor( element, context ) ).Value != AcceptVertexResult.StopVisiting ) || ( vertexAcceptor == null && acceptorInfo.ContinueOnMissingVertex ) )
+            && ( ( vertexResult.HasValue && vertexResult.Value == AcceptVertexResult.ContinueVisitingButSkipEdges ) || this.VisitEdges( element, typeKey, callback ) )
+            && ( ( edgeResult = edgeDelegateInfo?.Exit( element, edgeInfo, context ) ?? AcceptEdgeResult.ContinueVisiting ) == AcceptEdgeResult.ContinueVisiting );
       }
 
       private Boolean VisitEdges( TElement element, Type type, VisitElementCallbackDelegate<TElement, TEdgeInfo> callback )
@@ -466,7 +472,8 @@ namespace UtilPack.Visiting
       private Boolean CheckForTopMostTypeStrategy(
          TElement element,
          AcceptorInformation<TElement, TEdgeInfo> info,
-         Type overrideType
+         Type overrideType,
+         Type typeKey
          )
       {
          Boolean hadAcceptor;
@@ -475,13 +482,17 @@ namespace UtilPack.Visiting
          switch ( info.TopMostVisitingStrategy )
          {
             case TopMostTypeVisitingStrategy.IfNotOverridingType:
-               return overrideType != null
+               return
+                  typeKey == typeof( TElement )
+                  || overrideType != null
                   || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-                  || acceptor( element );
+                  || acceptor( element ) != AcceptVertexResult.StopVisiting;
 
             case TopMostTypeVisitingStrategy.Always:
-               return ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-                  || acceptor( element );
+               return
+                  typeKey == typeof( TElement ) // If this is true, the vertex acceptor will be called normally later
+                  || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
+                  || acceptor( element ) != AcceptVertexResult.StopVisiting;
             default:
                return true;
          }
@@ -491,7 +502,8 @@ namespace UtilPack.Visiting
          TElement element,
          AcceptorInformation<TElement, TEdgeInfo, TContext> info,
          TContext context,
-         Type overrideType
+         Type overrideType,
+         Type typeKey
          )
       {
          Boolean hadAcceptor;
@@ -500,13 +512,17 @@ namespace UtilPack.Visiting
          switch ( info.TopMostVisitingStrategy )
          {
             case TopMostTypeVisitingStrategy.IfNotOverridingType:
-               return overrideType != null
+               return
+                  typeKey == typeof( TElement )
+                  || overrideType != null
                   || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-                  || acceptor( element, context );
+                  || acceptor( element, context ) != AcceptVertexResult.StopVisiting;
 
             case TopMostTypeVisitingStrategy.Always:
-               return ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
-                  || acceptor( element, context );
+               return
+                  typeKey == typeof( TElement )
+                  || ( acceptor = acceptorDictionary.TryGetValue( typeof( TElement ), out hadAcceptor ) ) == null
+                  || acceptor( element, context ) != AcceptVertexResult.StopVisiting;
             default:
                return true;
          }
