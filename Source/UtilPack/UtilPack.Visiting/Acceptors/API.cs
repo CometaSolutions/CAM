@@ -163,7 +163,8 @@ namespace UtilPack.Visiting
 
    public delegate void AcceptVertexExplicitDelegate<TElement>( TElement element, AcceptVertexExplicitCallbackDelegate<TElement> acceptor );
 
-   public delegate Boolean AcceptVertexExplicitCallbackDelegate<in TElement>( TElement element );
+   // overrideType only used if it is same type or base type of given element.
+   public delegate Boolean AcceptVertexExplicitCallbackDelegate<in TElement>( TElement element, Type overrideType = null );
 
    public delegate void AcceptVertexExplicitDelegate<TElement, in TContext>( TElement element, TContext context, AcceptVertexExplicitCallbackDelegate<TElement> acceptor );
 
@@ -174,7 +175,8 @@ namespace UtilPack.Visiting
 
    public delegate TResult AcceptVertexExplicitWithResultDelegate<TElement, TResult>( TElement element, AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> acceptor );
 
-   public delegate TResult AcceptVertexExplicitCallbackWithResultDelegate<in TElement, out TResult>( TElement element );
+   // overrideType only used if it is same type or base type of given element.
+   public delegate TResult AcceptVertexExplicitCallbackWithResultDelegate<in TElement, out TResult>( TElement element, Type overrideType = null );
 
    public delegate TResult AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>( TElement element, TContext context, AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> acceptor );
 

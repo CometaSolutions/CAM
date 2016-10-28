@@ -28,7 +28,10 @@ using TabularMetaData.Meta;
 using UtilPack.Extension;
 using UtilPack.Visiting;
 
-using TSignatureEqualityAcceptor = UtilPack.Visiting.AutomaticTransitionAcceptor_WithContext<UtilPack.Visiting.AcceptorWithContext<CILAssemblyManipulator.Physical.SignatureElement, CILAssemblyManipulator.Physical.SignatureElement>, CILAssemblyManipulator.Physical.SignatureElement, System.Int32, UtilPack.Visiting.ObjectGraphEqualityContext<CILAssemblyManipulator.Physical.SignatureElement>>;
+using TSignatureEqualityAcceptorSetup = UtilPack.Visiting.AutomaticTransitionAcceptor_WithContext<UtilPack.Visiting.AcceptorWithContext<CILAssemblyManipulator.Physical.SignatureElement, CILAssemblyManipulator.Physical.SignatureElement>, CILAssemblyManipulator.Physical.SignatureElement, System.Int32, UtilPack.Visiting.ObjectGraphEqualityContext<CILAssemblyManipulator.Physical.SignatureElement>>;
+using TSignatureEqualityAcceptor = UtilPack.Visiting.AcceptorWithContext<CILAssemblyManipulator.Physical.SignatureElement, CILAssemblyManipulator.Physical.SignatureElement>;
+using TSignatureHashCodeAcceptorSetup = UtilPack.Visiting.ManualTransitionAcceptor_WithReturnValue<UtilPack.Visiting.AcceptorWithReturnValue<CILAssemblyManipulator.Physical.SignatureElement, System.Int32>, CILAssemblyManipulator.Physical.SignatureElement, System.Int32>;
+using TSignatureHashCodeAcceptor = UtilPack.Visiting.AcceptorWithReturnValue<CILAssemblyManipulator.Physical.SignatureElement, System.Int32>;
 
 namespace CILAssemblyManipulator.Physical.Meta
 {
@@ -139,7 +142,8 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <summary>
       /// This class contains required callbacks and information for various functionalities required from signature type by CAM framework.
       /// </summary>
-      /// <seealso cref="SignatureElementTypeInfo.NewInfo"/>
+      /// <seealso cref="SignatureElementTypeInfo.NewInfo{TSignature}(Action{VisitorVertexInfoFactory{SignatureElement, int}, TSignatureEqualityAcceptorSetup}, Equality{TSignature}, HashCode{TSignature}, AcceptVertexDelegate{TSignature, TableIndexCollectorContext}, SignatureVertexMatchingFunctionality, CopySignatureDelegate{TSignature})"/>
+      /// <seealso cref="SignatureElementTypeInfo.NewInfo{TSignature}(Action{VisitorVertexInfoFactory{SignatureElement, int}, TSignatureEqualityAcceptorSetup}, Equality{TSignature}, HashCodeWithContext{TSignature, AcceptVertexExplicitCallbackWithResultDelegate{SignatureElement, int}}, AcceptVertexDelegate{TSignature, TableIndexCollectorContext}, SignatureVertexMatchingFunctionality, CopySignatureDelegate{TSignature})"/>
       public class SignatureElementTypeInfo
       {
          /// <summary>
@@ -148,6 +152,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <param name="signatureElementType">The type of the signature. Must be subtype of <see cref="SignatureElement"/>.</param>
          /// <param name="registerEdgesForVisitor">The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>. May be <c>null</c>.</param>
          /// <param name="registerEquality">The callback to register non-deep equality comparison for the signature type.</param>
+         /// <param name="registerHashCode">The callback to register hash code computation for the signature type.</param>
          /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
          /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
          /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
@@ -155,8 +160,9 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <exception cref="ArgumentException">If <paramref name="signatureElementType"/> is generic type, or not subtype of <see cref="SignatureElement"/>.</exception>
          public SignatureElementTypeInfo(
             Type signatureElementType,
-            Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptor> registerEdgesForVisitor,
-            Action<TSignatureEqualityAcceptor> registerEquality,
+            Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptorSetup> registerEdgesForVisitor,
+            Action<TSignatureEqualityAcceptorSetup> registerEquality,
+            Action<TSignatureHashCodeAcceptorSetup> registerHashCode,
             AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext> tableIndexCollectionFunctionality,
             SignatureVertexMatchingFunctionality matchingFunctionality,
             AcceptVertexExplicitDelegate<SignatureElement, CopyingContext> cloningFunctionality
@@ -174,6 +180,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
             this.RegisterEdgesForVisitor = registerEdgesForVisitor;
             this.RegisterEquality = ArgumentValidator.ValidateNotNull( "Equality register callback", registerEquality );
+            this.RegisterHashCode = registerHashCode;
             this.TableIndexCollectionFunctionality = tableIndexCollectionFunctionality;
             this.MatchingFunctionality = ArgumentValidator.ValidateNotNull( "Matching functionality", matchingFunctionality );
             this.CloningFunctionality = cloningFunctionality;
@@ -189,13 +196,19 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// Gets the callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>.
          /// </summary>
          /// <value>The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>.</value>
-         public Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptor> RegisterEdgesForVisitor { get; }
+         public Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptorSetup> RegisterEdgesForVisitor { get; }
 
          /// <summary>
          /// Gets the callback to register non-deep equality comparison for the signature type.
          /// </summary>
          /// <value>The callback to register non-deep equality comparison for the signature type.</value>
-         public Action<TSignatureEqualityAcceptor> RegisterEquality { get; }
+         public Action<TSignatureEqualityAcceptorSetup> RegisterEquality { get; }
+
+         /// <summary>
+         /// Gets the callback to register hash code computation for the signature type.
+         /// </summary>
+         /// <value>The callback to register hash code computation for the signature type.</value>
+         public Action<TSignatureHashCodeAcceptorSetup> RegisterHashCode { get; }
 
          /// <summary>
          /// Gets the callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method.
@@ -221,13 +234,15 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <typeparam name="TSignature">The type of the signature.</typeparam>
          /// <param name="registerEdgesForVisitor">The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>. May be <c>null</c>.</param>
          /// <param name="equality">The callback to perform non-deep equality comparison for the signature type.</param>
+         /// <param name="hashCode">The callback to compute hash code for the signature type.</param>
          /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
          /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
          /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
          /// <returns>A new instance of <see cref="SignatureElementTypeInfo"/> with given parameters.</returns>
          public static SignatureElementTypeInfo NewInfo<TSignature>(
-            Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptor> registerEdgesForVisitor,
+            Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptorSetup> registerEdgesForVisitor,
             Equality<TSignature> equality,
+            HashCode<TSignature> hashCode,
             AcceptVertexDelegate<TSignature, TableIndexCollectorContext> tableIndexCollectionFunctionality,
             SignatureVertexMatchingFunctionality matchingFunctionality,
             CopySignatureDelegate<TSignature> cloningFunctionality
@@ -238,6 +253,42 @@ namespace CILAssemblyManipulator.Physical.Meta
                typeof( TSignature ),
                registerEdgesForVisitor,
                equalityAcceptor => equalityAcceptor.RegisterEqualityAcceptor( equality ?? new Equality<TSignature>( ( x, y ) => true ) ),
+               hashCode == null ? (Action<TSignatureHashCodeAcceptorSetup>) null : hashCodeAcceptor => hashCodeAcceptor.RegisterHashCodeComputer( hashCode ),
+               tableIndexCollectionFunctionality == null ? (AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>) null : ( el, ctx ) => tableIndexCollectionFunctionality( (TSignature) el, ctx ),
+               matchingFunctionality,
+               cloningFunctionality == null ? (AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>) null : ( el, ctx, cb ) =>
+               {
+                  ctx.CurrentObject = cloningFunctionality( (TSignature) el, ctx, cb );
+               }
+               );
+         }
+
+         /// <summary>
+         /// Convenience method to create a new instance of <see cref="SignatureElementTypeInfo"/> when the type of the signature is known at compile-time.
+         /// </summary>
+         /// <typeparam name="TSignature">The type of the signature.</typeparam>
+         /// <param name="registerEdgesForVisitor">The callback to register edges to <see cref="AutomaticTypeBasedVisitor{TElement, TEdgeInfo}"/>. May be <c>null</c>.</param>
+         /// <param name="equality">The callback to perform non-deep equality comparison for the signature type.</param>
+         /// <param name="hashCode">The callback to compute hash code for the signature type.</param>
+         /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
+         /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
+         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
+         /// <returns>A new instance of <see cref="SignatureElementTypeInfo"/> with given parameters.</returns>
+         public static SignatureElementTypeInfo NewInfo<TSignature>(
+            Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptorSetup> registerEdgesForVisitor,
+            Equality<TSignature> equality,
+            HashCodeWithContext<TSignature, AcceptVertexExplicitCallbackWithResultDelegate<SignatureElement, Int32>> hashCode,
+            AcceptVertexDelegate<TSignature, TableIndexCollectorContext> tableIndexCollectionFunctionality,
+            SignatureVertexMatchingFunctionality matchingFunctionality,
+            CopySignatureDelegate<TSignature> cloningFunctionality
+            )
+            where TSignature : class, SignatureElement
+         {
+            return new SignatureElementTypeInfo(
+               typeof( TSignature ),
+               registerEdgesForVisitor,
+               equalityAcceptor => equalityAcceptor.RegisterEqualityAcceptor( equality ?? new Equality<TSignature>( ( x, y ) => true ) ),
+               hashCode == null ? (Action<TSignatureHashCodeAcceptorSetup>) null : hashCodeAcceptor => hashCodeAcceptor.RegisterHashCodeComputer( hashCode ),
                tableIndexCollectionFunctionality == null ? (AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>) null : ( el, ctx ) => tableIndexCollectionFunctionality( (TSignature) el, ctx ),
                matchingFunctionality,
                cloningFunctionality == null ? (AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>) null : ( el, ctx, cb ) =>
@@ -310,6 +361,9 @@ namespace CILAssemblyManipulator.Physical.Meta
             // Equality
             typeInfo.RegisterEquality( equality );
 
+            // Hash code
+            typeInfo.RegisterHashCode?.Invoke( hashCode );
+
             // Table index collector
             var tableIndexInfo = typeInfo.TableIndexCollectionFunctionality;
             if ( tableIndexInfo != null )
@@ -339,6 +393,8 @@ namespace CILAssemblyManipulator.Physical.Meta
          this.RegisterFunctionalityDirect( tableIndexCollector.Acceptor );
          this.RegisterFunctionalityDirect( matcher.Acceptor );
          this.RegisterFunctionalityDirect( cloner.Acceptor );
+         this.RegisterFunctionalityDirect( equality.Acceptor );
+         this.RegisterFunctionalityDirect( hashCode.Acceptor );
       }
 
       /// <inheritdoc />
@@ -469,6 +525,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return SignatureElementTypeInfo.NewInfo<CustomModifierSignature>(
             null,
             ( x, y ) => x.Optionality == y.Optionality && x.CustomModifierType.Equals( y.CustomModifierType ),
+            x => x.CustomModifierType.GetHashCode(),
             ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.CustomModifierType, tIdx => sig.CustomModifierType = tIdx ) ),
             SignatureVertexMatchingFunctionality.NewFunctionality<CustomModifierSignature>(
                ( x, y, ctx ) => x.Optionality == y.Optionality && MatchTypeDefOrRefOrSpec( ctx, x.CustomModifierType, y.CustomModifierType )
@@ -494,6 +551,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.IsByRef == y.IsByRef,
+            ( x, cb ) => cb( x.Type ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<ParameterOrLocalSignature>(
                ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.IsByRef == y.IsByRef,
@@ -510,6 +568,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, ParameterSignature, ParameterOrLocalSignature>();
             },
             null, // No own properties
+            ( x, cb ) => 23 * cb( x, typeof( ParameterOrLocalSignature ) ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<ParameterSignature>(
                ( x, y, ctx ) => true
@@ -533,6 +592,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, LocalSignature, ParameterOrLocalSignature>();
             },
             ( x, y ) => x.IsPinned == y.IsPinned,
+            ( x, cb ) => 31 * cb( x, typeof( ParameterOrLocalSignature ) ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<LocalSignature>(
                ( x, y, ctx ) => x.IsPinned == y.IsPinned
@@ -564,6 +624,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count && ArrayEqualityComparer<Byte>.ArrayEquality( x.ExtraData, y.ExtraData ),
+            ( x, cb ) => 37 * cb( x.Type ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<FieldSignature>(
                ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
@@ -596,6 +657,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => x.MethodSignatureInformation == y.MethodSignatureInformation && x.Parameters.Count == y.Parameters.Count && x.GenericArgumentCount == y.GenericArgumentCount && ArrayEqualityComparer<Byte>.ArrayEquality( x.ExtraData, y.ExtraData ),
+            ( x, cb ) => ( 17 * 23 + cb( x.ReturnType ) ) * 23 + cb.ComputeHashCodeForList( x.Parameters ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<AbstractMethodSignature>(
                ( x, y, ctx ) => x.MethodSignatureInformation == y.MethodSignatureInformation && x.Parameters.Count == y.Parameters.Count && x.GenericArgumentCount == y.GenericArgumentCount,
@@ -612,6 +674,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, MethodDefinitionSignature, AbstractMethodSignature>();
             },
             null, // No own properties
+            ( x, cb ) => 31 * cb( x, typeof( AbstractMethodSignature ) ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<MethodDefinitionSignature>( null ),
             ( sig, ctx, cb ) =>
@@ -639,6 +702,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => x.VarArgsParameters.Count == y.VarArgsParameters.Count,
+            ( x, cb ) => 37 * cb( x, typeof( AbstractMethodSignature ) ), // Don't compute hash code of varargs
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<MethodReferenceSignature>( null ),
             ( sig, ctx, cb ) =>
@@ -674,6 +738,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.HasThis == y.HasThis && x.Parameters.Count == y.Parameters.Count && ArrayEqualityComparer<Byte>.ArrayEquality( x.ExtraData, y.ExtraData ),
+            ( x, cb ) => ( 17 * 23 + cb( x.PropertyType ) ) * 23 + cb.ComputeHashCodeForList( x.Parameters ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<PropertySignature>(
                ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count && x.HasThis == y.HasThis && x.Parameters.Count == y.Parameters.Count,
@@ -704,6 +769,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => x.Locals.Count == y.Locals.Count && ArrayEqualityComparer<Byte>.ArrayEquality( x.ExtraData, y.ExtraData ),
+            ( x, cb ) => 17 * 23 + cb.ComputeHashCodeForList( x.Locals ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<LocalVariablesSignature>(
                ( x, y, ctx ) => x.Locals.Count == y.Locals.Count,
@@ -730,6 +796,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.ExtraData, y.ExtraData ),
+            ( x, cb ) => cb.ComputeHashCodeForList( x.GenericArguments ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<GenericMethodSignature>(
                ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count,
@@ -750,6 +817,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return SignatureElementTypeInfo.NewInfo<RawSignature>(
             null,
             ( x, y ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes ),
+            x => ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.GetHashCode( x.Bytes ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<RawSignature>(
                ( x, y, ctx ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.Bytes, y.Bytes )
@@ -764,6 +832,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          yield return SignatureElementTypeInfo.NewInfo<TypeSignature>(
             null,
             ( x, y ) => ArrayEqualityComparer<Byte>.ArrayEquality( x.ExtraData, y.ExtraData ),
+            (HashCode<TypeSignature>) null,
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<TypeSignature>( null ),
             null
@@ -781,6 +850,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             null,
+            ( x, cb ) => cb( x.ArrayType ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<AbstractArrayTypeSignature>(
                ( x, y, ctx ) => true,
@@ -796,6 +866,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, ComplexArrayTypeSignature, AbstractArrayTypeSignature>();
             },
             ( x, y ) => x.ComplexArrayInfo.EqualsTypedEquatable( y.ComplexArrayInfo ),
+            ( x, cb ) => 31 * cb( x, typeof( AbstractArrayTypeSignature ) ) + x.ComplexArrayInfo.GetHashCodeSafe(),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<ComplexArrayTypeSignature>(
                ( x, y, ctx ) => x.ComplexArrayInfo.EqualsTypedEquatable( y.ComplexArrayInfo )
@@ -819,6 +890,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, SimpleArrayTypeSignature, AbstractArrayTypeSignature>();
             },
             ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+            ( x, cb ) => 37 * cb( x, typeof( AbstractArrayTypeSignature ) ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<SimpleArrayTypeSignature>(
                ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
@@ -848,6 +920,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                   );
             },
             ( x, y ) => x.GenericArguments.Count == y.GenericArguments.Count && x.TypeReferenceKind == y.TypeReferenceKind && x.Type.Equals( y.Type ),
+            x => x.Type.GetHashCode(),
             ( sig, ctx ) => ctx.AddElement( new SignatureTableIndexInfo( sig.Type, tIdx => sig.Type = tIdx ) ),
             SignatureVertexMatchingFunctionality.NewFunctionality<ClassOrValueTypeSignature>(
                ( x, y, ctx ) => x.GenericArguments.Count == y.GenericArguments.Count && x.TypeReferenceKind == y.TypeReferenceKind && MatchTypeDefOrRefOrSpec( ctx, x.Type, y.Type ),
@@ -873,6 +946,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, GenericParameterTypeSignature, TypeSignature>();
             },
             ( x, y ) => x.GenericParameterIndex == y.GenericParameterIndex && x.GenericParameterKind == y.GenericParameterKind,
+            x => x.GenericParameterIndex.GetHashCode(),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<GenericParameterTypeSignature>(
                ( x, y, ctx ) => x.GenericParameterIndex == y.GenericParameterIndex && x.GenericParameterKind == y.GenericParameterKind
@@ -901,6 +975,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, PointerTypeSignature, TypeSignature>();
             },
             ( x, y ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
+            ( x, cb ) => 41 * cb( x.PointerType ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<PointerTypeSignature>(
                ( x, y, ctx ) => x.CustomModifiers.Count == y.CustomModifiers.Count,
@@ -930,6 +1005,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, FunctionPointerTypeSignature, TypeSignature>();
             },
             null,
+            ( x, cb ) => 43 * cb( x.MethodSignature ),
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<FunctionPointerTypeSignature>(
                ( x, y, ctx ) => true,
@@ -949,6 +1025,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                factory.CreateBaseTypeEdge<SignatureElement, Int32, SimpleTypeSignature, TypeSignature>();
             },
             ( x, y ) => x.SimpleType == y.SimpleType,
+            x => (Int32) x.SimpleType,
             null,
             SignatureVertexMatchingFunctionality.NewFunctionality<SimpleTypeSignature>(
                ( x, y, ctx ) => x.SimpleType == y.SimpleType
@@ -1538,6 +1615,30 @@ public static partial class E_CILPhysical
       {
          listToWrite.AddRange( listToRead );
       }
+   }
+
+   /// <summary>
+   /// Checks whether two <see cref="SignatureElement"/>s are exactly equal.
+   /// </summary>
+   /// <param name="provider">The <see cref="SignatureProvider"/>.</param>
+   /// <param name="x">The first <see cref="SignatureElement"/>.</param>
+   /// <param name="y">The second <see cref="SignatureElement"/>.</param>
+   /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are same object or otherwise are exactly equal; <c>false</c> otherwise.</returns>
+   public static Boolean SignatureEquality( this SignatureProvider provider, SignatureElement x, SignatureElement y )
+   {
+      // We have to do ReferenceEquals etc check here, as acceptor does not do it for us (yet at least).
+      return ReferenceEquals( x, y ) || ( x != null && y != null && provider.GetFunctionality<TSignatureEqualityAcceptor>().Accept( x, y ) );
+   }
+
+   /// <summary>
+   /// Computes the hash code for given <see cref="SignatureElement"/>.
+   /// </summary>
+   /// <param name="provider">The <see cref="SignatureProvider"/>.</param>
+   /// <param name="x">The <see cref="SignatureElement"/>.</param>
+   /// <returns>The hash code for given <see cref="SignatureElement"/>.</returns>
+   public static Int32 SignatureHashCode( this SignatureProvider provider, SignatureElement x )
+   {
+      return x == null ? 0 : provider.GetFunctionality<TSignatureHashCodeAcceptor>().Accept( x );
    }
 
 }

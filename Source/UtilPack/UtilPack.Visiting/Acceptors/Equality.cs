@@ -97,6 +97,16 @@ namespace UtilPack.Visiting
       /// </remarks>
       public Stack<TElement> CurrentElementStack { get; }
    }
+
+   /// <summary>
+   /// This is delegate to help invoking hash code callback, which further requires some sort of context to compute hash code.
+   /// </summary>
+   /// <typeparam name="TElement">The type of the element.</typeparam>
+   /// <typeparam name="TContext">The type of the context.</typeparam>
+   /// <param name="element">The element to compute hash code of.</param>
+   /// <param name="context">The invocation-specific context.</param>
+   /// <returns>Hash code for <paramref name="element"/>.</returns>
+   public delegate Int32 HashCodeWithContext<TElement, TContext>( TElement element, TContext context );
 }
 
 #pragma warning disable 1591
@@ -244,7 +254,7 @@ public static partial class E_UtilPack
    /// <typeparam name="TActualElement"></typeparam>
    /// <param name="acceptor"></param>
    /// <param name="hashCode"></param>
-   public static void RegisterHashCodeComputer<TElement, TActualElement>( this ManualTransitionAcceptor_WithReturnValue<AcceptorWithReturnValue<TElement, Int32>, TElement, Int32> acceptor, Func<TActualElement, AcceptVertexExplicitCallbackWithResultDelegate<TElement, Int32>, Int32> hashCode )
+   public static void RegisterHashCodeComputer<TElement, TActualElement>( this ManualTransitionAcceptor_WithReturnValue<AcceptorWithReturnValue<TElement, Int32>, TElement, Int32> acceptor, HashCodeWithContext<TActualElement, AcceptVertexExplicitCallbackWithResultDelegate<TElement, Int32>> hashCode )
       where TActualElement : TElement
    {
       acceptor.RegisterVertexAcceptor(
@@ -267,6 +277,25 @@ public static partial class E_UtilPack
          typeof( TActualElement ),
          ( el, cb ) => hashCode( (TActualElement) el )
          );
+   }
+
+   /// <summary>
+   /// 
+   /// </summary>
+   /// <typeparam name="TElement"></typeparam>
+   /// <typeparam name="TListElement"></typeparam>
+   /// <param name="callback"></param>
+   /// <param name="list"></param>
+   public static Int32 ComputeHashCodeForList<TElement, TListElement>( this AcceptVertexExplicitCallbackWithResultDelegate<TElement, Int32> callback, IList<TListElement> list )
+      where TListElement : TElement
+   {
+      var max = list.Count;
+      var retVal = 0;
+      for ( var i = 0; i < max; ++i )
+      {
+         retVal += callback( list[i] );
+      }
+      return retVal;
    }
 
    //public static void RegisterHashCodeComputer<TElement, TEdgeInfo, TContext, TActualElement>( this CachingTypeBasedAcceptor<TElement, TEdgeInfo, TContext> acceptor, Func<TActualElement, AcceptVertexExplicitCallbackDelegate<TElement, TContext>, Int32> hashCode )

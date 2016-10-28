@@ -565,7 +565,7 @@ public static partial class E_UtilPack
    public static Boolean EqualsTypedEquatable<T>( this T first, T second )
       where T : class, IEquatable<T>
    {
-      return ( first == null && second == null ) || ( first != null && second != null && first.Equals( second ) );
+      return ReferenceEquals( first, second ) || ( first != null && second != null && first.Equals( second ) );
    }
 
    /// <summary>

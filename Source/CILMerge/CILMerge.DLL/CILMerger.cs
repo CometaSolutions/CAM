@@ -3460,6 +3460,7 @@ namespace CILMerge
 
    internal struct TypeMetaDataIndex : IEquatable<TypeMetaDataIndex>
    {
+
       public TypeMetaDataIndex( MetaDataIndex index )
          : this( index, null, null )
       {
@@ -3493,7 +3494,7 @@ namespace CILMerge
       {
          return this.Index.Equals( other.Index )
             && ReferenceEquals( this.GenericArgumentsMetaData, other.GenericArgumentsMetaData )
-            && ArrayEqualityComparer<TypeSignature>.ArrayEquality( this.GenericArguments, other.GenericArguments, Comparers.TypeSignatureEqualityComparer.Equals );
+            && ArrayEqualityComparer<TypeSignature>.ArrayEquality( this.GenericArguments, other.GenericArguments, this.Index.MetaData.GetSignatureProvider().SignatureEquality );
       }
    }
 

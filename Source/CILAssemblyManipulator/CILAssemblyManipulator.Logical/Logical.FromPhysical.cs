@@ -786,7 +786,7 @@ public static partial class E_CILLogical
                var suitableFields = declTypeToUse.DeclaredFields.Where( f =>
                   String.Equals( f.Name, mRef.Name ) );
                suitableFields = isSameModule ?
-                  suitableFields.Where( f => Comparers.FieldSignatureEqualityComparer.Equals( fSig, declTypeCreationResult.GetFieldSignature( f ) ) ) :
+                  suitableFields.Where( f => this._md.GetSignatureProvider().SignatureEquality( fSig, declTypeCreationResult.GetFieldSignature( f ) ) ) :
                   suitableFields.Where( f => this.MatchFieldSignatures( fSig, declTypeCreationResult, declTypeCreationResult.GetFieldSignature( f ) ) );
 
                var field = suitableFields.FirstOrDefault();
@@ -806,7 +806,7 @@ public static partial class E_CILLogical
                suitableMethods = declTypeToUse.ElementKind.HasValue ?
                   suitableMethods.Where( m => m.Parameters.Count == mSig.Parameters.Count ) : // We would need to create a physical signature here for perfect match - a bit too complicated, especially since each method has unique name, and all constructors have variable amount of parameters
                   ( isSameModule ?
-                     suitableMethods.Where( m => Comparers.AbstractMethodSignatureEqualityComparer_IgnoreKind.Equals( mSig, declTypeCreationResult.GetMethodSignature( m ) ) ) :
+                     suitableMethods.Where( m => this.MatchMethodRefToMethodDefSignature( mSig, declTypeCreationResult.GetMethodSignature( m ) ) ) :
                      suitableMethods.Where( m => this.MatchMethodSignatures( mSig, declTypeCreationResult, declTypeCreationResult.GetMethodSignature( m ) ) )
                   );
 
@@ -1078,6 +1078,15 @@ public static partial class E_CILLogical
             && this.MatchParameterSignatures( thisSignature.ReturnType, declaringTypeCreationResult, declaringTypeSignature.ReturnType );
       }
 
+      private Boolean MatchMethodRefToMethodDefSignature( MethodReferenceSignature methodRef, MethodDefinitionSignature methodDef )
+      {
+         var sigProvider = this._md.GetSignatureProvider();
+         return methodRef.MethodSignatureInformation == methodDef.MethodSignatureInformation
+            && methodRef.GenericArgumentCount == methodDef.GenericArgumentCount
+            && sigProvider.SignatureEquality( methodRef.ReturnType, methodDef.ReturnType )
+            && ListEqualityComparer<List<ParameterSignature>, ParameterSignature>.ListEquality( methodRef.Parameters, methodDef.Parameters, sigProvider.SignatureEquality );
+      }
+
       private Boolean MatchParameterSignatures( ParameterSignature thisSignature, LogicalAssemblyCreationResult declaringTypeCreationResult, ParameterSignature declaringTypeSignature )
       {
          return thisSignature.IsByRef == declaringTypeSignature.IsByRef
@@ -1102,7 +1111,7 @@ public static partial class E_CILLogical
                case TypeSignatureKind.ComplexArray:
                   var thisArray = (ComplexArrayTypeSignature) thisSignature;
                   var declaringArray = (ComplexArrayTypeSignature) declaringTypeSignature;
-                  retVal = Comparers.ComplexArrayInfoEqualityComparer.Equals( thisArray.ComplexArrayInfo, declaringArray.ComplexArrayInfo )
+                  retVal = thisArray.ComplexArrayInfo.EqualsTypedEquatable( declaringArray.ComplexArrayInfo )
                      && this.MatchTypeSignatures( thisArray.ArrayType, declaringTypeCreationResult, declaringArray.ArrayType );
                   break;
                case TypeSignatureKind.FunctionPointer:
