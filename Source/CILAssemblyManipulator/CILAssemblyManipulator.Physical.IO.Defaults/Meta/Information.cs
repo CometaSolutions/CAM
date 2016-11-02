@@ -2352,660 +2352,72 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// </remarks>
    internal static class TableRowComparisons
    {
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="CILMetaData"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="CILMetaData"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="CILMetaData"/> are considered to be equal by this equality comparer when all the tables of the <see cref="CILMetaData"/> are considered equal by their <see cref="TabularMetaData.Meta.MetaDataTableInformation{TRow}.EqualityComparer"/>.
-      /// </remarks>
-      public static IEqualityComparer<CILMetaData> MetaDataEqualityComparer { get; }
 
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ModuleDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ModuleDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ModuleDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ModuleDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ModuleDefinition> ModuleDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="TypeReference"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="TypeReference"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="TypeReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="TypeReference"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<TypeReference> TypeReferenceEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="TypeDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="TypeDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="TypeDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="TypeDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<TypeDefinition> TypeDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="FieldDefinitionPointer"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="FieldDefinitionPointer"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="FieldDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldDefinitionPointer"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<FieldDefinitionPointer> FieldDefinitionPointerEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="FieldDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="FieldDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="FieldDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<FieldDefinition> FieldDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodDefinitionPointer"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodDefinitionPointer"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodDefinitionPointer"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<MethodDefinitionPointer> MethodDefinitionPointerEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodDefinition"/> are equal.
-      /// This also includes comparing the <see cref="MethodDefinition.IL"/> using <see cref="MethodILDefinitionEqualityComparer"/>.
-      /// </remarks>
-      public static IEqualityComparer<MethodDefinition> MethodDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ParameterDefinitionPointer"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ParameterDefinitionPointer"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ParameterDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ParameterDefinitionPointer"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ParameterDefinitionPointer> ParameterDefinitionPointerEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ParameterDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ParameterDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ParameterDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ParameterDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ParameterDefinition> ParameterDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="InterfaceImplementation"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="InterfaceImplementation"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="InterfaceImplementation"/> are considered to be equal by this equality comparer when all the properties of the <see cref="InterfaceImplementation"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<InterfaceImplementation> InterfaceImplementationEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MemberReference"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MemberReference"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MemberReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MemberReference"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<MemberReference> MemberReferenceEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ConstantDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ConstantDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ConstantDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ConstantDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ConstantDefinition> ConstantDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="CustomAttributeDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="CustomAttributeDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="CustomAttributeDefinition"/> are equal.
-      /// </remarks>
-      /// <seealso cref="CustomAttributeTypedArgumentEqualityComparer"/>
-      /// <see cref="CustomAttributeNamedArgumentEqualityComparer"/>
-      public static IEqualityComparer<CustomAttributeDefinition> CustomAttributeDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="FieldMarshal"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="FieldMarshal"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="FieldMarshal"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldMarshal"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<FieldMarshal> FieldMarshalEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="SecurityDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="SecurityDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="SecurityDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="SecurityDefinition"/> are equal.
-      /// The values of <see cref="SecurityDefinition.PermissionSets"/> are compared using <see cref="AbstractSecurityInformationEqualityComparer"/>.
-      /// </remarks>
-      public static IEqualityComparer<SecurityDefinition> SecurityDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ClassLayout"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ClassLayout"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ClassLayout"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ClassLayout"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ClassLayout> ClassLayoutEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="FieldLayout"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="FieldLayout"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="FieldLayout"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldLayout"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<FieldLayout> FieldLayoutEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="StandaloneSignature"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="StandaloneSignature"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="StandaloneSignature"/> are considered to be equal by this equality comparer when all the properties of the <see cref="StandaloneSignature"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<StandaloneSignature> StandaloneSignatureEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="EventMap"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="EventMap"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="EventMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EventMap"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<EventMap> EventMapEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="EventDefinitionPointer"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="EventDefinitionPointer"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="EventDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EventDefinitionPointer"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<EventDefinitionPointer> EventDefinitionPointerEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="EventDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="EventDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="EventDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EventDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<EventDefinition> EventDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="PropertyMap"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="PropertyMap"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="PropertyMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="PropertyMap"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<PropertyMap> PropertyMapEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="PropertyDefinitionPointer"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="PropertyDefinitionPointer"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="PropertyDefinitionPointer"/> are considered to be equal by this equality comparer when all the properties of the <see cref="PropertyDefinitionPointer"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<PropertyDefinitionPointer> PropertyDefinitionPointerEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="PropertyDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="PropertyDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="PropertyDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="PropertyDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<PropertyDefinition> PropertyDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodSemantics"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodSemantics"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodSemantics"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodSemantics"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<MethodSemantics> MethodSemanticsEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodImplementation"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodImplementation"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodImplementation"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodImplementation"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<MethodImplementation> MethodImplementationEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ModuleReference"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ModuleReference"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ModuleReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ModuleReference"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ModuleReference> ModuleReferenceEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="TypeSpecification"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="TypeSpecification"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="TypeSpecification"/> are considered to be equal by this equality comparer when all the properties of the <see cref="TypeSpecification"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<TypeSpecification> TypeSpecificationEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodImplementationMap"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodImplementationMap"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodImplementationMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodImplementationMap"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<MethodImplementationMap> MethodImplementationMapEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="FieldRVA"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="FieldRVA"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="FieldRVA"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FieldRVA"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<FieldRVA> FieldRVAEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="EditAndContinueLog"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="EditAndContinueLog"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="EditAndContinueLog"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EditAndContinueLog"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<EditAndContinueLog> EditAndContinueLogEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="EditAndContinueMap"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="EditAndContinueMap"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="EditAndContinueMap"/> are considered to be equal by this equality comparer when all the properties of the <see cref="EditAndContinueMap"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<EditAndContinueMap> EditAndContinueMapEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyDefinition> AssemblyDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyReference"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyReference"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyReference"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyReference> AssemblyReferenceEqualityComparer { get; }
-
-#pragma warning disable 618
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyDefinitionProcessor"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyDefinitionProcessor"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyDefinitionProcessor"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyDefinitionProcessor"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyDefinitionProcessor> AssemblyDefinitionProcessorEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyDefinitionOS"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyDefinitionOS"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyDefinitionOS"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyDefinitionOS"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyDefinitionOS> AssemblyDefinitionOSEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyReferenceProcessor"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyReferenceProcessor"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyReferenceProcessor"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyReferenceProcessor"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyReferenceProcessor> AssemblyReferenceProcessorEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyReferenceOS"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyReferenceOS"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyReferenceOS"/> are considered to be equal by this equality comparer when all the properties of the <see cref="AssemblyReferenceOS"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyReferenceOS> AssemblyReferenceOSEqualityComparer { get; }
-
-#pragma warning restore 618
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="FileReference"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="FileReference"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="FileReference"/> are considered to be equal by this equality comparer when all the properties of the <see cref="FileReference"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<FileReference> FileReferenceEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ExportedType"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ExportedType"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ExportedType"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ExportedType"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ExportedType> ExportedTypeEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="ManifestResource"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="ManifestResource"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="ManifestResource"/> are considered to be equal by this equality comparer when all the properties of the <see cref="ManifestResource"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<ManifestResource> ManifestResourceEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="NestedClassDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="NestedClassDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="NestedClassDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="NestedClassDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<NestedClassDefinition> NestedClassDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="GenericParameterDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="GenericParameterDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="GenericParameterDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="GenericParameterDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<GenericParameterDefinition> GenericParameterDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodSpecification"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodSpecification"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodSpecification"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodSpecification"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<MethodSpecification> MethodSpecificationEqualityComparer { get; }
-
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="GenericParameterConstraintDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="GenericParameterConstraintDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="GenericParameterConstraintDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="GenericParameterConstraintDefinition"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<GenericParameterConstraintDefinition> GenericParameterConstraintDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodILDefinition"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodILDefinition"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodILDefinition"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodILDefinition"/> are equal.
-      /// The op-codes are compared using <see cref="OpCodeInfoEqualityComparer"/> and exception blocks using <see cref="MethodExceptionBlockEqualityComparer"/>.
-      /// </remarks>
-      /// <seealso cref="OpCodeInfoEqualityComparer"/>
-      /// <seealso cref="MethodExceptionBlockEqualityComparer"/>
-      public static IEqualityComparer<MethodILDefinition> MethodILDefinitionEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="MethodExceptionBlock"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="MethodExceptionBlock"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="MethodExceptionBlock"/> are considered to be equal by this equality comparer when all the properties of the <see cref="MethodExceptionBlock"/> are equal.
-      /// </remarks>
-      public static IEqualityComparer<MethodExceptionBlock> MethodExceptionBlockEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="OpCodeInfo"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="OpCodeInfo"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="OpCodeInfo"/> are considered to be equal by this equality comparer when their <see cref="OpCodeInfo.InfoKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="OpCodeInfo"/> is equal between the two instances.
-      /// </remarks>
-      public static IEqualityComparer<OpCodeInfo> OpCodeInfoEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AssemblyInformation"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AssemblyInformation"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AssemblyInformation"/> are considered to be equal by this equality comparer when <see cref="AssemblyInformation.Equals(AssemblyInformation)"/> returns <c>true</c>.
-      /// </remarks>
-      public static IEqualityComparer<AssemblyInformation> AssemblyInformationEqualityComparer { get; }
-
-      public static IEqualityComparer<AbstractCustomAttributeSignature> AbstractCustomAttributeSignatureEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeTypedArgument"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="CustomAttributeTypedArgument"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="CustomAttributeTypedArgument"/> are considered to be equal by this equality comparer when all the properties of the <see cref="CustomAttributeTypedArgument"/> are equal.
-      /// The <see cref="CustomAttributeTypedArgument.Value"/> property is equaled using <see cref="Object.Equals(Object, Object)"/> method, and arrays are equaled recursively using default equality comparer.
-      /// </remarks>
-      public static IEqualityComparer<CustomAttributeTypedArgument> CustomAttributeTypedArgumentEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeNamedArgument"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="CustomAttributeNamedArgument"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="CustomAttributeNamedArgument"/> are considered to be equal by this equality comparer when all the properties of the <see cref="CustomAttributeNamedArgument"/> are equal.
-      /// </remarks>
-      /// <seealso cref="CustomAttributeTypedArgumentEqualityComparer"/>
-      /// <seealso cref="CustomAttributeArgumentTypeEqualityComparer"/>
-      public static IEqualityComparer<CustomAttributeNamedArgument> CustomAttributeNamedArgumentEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="CustomAttributeArgumentType"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="CustomAttributeArgumentType"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="CustomAttributeArgumentType"/> are considered to be equal by this equality comparer when their <see cref="CustomAttributeArgumentType.ArgumentTypeKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="CustomAttributeArgumentType"/> is equal between the two instances.
-      /// </remarks>
-      public static IEqualityComparer<CustomAttributeArgumentType> CustomAttributeArgumentTypeEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AbstractSecurityInformation"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AbstractSecurityInformation"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AbstractSecurityInformation"/> are considered to be equal by this equality comparer when their <see cref="AbstractSecurityInformation.SecurityInformationKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="AbstractSecurityInformation"/> is equal between the two instances.
-      /// </remarks>
-      public static IEqualityComparer<AbstractSecurityInformation> AbstractSecurityInformationEqualityComparer { get; }
-
-      /// <summary>
-      /// Get the equality comparer to check whether two instances of <see cref="AbstractMarshalingInfo"/> are exactly equal.
-      /// </summary>
-      /// <value>The equality comparer to check whether two instances of <see cref="AbstractMarshalingInfo"/> are exactly equal.</value>
-      /// <remarks>
-      /// Two instances of <see cref="AbstractMarshalingInfo"/> are considered to be equal by this equality comparer when their <see cref="AbstractMarshalingInfo.MarshalingInfoKind"/> match (i.e. they are of the same type) and all the content of the corresponding type deriving from <see cref="AbstractMarshalingInfo"/> is equal between the two instances.
-      /// </remarks>
-      public static IEqualityComparer<AbstractMarshalingInfo> MarshalingInfoEqualityComparer { get; }
-
-      static TableRowComparisons()
-      {
-         MetaDataEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CILMetaData>( Equality_MetaData, HashCode_MetaData );
-         ModuleDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ModuleDefinition>( Equality_ModuleDefinition, HashCode_ModuleDefinition );
-         TypeReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeReference>( Equality_TypeReference, HashCode_TypeReference );
-         TypeDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeDefinition>( Equality_TypeDefinition, HashCode_TypeDefinition );
-         FieldDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldDefinitionPointer>( Equality_FieldDefinitionPointer, HashCode_FieldDefinitionPointer );
-         //FieldDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldDefinition>( Equality_FieldDefinition, HashCode_FieldDefinition );
-         MethodDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodDefinitionPointer>( Equality_MethodDefinitionPointer, HashCode_MethodDefinitionPointer );
-         //MethodDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodDefinition>( Equality_MethodDefinition, HashCode_MethodDefinition );
-         ParameterDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ParameterDefinitionPointer>( Equality_ParameterDefinitionPointer, HashCode_ParameterDefinitionPointer );
-         ParameterDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ParameterDefinition>( Equality_ParameterDefinition, HashCode_ParameterDefinition );
-         InterfaceImplementationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<InterfaceImplementation>( Equality_InterfaceImplementation, HashCode_InterfaceImplementation );
-         //MemberReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MemberReference>( Equality_MemberReference, HashCode_MemberReference );
-         ConstantDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ConstantDefinition>( Equality_ConstantDefinition, HashCode_ConstantDefinition );
-         //CustomAttributeDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeDefinition>( Equality_CustomAttributeDefinition, HashCode_CustomAttributeDefinition );
-         //FieldMarshalEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldMarshal>( Equality_FieldMarshal, HashCode_FieldMarshal );
-         //SecurityDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<SecurityDefinition>( Equality_SecurityDefinition, HashCode_SecurityDefinition );
-         ClassLayoutEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ClassLayout>( Equality_ClassLayout, HashCode_ClassLayout );
-         FieldLayoutEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldLayout>( Equality_FieldLayout, HashCode_FieldLayout );
-         //StandaloneSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<StandaloneSignature>( Equality_StandaloneSignature, HashCode_StandaloneSignature );
-         EventMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EventMap>( Equality_EventMap, HashCode_EventMap );
-         EventDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EventDefinitionPointer>( Equality_EventDefinitionPointer, HashCode_EventDefinitionPointer );
-         EventDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EventDefinition>( Equality_EventDefinition, HashCode_EventDefinition );
-         PropertyMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertyMap>( Equality_PropertyMap, HashCode_PropertyMap );
-         PropertyDefinitionPointerEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertyDefinitionPointer>( Equality_PropertyDefinitionPointer, HashCode_PropertyDefinitionPointer );
-         //PropertyDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertyDefinition>( Equality_PropertyDefinition, HashCode_PropertyDefinition );
-         MethodSemanticsEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodSemantics>( Equality_MethodSemantics, HashCode_MethodSemantics );
-         MethodImplementationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodImplementation>( Equality_MethodImplementation, HashCode_MethodImplementation );
-         ModuleReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ModuleReference>( Equality_ModuleReference, HashCode_ModuleReference );
-         //TypeSpecificationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeSpecification>( Equality_TypeSpecification, HashCode_TypeSpecification );
-         MethodImplementationMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodImplementationMap>( Equality_MethodImplementationMap, HashCode_MethodImplementationMap );
-         FieldRVAEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldRVA>( Equality_FieldRVA, HashCode_FieldRVA );
-         EditAndContinueLogEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EditAndContinueLog>( Equality_EditAndContinueLog, HashCode_EditAndContinueLog );
-         EditAndContinueMapEqualityComparer = ComparerFromFunctions.NewEqualityComparer<EditAndContinueMap>( Equality_EditAndContinueMap, HashCode_EditAndContinueMap );
-         AssemblyDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinition>( Equality_AssemblyDefinition, HashCode_AssemblyDefinition );
-         AssemblyReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReference>( Equality_AssemblyReference, HashCode_AssemblyReference );
-#pragma warning disable 618
-         AssemblyDefinitionProcessorEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionProcessor>( Equality_AssemblyDefinitionProcessor, HashCode_AssemblyDefinitionProcessor );
-         AssemblyDefinitionOSEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyDefinitionOS>( Equality_AssemblyDefinitionOS, HashCode_AssemblyDefinitionOS );
-         AssemblyReferenceProcessorEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceProcessor>( Equality_AssemblyReferenceProcessor, HashCode_AssemblyReferenceProcessor );
-         AssemblyReferenceOSEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyReferenceOS>( Equality_AssemblyReferenceOS, HashCode_AssemblyReferenceOS );
-#pragma warning restore 618
-         FileReferenceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FileReference>( Equality_FileReference, HashCode_FileReference );
-         ExportedTypeEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ExportedType>( Equality_ExportedType, HashCode_ExportedType );
-         ManifestResourceEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ManifestResource>( Equality_ManifestResource, HashCode_ManifestResource );
-         NestedClassDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<NestedClassDefinition>( Equality_NestedClassDefinition, HashCode_NestedClassDefinition );
-         GenericParameterDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterDefinition>( Equality_GenericParameterDefinition, HashCode_GenericParameterDefinition );
-         //MethodSpecificationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodSpecification>( Equality_MethodSpecification, HashCode_MethodSpecification );
-         GenericParameterConstraintDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<GenericParameterConstraintDefinition>( Equality_GenericParameterConstraintDefinition, HashCode_GenericParameterConstraintDefinition );
-         MethodILDefinitionEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodILDefinition>( Equality_MethodILDefinition, HashCode_MethodILDefinition );
-         MethodExceptionBlockEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodExceptionBlock>( Equality_MethodExceptionBlock, HashCode_MethodExceptionBlock );
-         OpCodeInfoEqualityComparer = ComparerFromFunctions.NewEqualityComparer<OpCodeInfo>( Equality_OpCodeInfo, HashCode_OpCodeInfo );
-         AssemblyInformationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AssemblyInformation>( Equality_AssemblyInformation, HashCode_AssemblyInformation );
-         //AbstractSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractSignature>( Equality_AbstractSignature, HashCode_AbstractSignature );
-         //RawSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<RawSignature>( Equality_RawSignature, HashCode_RawSignature );
-         //AbstractMethodSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature, HashCode_AbstractMethodSignature );
-         //AbstractMethodSignatureEqualityComparer_IgnoreKind = ComparerFromFunctions.NewEqualityComparer<AbstractMethodSignature>( Equality_AbstractMethodSignature_IgnoreKind, HashCode_AbstractMethodSignature );
-         //MethodDefinitionSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodDefinitionSignature>( Equality_MethodDefinitionSignature, HashCode_MethodDefinitionSignature );
-         //MethodReferenceSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<MethodReferenceSignature>( Equality_MethodReferenceSignature, HashCode_MethodReferenceSignature );
-         //FieldSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<FieldSignature>( Equality_FieldSignature, HashCode_FieldSignature );
-         //PropertySignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<PropertySignature>( Equality_PropertySignature, HashCode_PropertySignature );
-         //LocalVariablesSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<LocalVariablesSignature>( Equality_LocalVariablesSignature, HashCode_LocalVariablesSignature );
-         //LocalVariableSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<LocalSignature>( Equality_LocalVariableSignature, HashCode_LocalVariableSignature );
-         //ParameterSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ParameterSignature>( Equality_ParameterSignature, HashCode_ParameterSignature );
-         //CustomModifierSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomModifierSignature>( Equality_CustomModifierSignature, HashCode_CustomModifierSignature );
-         //TypeSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<TypeSignature>( Equality_TypeSignature, HashCode_TypeSignature );
-         //ComplexArrayInfoEqualityComparer = ComparerFromFunctions.NewEqualityComparer<ComplexArrayInfo>( Equality_ComplexArrayInfo, HashCode_ComplexArrayInfo );
-         //GenericMethodSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<GenericMethodSignature>( Equality_GenericMethodSignature, HashCode_GenericMethodSignature );
-         AbstractCustomAttributeSignatureEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractCustomAttributeSignature>( Equality_AbstractCustomAttributeSignature, HashCode_AbstractCustomAttributeSignature );
-         CustomAttributeTypedArgumentEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeTypedArgument>( Equality_CustomAttributeTypedArgument, HashCode_CustomAttributeTypedArgument );
-         CustomAttributeNamedArgumentEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeNamedArgument>( Equality_CustomAttributeNamedArgument, HashCode_CustomAttributeNamedArgument );
-         CustomAttributeArgumentTypeEqualityComparer = ComparerFromFunctions.NewEqualityComparer<CustomAttributeArgumentType>( Equality_CustomAttributeArgumentType, HashCode_CustomAttributeArgumentType );
-         AbstractSecurityInformationEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractSecurityInformation>( Equality_AbstractSecurityInformation, HashCode_AbstractSecurityInformation );
-         MarshalingInfoEqualityComparer = ComparerFromFunctions.NewEqualityComparer<AbstractMarshalingInfo>( Equality_MarshalingInfo, HashCode_MarshalingInfo );
-      }
-
-      internal static Boolean Equality_MetaData( CILMetaData x, CILMetaData y )
-      {
-         // TODO: Table infos actually use these comparers to perform equality & hash code operations
-         // Instead, this method should actually use the comparers of table infos
-         // Comparers of table infos should be the ones that are currently here.
-         // Alternatively, consider merging this class and DefaultMetaDataTableInformationProvider .
-#pragma warning disable 618
-         return Object.ReferenceEquals( x, y ) ||
-            ( x != null && y != null
-            && ListEqualityComparer<List<ModuleDefinition>, ModuleDefinition>.Equals( x.ModuleDefinitions.TableContents, y.ModuleDefinitions.TableContents, ModuleDefinitionEqualityComparer )
-            && ListEqualityComparer<List<TypeReference>, TypeReference>.Equals( x.TypeReferences.TableContents, y.TypeReferences.TableContents, TypeReferenceEqualityComparer )
-            && ListEqualityComparer<List<TypeDefinition>, TypeDefinition>.Equals( x.TypeDefinitions.TableContents, y.TypeDefinitions.TableContents, TypeDefinitionEqualityComparer )
-            && ListEqualityComparer<List<FieldDefinitionPointer>, FieldDefinitionPointer>.Equals( x.FieldDefinitionPointers.TableContents, y.FieldDefinitionPointers.TableContents, FieldDefinitionPointerEqualityComparer )
-            && ListEqualityComparer<List<FieldDefinition>, FieldDefinition>.Equals( x.FieldDefinitions.TableContents, y.FieldDefinitions.TableContents, FieldDefinitionEqualityComparer )
-            && ListEqualityComparer<List<MethodDefinitionPointer>, MethodDefinitionPointer>.Equals( x.MethodDefinitionPointers.TableContents, y.MethodDefinitionPointers.TableContents, MethodDefinitionPointerEqualityComparer )
-            && ListEqualityComparer<List<MethodDefinition>, MethodDefinition>.Equals( x.MethodDefinitions.TableContents, y.MethodDefinitions.TableContents, MethodDefinitionEqualityComparer )
-            && ListEqualityComparer<List<ParameterDefinitionPointer>, ParameterDefinitionPointer>.Equals( x.ParameterDefinitionPointers.TableContents, y.ParameterDefinitionPointers.TableContents, ParameterDefinitionPointerEqualityComparer )
-            && ListEqualityComparer<List<ParameterDefinition>, ParameterDefinition>.Equals( x.ParameterDefinitions.TableContents, y.ParameterDefinitions.TableContents, ParameterDefinitionEqualityComparer )
-            && ListEqualityComparer<List<InterfaceImplementation>, InterfaceImplementation>.Equals( x.InterfaceImplementations.TableContents, y.InterfaceImplementations.TableContents, InterfaceImplementationEqualityComparer )
-            && ListEqualityComparer<List<MemberReference>, MemberReference>.Equals( x.MemberReferences.TableContents, y.MemberReferences.TableContents, MemberReferenceEqualityComparer )
-            && ListEqualityComparer<List<ConstantDefinition>, ConstantDefinition>.Equals( x.ConstantDefinitions.TableContents, y.ConstantDefinitions.TableContents, ConstantDefinitionEqualityComparer )
-            && ListEqualityComparer<List<CustomAttributeDefinition>, CustomAttributeDefinition>.Equals( x.CustomAttributeDefinitions.TableContents, y.CustomAttributeDefinitions.TableContents, CustomAttributeDefinitionEqualityComparer )
-            && ListEqualityComparer<List<FieldMarshal>, FieldMarshal>.Equals( x.FieldMarshals.TableContents, y.FieldMarshals.TableContents, FieldMarshalEqualityComparer )
-            && ListEqualityComparer<List<SecurityDefinition>, SecurityDefinition>.Equals( x.SecurityDefinitions.TableContents, y.SecurityDefinitions.TableContents, SecurityDefinitionEqualityComparer )
-            && ListEqualityComparer<List<ClassLayout>, ClassLayout>.Equals( x.ClassLayouts.TableContents, y.ClassLayouts.TableContents, ClassLayoutEqualityComparer )
-            && ListEqualityComparer<List<FieldLayout>, FieldLayout>.Equals( x.FieldLayouts.TableContents, y.FieldLayouts.TableContents, FieldLayoutEqualityComparer )
-            && ListEqualityComparer<List<StandaloneSignature>, StandaloneSignature>.Equals( x.StandaloneSignatures.TableContents, y.StandaloneSignatures.TableContents, StandaloneSignatureEqualityComparer )
-            && ListEqualityComparer<List<EventMap>, EventMap>.Equals( x.EventMaps.TableContents, y.EventMaps.TableContents, EventMapEqualityComparer )
-            && ListEqualityComparer<List<EventDefinitionPointer>, EventDefinitionPointer>.Equals( x.EventDefinitionPointers.TableContents, y.EventDefinitionPointers.TableContents, EventDefinitionPointerEqualityComparer )
-            && ListEqualityComparer<List<EventDefinition>, EventDefinition>.Equals( x.EventDefinitions.TableContents, y.EventDefinitions.TableContents, EventDefinitionEqualityComparer )
-            && ListEqualityComparer<List<PropertyMap>, PropertyMap>.Equals( x.PropertyMaps.TableContents, y.PropertyMaps.TableContents, PropertyMapEqualityComparer )
-            && ListEqualityComparer<List<PropertyDefinitionPointer>, PropertyDefinitionPointer>.Equals( x.PropertyDefinitionPointers.TableContents, y.PropertyDefinitionPointers.TableContents, PropertyDefinitionPointerEqualityComparer )
-            && ListEqualityComparer<List<PropertyDefinition>, PropertyDefinition>.Equals( x.PropertyDefinitions.TableContents, y.PropertyDefinitions.TableContents, PropertyDefinitionEqualityComparer )
-            && ListEqualityComparer<List<MethodSemantics>, MethodSemantics>.Equals( x.MethodSemantics.TableContents, y.MethodSemantics.TableContents, MethodSemanticsEqualityComparer )
-            && ListEqualityComparer<List<MethodImplementation>, MethodImplementation>.Equals( x.MethodImplementations.TableContents, y.MethodImplementations.TableContents, MethodImplementationEqualityComparer )
-            && ListEqualityComparer<List<ModuleReference>, ModuleReference>.Equals( x.ModuleReferences.TableContents, y.ModuleReferences.TableContents, ModuleReferenceEqualityComparer )
-            && ListEqualityComparer<List<TypeSpecification>, TypeSpecification>.Equals( x.TypeSpecifications.TableContents, y.TypeSpecifications.TableContents, TypeSpecificationEqualityComparer )
-            && ListEqualityComparer<List<MethodImplementationMap>, MethodImplementationMap>.Equals( x.MethodImplementationMaps.TableContents, y.MethodImplementationMaps.TableContents, MethodImplementationMapEqualityComparer )
-            && ListEqualityComparer<List<FieldRVA>, FieldRVA>.Equals( x.FieldRVAs.TableContents, y.FieldRVAs.TableContents, FieldRVAEqualityComparer )
-            && ListEqualityComparer<List<EditAndContinueLog>, EditAndContinueLog>.Equals( x.EditAndContinueLog.TableContents, y.EditAndContinueLog.TableContents, EditAndContinueLogEqualityComparer )
-            && ListEqualityComparer<List<EditAndContinueMap>, EditAndContinueMap>.Equals( x.EditAndContinueMap.TableContents, y.EditAndContinueMap.TableContents, EditAndContinueMapEqualityComparer )
-            && ListEqualityComparer<List<AssemblyDefinition>, AssemblyDefinition>.Equals( x.AssemblyDefinitions.TableContents, y.AssemblyDefinitions.TableContents, AssemblyDefinitionEqualityComparer )
-            && ListEqualityComparer<List<AssemblyDefinitionProcessor>, AssemblyDefinitionProcessor>.Equals( x.AssemblyDefinitionProcessors.TableContents, y.AssemblyDefinitionProcessors.TableContents, AssemblyDefinitionProcessorEqualityComparer )
-            && ListEqualityComparer<List<AssemblyDefinitionOS>, AssemblyDefinitionOS>.Equals( x.AssemblyDefinitionOSs.TableContents, y.AssemblyDefinitionOSs.TableContents, AssemblyDefinitionOSEqualityComparer )
-            && ListEqualityComparer<List<AssemblyReference>, AssemblyReference>.Equals( x.AssemblyReferences.TableContents, y.AssemblyReferences.TableContents, AssemblyReferenceEqualityComparer )
-            && ListEqualityComparer<List<AssemblyReferenceProcessor>, AssemblyReferenceProcessor>.Equals( x.AssemblyReferenceProcessors.TableContents, y.AssemblyReferenceProcessors.TableContents, AssemblyReferenceProcessorEqualityComparer )
-            && ListEqualityComparer<List<AssemblyReferenceOS>, AssemblyReferenceOS>.Equals( x.AssemblyReferenceOSs.TableContents, y.AssemblyReferenceOSs.TableContents, AssemblyReferenceOSEqualityComparer )
-            && ListEqualityComparer<List<FileReference>, FileReference>.Equals( x.FileReferences.TableContents, y.FileReferences.TableContents, FileReferenceEqualityComparer )
-            && ListEqualityComparer<List<ExportedType>, ExportedType>.Equals( x.ExportedTypes.TableContents, y.ExportedTypes.TableContents, ExportedTypeEqualityComparer )
-            && ListEqualityComparer<List<ManifestResource>, ManifestResource>.Equals( x.ManifestResources.TableContents, y.ManifestResources.TableContents, ManifestResourceEqualityComparer )
-            && ListEqualityComparer<List<NestedClassDefinition>, NestedClassDefinition>.Equals( x.NestedClassDefinitions.TableContents, y.NestedClassDefinitions.TableContents, NestedClassDefinitionEqualityComparer )
-            && ListEqualityComparer<List<GenericParameterDefinition>, GenericParameterDefinition>.Equals( x.GenericParameterDefinitions.TableContents, y.GenericParameterDefinitions.TableContents, GenericParameterDefinitionEqualityComparer )
-            && ListEqualityComparer<List<MethodSpecification>, MethodSpecification>.Equals( x.MethodSpecifications.TableContents, y.MethodSpecifications.TableContents, MethodSpecificationEqualityComparer )
-            && ListEqualityComparer<List<GenericParameterConstraintDefinition>, GenericParameterConstraintDefinition>.Equals( x.GenericParameterConstraintDefinitions.TableContents, y.GenericParameterConstraintDefinitions.TableContents, GenericParameterConstraintDefinitionEqualityComparer )
-            && SequenceEqualityComparer<IEnumerable<MetaDataTable>, MetaDataTable>.SequenceEquality(
-               x.GetAdditionalTables(),
-               y.GetAdditionalTables(),
-               ( xa, ya ) => SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
-                  xa.TableContentsNotGeneric.Cast<Object>(),
-                  ya.TableContentsNotGeneric.Cast<Object>(),
-                  xa.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
-               ) )
-            );
-#pragma warning restore 618
-      }
+      //      internal static Boolean Equality_MetaData( CILMetaData x, CILMetaData y )
+      //      {
+      //         // TODO: Table infos actually use these comparers to perform equality & hash code operations
+      //         // Instead, this method should actually use the comparers of table infos
+      //         // Comparers of table infos should be the ones that are currently here.
+      //         // Alternatively, consider merging this class and DefaultMetaDataTableInformationProvider .
+      //#pragma warning disable 618
+      //         return Object.ReferenceEquals( x, y ) ||
+      //            ( x != null && y != null
+      //            && ListEqualityComparer<List<ModuleDefinition>, ModuleDefinition>.Equals( x.ModuleDefinitions.TableContents, y.ModuleDefinitions.TableContents, ModuleDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<TypeReference>, TypeReference>.Equals( x.TypeReferences.TableContents, y.TypeReferences.TableContents, TypeReferenceEqualityComparer )
+      //            && ListEqualityComparer<List<TypeDefinition>, TypeDefinition>.Equals( x.TypeDefinitions.TableContents, y.TypeDefinitions.TableContents, TypeDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<FieldDefinitionPointer>, FieldDefinitionPointer>.Equals( x.FieldDefinitionPointers.TableContents, y.FieldDefinitionPointers.TableContents, FieldDefinitionPointerEqualityComparer )
+      //            && ListEqualityComparer<List<FieldDefinition>, FieldDefinition>.Equals( x.FieldDefinitions.TableContents, y.FieldDefinitions.TableContents, FieldDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<MethodDefinitionPointer>, MethodDefinitionPointer>.Equals( x.MethodDefinitionPointers.TableContents, y.MethodDefinitionPointers.TableContents, MethodDefinitionPointerEqualityComparer )
+      //            && ListEqualityComparer<List<MethodDefinition>, MethodDefinition>.Equals( x.MethodDefinitions.TableContents, y.MethodDefinitions.TableContents, MethodDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<ParameterDefinitionPointer>, ParameterDefinitionPointer>.Equals( x.ParameterDefinitionPointers.TableContents, y.ParameterDefinitionPointers.TableContents, ParameterDefinitionPointerEqualityComparer )
+      //            && ListEqualityComparer<List<ParameterDefinition>, ParameterDefinition>.Equals( x.ParameterDefinitions.TableContents, y.ParameterDefinitions.TableContents, ParameterDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<InterfaceImplementation>, InterfaceImplementation>.Equals( x.InterfaceImplementations.TableContents, y.InterfaceImplementations.TableContents, InterfaceImplementationEqualityComparer )
+      //            && ListEqualityComparer<List<MemberReference>, MemberReference>.Equals( x.MemberReferences.TableContents, y.MemberReferences.TableContents, MemberReferenceEqualityComparer )
+      //            && ListEqualityComparer<List<ConstantDefinition>, ConstantDefinition>.Equals( x.ConstantDefinitions.TableContents, y.ConstantDefinitions.TableContents, ConstantDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<CustomAttributeDefinition>, CustomAttributeDefinition>.Equals( x.CustomAttributeDefinitions.TableContents, y.CustomAttributeDefinitions.TableContents, CustomAttributeDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<FieldMarshal>, FieldMarshal>.Equals( x.FieldMarshals.TableContents, y.FieldMarshals.TableContents, FieldMarshalEqualityComparer )
+      //            && ListEqualityComparer<List<SecurityDefinition>, SecurityDefinition>.Equals( x.SecurityDefinitions.TableContents, y.SecurityDefinitions.TableContents, SecurityDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<ClassLayout>, ClassLayout>.Equals( x.ClassLayouts.TableContents, y.ClassLayouts.TableContents, ClassLayoutEqualityComparer )
+      //            && ListEqualityComparer<List<FieldLayout>, FieldLayout>.Equals( x.FieldLayouts.TableContents, y.FieldLayouts.TableContents, FieldLayoutEqualityComparer )
+      //            && ListEqualityComparer<List<StandaloneSignature>, StandaloneSignature>.Equals( x.StandaloneSignatures.TableContents, y.StandaloneSignatures.TableContents, StandaloneSignatureEqualityComparer )
+      //            && ListEqualityComparer<List<EventMap>, EventMap>.Equals( x.EventMaps.TableContents, y.EventMaps.TableContents, EventMapEqualityComparer )
+      //            && ListEqualityComparer<List<EventDefinitionPointer>, EventDefinitionPointer>.Equals( x.EventDefinitionPointers.TableContents, y.EventDefinitionPointers.TableContents, EventDefinitionPointerEqualityComparer )
+      //            && ListEqualityComparer<List<EventDefinition>, EventDefinition>.Equals( x.EventDefinitions.TableContents, y.EventDefinitions.TableContents, EventDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<PropertyMap>, PropertyMap>.Equals( x.PropertyMaps.TableContents, y.PropertyMaps.TableContents, PropertyMapEqualityComparer )
+      //            && ListEqualityComparer<List<PropertyDefinitionPointer>, PropertyDefinitionPointer>.Equals( x.PropertyDefinitionPointers.TableContents, y.PropertyDefinitionPointers.TableContents, PropertyDefinitionPointerEqualityComparer )
+      //            && ListEqualityComparer<List<PropertyDefinition>, PropertyDefinition>.Equals( x.PropertyDefinitions.TableContents, y.PropertyDefinitions.TableContents, PropertyDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<MethodSemantics>, MethodSemantics>.Equals( x.MethodSemantics.TableContents, y.MethodSemantics.TableContents, MethodSemanticsEqualityComparer )
+      //            && ListEqualityComparer<List<MethodImplementation>, MethodImplementation>.Equals( x.MethodImplementations.TableContents, y.MethodImplementations.TableContents, MethodImplementationEqualityComparer )
+      //            && ListEqualityComparer<List<ModuleReference>, ModuleReference>.Equals( x.ModuleReferences.TableContents, y.ModuleReferences.TableContents, ModuleReferenceEqualityComparer )
+      //            && ListEqualityComparer<List<TypeSpecification>, TypeSpecification>.Equals( x.TypeSpecifications.TableContents, y.TypeSpecifications.TableContents, TypeSpecificationEqualityComparer )
+      //            && ListEqualityComparer<List<MethodImplementationMap>, MethodImplementationMap>.Equals( x.MethodImplementationMaps.TableContents, y.MethodImplementationMaps.TableContents, MethodImplementationMapEqualityComparer )
+      //            && ListEqualityComparer<List<FieldRVA>, FieldRVA>.Equals( x.FieldRVAs.TableContents, y.FieldRVAs.TableContents, FieldRVAEqualityComparer )
+      //            && ListEqualityComparer<List<EditAndContinueLog>, EditAndContinueLog>.Equals( x.EditAndContinueLog.TableContents, y.EditAndContinueLog.TableContents, EditAndContinueLogEqualityComparer )
+      //            && ListEqualityComparer<List<EditAndContinueMap>, EditAndContinueMap>.Equals( x.EditAndContinueMap.TableContents, y.EditAndContinueMap.TableContents, EditAndContinueMapEqualityComparer )
+      //            && ListEqualityComparer<List<AssemblyDefinition>, AssemblyDefinition>.Equals( x.AssemblyDefinitions.TableContents, y.AssemblyDefinitions.TableContents, AssemblyDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<AssemblyDefinitionProcessor>, AssemblyDefinitionProcessor>.Equals( x.AssemblyDefinitionProcessors.TableContents, y.AssemblyDefinitionProcessors.TableContents, AssemblyDefinitionProcessorEqualityComparer )
+      //            && ListEqualityComparer<List<AssemblyDefinitionOS>, AssemblyDefinitionOS>.Equals( x.AssemblyDefinitionOSs.TableContents, y.AssemblyDefinitionOSs.TableContents, AssemblyDefinitionOSEqualityComparer )
+      //            && ListEqualityComparer<List<AssemblyReference>, AssemblyReference>.Equals( x.AssemblyReferences.TableContents, y.AssemblyReferences.TableContents, AssemblyReferenceEqualityComparer )
+      //            && ListEqualityComparer<List<AssemblyReferenceProcessor>, AssemblyReferenceProcessor>.Equals( x.AssemblyReferenceProcessors.TableContents, y.AssemblyReferenceProcessors.TableContents, AssemblyReferenceProcessorEqualityComparer )
+      //            && ListEqualityComparer<List<AssemblyReferenceOS>, AssemblyReferenceOS>.Equals( x.AssemblyReferenceOSs.TableContents, y.AssemblyReferenceOSs.TableContents, AssemblyReferenceOSEqualityComparer )
+      //            && ListEqualityComparer<List<FileReference>, FileReference>.Equals( x.FileReferences.TableContents, y.FileReferences.TableContents, FileReferenceEqualityComparer )
+      //            && ListEqualityComparer<List<ExportedType>, ExportedType>.Equals( x.ExportedTypes.TableContents, y.ExportedTypes.TableContents, ExportedTypeEqualityComparer )
+      //            && ListEqualityComparer<List<ManifestResource>, ManifestResource>.Equals( x.ManifestResources.TableContents, y.ManifestResources.TableContents, ManifestResourceEqualityComparer )
+      //            && ListEqualityComparer<List<NestedClassDefinition>, NestedClassDefinition>.Equals( x.NestedClassDefinitions.TableContents, y.NestedClassDefinitions.TableContents, NestedClassDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<GenericParameterDefinition>, GenericParameterDefinition>.Equals( x.GenericParameterDefinitions.TableContents, y.GenericParameterDefinitions.TableContents, GenericParameterDefinitionEqualityComparer )
+      //            && ListEqualityComparer<List<MethodSpecification>, MethodSpecification>.Equals( x.MethodSpecifications.TableContents, y.MethodSpecifications.TableContents, MethodSpecificationEqualityComparer )
+      //            && ListEqualityComparer<List<GenericParameterConstraintDefinition>, GenericParameterConstraintDefinition>.Equals( x.GenericParameterConstraintDefinitions.TableContents, y.GenericParameterConstraintDefinitions.TableContents, GenericParameterConstraintDefinitionEqualityComparer )
+      //            && SequenceEqualityComparer<IEnumerable<MetaDataTable>, MetaDataTable>.SequenceEquality(
+      //               x.GetAdditionalTables(),
+      //               y.GetAdditionalTables(),
+      //               ( xa, ya ) => SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
+      //                  xa.TableContentsNotGeneric.Cast<Object>(),
+      //                  ya.TableContentsNotGeneric.Cast<Object>(),
+      //                  xa.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
+      //               ) )
+      //            );
+      //#pragma warning restore 618
+      //      }
 
       internal static Boolean Equality_ModuleDefinition( ModuleDefinition x, ModuleDefinition y )
       {
@@ -3013,9 +2425,9 @@ namespace CILAssemblyManipulator.Physical.Meta
             ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && x.Generation == y.Generation
-            && NullableEqualityComparer<Guid>.Equals( x.ModuleGUID, y.ModuleGUID )
-            && NullableEqualityComparer<Guid>.Equals( x.EditAndContinueGUID, y.EditAndContinueGUID )
-            && NullableEqualityComparer<Guid>.Equals( x.EditAndContinueBaseGUID, y.EditAndContinueBaseGUID )
+            && x.ModuleGUID.EqualsTypedEquatable( y.ModuleGUID )
+            && x.EditAndContinueGUID.EqualsTypedEquatable( y.EditAndContinueGUID )
+            && x.EditAndContinueBaseGUID.EqualsTypedEquatable( y.EditAndContinueBaseGUID )
             );
       }
 
@@ -3025,7 +2437,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             ( x != null && y != null
             && String.Equals( x.Name, y.Name )
             && String.Equals( x.Namespace, y.Namespace )
-            && NullableEqualityComparer<TableIndex>.Equals( x.ResolutionScope, y.ResolutionScope )
+            && x.ResolutionScope.EqualsTypedEquatable( y.ResolutionScope )
             );
       }
 
@@ -3036,7 +2448,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             && String.Equals( x.Name, y.Name )
             && String.Equals( x.Namespace, y.Namespace )
             && x.Attributes == y.Attributes
-            && NullableEqualityComparer<TableIndex>.Equals( x.BaseType, y.BaseType )
+            && x.BaseType.EqualsTypedEquatable( y.BaseType )
             && x.FieldList.Equals( y.FieldList )
             && x.MethodList.Equals( y.MethodList )
             );
@@ -3129,7 +2541,7 @@ namespace CILAssemblyManipulator.Physical.Meta
              ( x != null && y != null
              && x.Parent == y.Parent
              && x.Type == y.Type
-             && AbstractCustomAttributeSignatureEqualityComparer.Equals( x.Signature, y.Signature ) // TODO use sigProvider to compare custom attribute signatures.
+             && Equality_AbstractCustomAttributeSignature( x.Signature, y.Signature ) // TODO use sigProvider to compare custom attribute signatures.
              );
       }
 
@@ -3138,7 +2550,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          return Object.ReferenceEquals( x, y ) ||
              ( x != null && y != null
              && x.Parent == y.Parent
-             && MarshalingInfoEqualityComparer.Equals( x.NativeType, y.NativeType ) // TODO use sigProvider to compare marshal signatures.
+             && Equality_MarshalingInfo( x.NativeType, y.NativeType ) // TODO use sigProvider to compare marshal signatures.
              );
       }
 
@@ -3148,7 +2560,7 @@ namespace CILAssemblyManipulator.Physical.Meta
              ( x != null && y != null
              && x.Parent == y.Parent
              && x.Action == y.Action
-             && ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.Equals( x.PermissionSets, y.PermissionSets, AbstractSecurityInformationEqualityComparer )
+             && ListEqualityComparer<List<AbstractSecurityInformation>, AbstractSecurityInformation>.ListEquality( x.PermissionSets, y.PermissionSets, Equality_AbstractSecurityInformation )
              );
       }
 
@@ -3396,7 +2808,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          var retVal = Object.ReferenceEquals( x, y ) ||
              ( x != null && y != null
              && String.Equals( x.Name, y.Name )
-             && NullableEqualityComparer<TableIndex>.Equals( x.Implementation, y.Implementation )
+             && x.Implementation.EqualsTypedEquatable( y.Implementation )
              && ( !x.Implementation.HasValue || x.Offset == y.Offset )
              && x.Attributes == y.Attributes
              && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.EmbeddedData, y.EmbeddedData )
@@ -3447,7 +2859,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
-            && NullableEqualityComparer<TableIndex>.Equals( x.LocalsSignatureIndex, y.LocalsSignatureIndex )
+            && x.LocalsSignatureIndex.EqualsTypedEquatable( y.LocalsSignatureIndex )
             && ListEqualityComparer<List<OpCodeInfo>, OpCodeInfo>.ListEquality( x.OpCodes, y.OpCodes, Equality_OpCodeInfo )
             && ListEqualityComparer<List<MethodExceptionBlock>, MethodExceptionBlock>.ListEquality( x.ExceptionBlocks, y.ExceptionBlocks, Equality_MethodExceptionBlock )
             && x.InitLocals == y.InitLocals
@@ -3464,7 +2876,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             && x.TryLength == y.TryLength
             && x.HandlerOffset == y.HandlerOffset
             && x.HandlerLength == y.HandlerLength
-            && NullableEqualityComparer<TableIndex>.Equals( x.ExceptionType, y.ExceptionType )
+            && x.ExceptionType.EqualsTypedEquatable( y.ExceptionType )
             && x.FilterOffset == y.FilterOffset
             );
       }
@@ -3545,9 +2957,9 @@ namespace CILAssemblyManipulator.Physical.Meta
       internal static Boolean Equality_CustomAttributeSignature_NoReferenceEquals( ResolvedCustomAttributeSignature x, ResolvedCustomAttributeSignature y )
       {
          return x != null && y != null
-            && ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.Equals( x.TypedArguments, y.TypedArguments, CustomAttributeTypedArgumentEqualityComparer )
+            && ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.ListEquality( x.TypedArguments, y.TypedArguments, Equality_CustomAttributeTypedArgument )
             // TODO should we use set-comparer for named args? since order most likely shouldn't matter...
-            && ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.Equals( x.NamedArguments, y.NamedArguments, CustomAttributeNamedArgumentEqualityComparer );
+            && ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.ListEquality( x.NamedArguments, y.NamedArguments, Equality_CustomAttributeNamedArgument );
       }
 
       internal static Boolean Equality_CustomAttributeTypedArgument( CustomAttributeTypedArgument x, CustomAttributeTypedArgument y )
@@ -3640,7 +3052,7 @@ namespace CILAssemblyManipulator.Physical.Meta
       internal static Boolean Equality_SecurityInformation_NoReferenceEquals( SecurityInformation x, SecurityInformation y )
       {
          return Equality_AbstractSecurityInformation_NoReferenceEquals( x, y )
-            && ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.Equals( x.NamedArguments, y.NamedArguments, CustomAttributeNamedArgumentEqualityComparer );
+            && ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.ListEquality( x.NamedArguments, y.NamedArguments, Equality_CustomAttributeNamedArgument );
       }
 
       internal static Boolean Equality_MarshalingInfo( AbstractMarshalingInfo x, AbstractMarshalingInfo y )
@@ -4041,7 +3453,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       internal static Int32 HashCode_CustomAttributeSignature( ResolvedCustomAttributeSignature x )
       {
-         return x == null ? 0 : ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.GetHashCode( x.TypedArguments, CustomAttributeTypedArgumentEqualityComparer );
+         return x == null ? 0 : ListEqualityComparer<List<CustomAttributeTypedArgument>, CustomAttributeTypedArgument>.ListHashCode( x.TypedArguments, HashCode_CustomAttributeTypedArgument );
       }
 
       internal static Int32 HashCode_CustomAttributeTypedArgument( CustomAttributeTypedArgument x )
@@ -4120,7 +3532,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
       internal static Int32 HashCode_SecurityInformation( SecurityInformation x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.SecurityAttributeType.GetHashCodeSafe( 1 ) ) * 23 + ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.GetHashCode( x.NamedArguments, CustomAttributeNamedArgumentEqualityComparer ) );
+         return x == null ? 0 : ( ( 17 * 23 + x.SecurityAttributeType.GetHashCodeSafe( 1 ) ) * 23 + ListEqualityComparer<List<CustomAttributeNamedArgument>, CustomAttributeNamedArgument>.ListHashCode( x.NamedArguments, HashCode_CustomAttributeNamedArgument ) );
       }
 
       internal static Int32 HashCode_MarshalingInfo( AbstractMarshalingInfo x )

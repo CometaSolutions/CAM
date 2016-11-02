@@ -309,9 +309,9 @@ namespace CILAssemblyManipulator.Structural
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
             && Equivalence_Signature_Field( x.Signature, y.Signature )
-            && NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue )
+            && x.ConstantValue.EqualsTypedEquatable( y.ConstantValue )
             && Equivalence_MarshalInfo( x.MarshalingInfo, y.MarshalingInfo )
-            && NullableEqualityComparer<Int32>.Equals( x.FieldOffset, y.FieldOffset )
+            && x.FieldOffset.EqualsTypedEquatable( y.FieldOffset )
             && ArrayEqualityComparer<Byte>.DefaultArrayEqualityComparer.Equals( x.FieldData, y.FieldData )
             && Equivalence_PInvoke( x.PInvokeInfo, y.PInvokeInfo )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
@@ -350,7 +350,7 @@ namespace CILAssemblyManipulator.Structural
             && x.Sequence == y.Sequence
             && String.Equals( x.Name, y.Name )
             && x.Attributes == y.Attributes
-            && NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue )
+            && x.ConstantValue.EqualsTypedEquatable( y.ConstantValue )
             && Equivalence_MarshalInfo( x.MarshalingInfo, y.MarshalingInfo )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
@@ -563,7 +563,7 @@ namespace CILAssemblyManipulator.Structural
             && x.Attributes == y.Attributes
             && Equivalence_Signature_Property( x.Signature, y.Signature )
             && ListEqualityComparer<List<SemanticMethodInfo>, SemanticMethodInfo>.IsPermutation( x.SemanticMethods, y.SemanticMethods, this._semanticMethodComparer )
-            && NullableEqualityComparer<ConstantStructure>.Equals( x.ConstantValue, y.ConstantValue )
+            && x.ConstantValue.EqualsTypedEquatable( y.ConstantValue )
             && ListEqualityComparer<List<CustomAttributeStructure>, CustomAttributeStructure>.IsPermutation( x.CustomAttributes, y.CustomAttributes, this._caComparer )
             );
       }
@@ -1169,7 +1169,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Boolean Equivalence_Signature_Type_ComplexArray( ComplexArrayTypeStructureSignature thisSig, ComplexArrayTypeStructureSignature otherSig )
       {
-         return Comparers.ComplexArrayInfoEqualityComparer.Equals(thisSig.ComplexArrayInfo, otherSig.ComplexArrayInfo)
+         return thisSig.ComplexArrayInfo.EqualsTypedEquatable( otherSig.ComplexArrayInfo )
             && Equivalence_Signature_Type( thisSig.ArrayType, otherSig.ArrayType );
       }
 
@@ -1605,7 +1605,7 @@ namespace CILAssemblyManipulator.Structural
 
       private Int32 HashCode_ComplexArrayTypeSignature( ComplexArrayTypeStructureSignature x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + Comparers.ComplexArrayInfoEqualityComparer.GetHashCode( x.ComplexArrayInfo) ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
+         return x == null ? 0 : ( ( 17 * 23 + x.ComplexArrayInfo.GetHashCodeSafe() ) * 23 + HashCode_TypeSignature( x.ArrayType ) );
       }
 
       private Int32 HashCode_SimpleArrayTypeSignature( SimpleArrayTypeStructureSignature x )

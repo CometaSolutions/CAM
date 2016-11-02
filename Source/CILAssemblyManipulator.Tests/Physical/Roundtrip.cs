@@ -69,7 +69,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             md2 = stream.ReadModule();
          }
 
-         Assert.IsTrue( Comparers.MetaDataEqualityComparer.Equals( md, md2 ) );
+         Assert.IsTrue( md.AreAllTablesEqual( md2 ) );
       }
 
       private static void PerformRoundtripTest( String fileLocation, Action<CILMetaData> afterFirstRead, Action<CILMetaData> afterSecondRead )
@@ -156,7 +156,7 @@ namespace CILAssemblyManipulator.Tests.Physical
             }
          }
 
-         Assert.IsTrue( Comparers.MetaDataEqualityComparer.Equals( read1, read2 ) );
+         Assert.IsTrue( read1.AreAllTablesEqual( read2 ) );
          // We don't use public key when emitting module
          //rArgs1.Headers.ModuleFlags = ModuleFlags.ILOnly;
          Assert.IsTrue( CAMPhysicalIO::CILAssemblyManipulator.Physical.Comparers.ImageInformationLogicalEqualityComparer.Equals( rArgs1.ImageInformation, rArgs2.ImageInformation ) );

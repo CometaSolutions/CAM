@@ -280,4 +280,81 @@ public static partial class E_TabularMetaData
    {
       return table.TableContents.Count;
    }
+
+   /// <summary>
+   /// Checks whehter two <see cref="TabularMetaDataWithSchema"/> instances have same amount of tables and that the tables have same table indices, are of equal size, and have equal contents.
+   /// </summary>
+   /// <param name="first">The first instance of <see cref="TabularMetaDataWithSchema"/>.</param>
+   /// <param name="second">The second instance of <see cref="TabularMetaDataWithSchema"/>.</param>
+   /// <returns><c>true</c> if both <paramref name="first"/> and <paramref name="second"/> are same instance, or they have same amount of tables with same table index, equal size, and equal contents.</returns>
+   public static Boolean AreAllTablesEqual( this TabularMetaDataWithSchema first, TabularMetaDataWithSchema second ) // TODO , Boolean onlyIntersection = false )
+   {
+      var retVal = ReferenceEquals( first, second );
+      if ( !retVal && first != null && second != null )
+      {
+         var firstTables = first.GetAllTables();
+         var secondTables = second.GetAllTables();
+         // First check only row counts, and only then compare rows themselves
+         retVal = firstTables.SequenceEqual( secondTables, MetaDataTableCountComparer.Instance )
+            && firstTables.SequenceEqual( secondTables, MetaDataTableContentsComparer.Instance );
+      }
+
+      return retVal;
+   }
+
+   private sealed class MetaDataTableCountComparer : IEqualityComparer<MetaDataTable>
+   {
+      public static IEqualityComparer<MetaDataTable> Instance = new MetaDataTableCountComparer();
+
+      private MetaDataTableCountComparer()
+      {
+
+      }
+
+
+      Boolean IEqualityComparer<MetaDataTable>.Equals( MetaDataTable x, MetaDataTable y )
+      {
+         return x.GetTableIndex() == y.GetTableIndex() && x.GetRowCount() == y.GetRowCount();
+      }
+
+      Int32 IEqualityComparer<MetaDataTable>.GetHashCode( MetaDataTable obj )
+      {
+         throw new NotSupportedException( "This method is not supported" );
+      }
+   }
+
+   private sealed class MetaDataTableContentsComparer : IEqualityComparer<MetaDataTable>
+   {
+      public static IEqualityComparer<MetaDataTable> Instance = new MetaDataTableContentsComparer();
+
+      private MetaDataTableContentsComparer()
+      {
+
+      }
+
+      Boolean IEqualityComparer<MetaDataTable>.Equals( MetaDataTable x, MetaDataTable y )
+      {
+         var retVal = SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
+            x.TableContentsNotGeneric.Cast<Object>(),
+            y.TableContentsNotGeneric.Cast<Object>(),
+            x.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
+         );
+         if ( !retVal )
+         {
+            var hmmX = x.TableContentsNotGeneric.Cast<Object>()
+               .Where( ( xRow, idx ) => !x.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals( xRow, y.TableContentsNotGeneric[idx] ) )
+               .First();
+            var hmmIdx = x.TableContentsNotGeneric.IndexOf( hmmX );
+            var hmmY = y.TableContentsNotGeneric[hmmIdx];
+            x.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals( hmmX, hmmY );
+         }
+
+         return retVal;
+      }
+
+      Int32 IEqualityComparer<MetaDataTable>.GetHashCode( MetaDataTable obj )
+      {
+         throw new NotSupportedException( "This method is not supported" );
+      }
+   }
 }

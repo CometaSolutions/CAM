@@ -3487,7 +3487,7 @@ namespace CILMerge
 
       public override Int32 GetHashCode()
       {
-         return ( 17 * this.Index.GetHashCode() + 23 ) * ArrayEqualityComparer<TypeSignature>.GetHashCode( this.GenericArguments, Comparers.TypeSignatureEqualityComparer ) + 23;
+         return ( 17 * this.Index.GetHashCode() + 23 ) * ArrayEqualityComparer<TypeSignature>.ArrayHashCode( this.GenericArguments, this.Index.MetaData.GetSignatureProvider().SignatureHashCode ) + 23;
       }
 
       public Boolean Equals( TypeMetaDataIndex other )

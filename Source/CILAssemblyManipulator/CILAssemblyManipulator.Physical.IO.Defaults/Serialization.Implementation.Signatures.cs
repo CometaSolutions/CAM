@@ -380,6 +380,7 @@ public static partial class E_CILPhysical
       if ( array[idx] == (Byte) SignatureElementTypes.TypedByRef )
       {
          retVal.Type = sigProvider.GetSimpleTypeSignatureOrNull( SimpleTypeSignatureKind.TypedByRef );
+         ++idx;
       }
       else
       {
@@ -1066,10 +1067,20 @@ public static partial class E_CILPhysical
       }
    }
 
+   internal static void ProcessNotRawSignature( this ResizableArray<Byte> info, ref Int32 idx, AbstractNotRawSignature sig )
+   {
+      var array = sig?.ExtraData;
+      if ( !array.IsNullOrEmpty() )
+      {
+         info.WriteArray( ref idx, array );
+      }
+   }
+
    internal static Byte[] CreateFieldSignature( this ResizableArray<Byte> info, FieldSignature sig )
    {
       var idx = 0;
       info.WriteFieldSignature( ref idx, sig );
+      info.ProcessNotRawSignature( ref idx, sig );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1077,6 +1088,7 @@ public static partial class E_CILPhysical
    {
       var idx = 0;
       info.WriteMethodSignature( ref idx, sig );
+      info.ProcessNotRawSignature( ref idx, sig );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1092,6 +1104,7 @@ public static partial class E_CILPhysical
    {
       var idx = 0;
       info.WriteLocalsSignature( ref idx, sig );
+      info.ProcessNotRawSignature( ref idx, sig );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1179,6 +1192,7 @@ public static partial class E_CILPhysical
    {
       var idx = 0;
       info.WritePropertySignature( ref idx, sig );
+      info.ProcessNotRawSignature( ref idx, sig );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1186,6 +1200,7 @@ public static partial class E_CILPhysical
    {
       var idx = 0;
       info.WriteTypeSignature( ref idx, sig );
+      info.ProcessNotRawSignature( ref idx, sig );
       return info.Array.CreateArrayCopy( idx );
    }
 
@@ -1193,6 +1208,7 @@ public static partial class E_CILPhysical
    {
       var idx = 0;
       info.WriteMethodSpecSignature( ref idx, sig );
+      info.ProcessNotRawSignature( ref idx, sig );
       return info.Array.CreateArrayCopy( idx );
    }
 

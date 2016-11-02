@@ -569,6 +569,45 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
+   /// Helper method to invoke <see cref="IEquatable{T}.Equals(T)"/> for nullable structs without throwind exception if this struct does not have value.
+   /// </summary>
+   /// <typeparam name="T">The type of the struct.</typeparam>
+   /// <param name="first">The first struct, nullable.</param>
+   /// <param name="second">The second struct.</param>
+   /// <returns><c>true</c> if <paramref name="first"/> has value and <see cref="IEquatable{T}.Equals(T)"/> returns <c>true</c> when invoked on <paramref name="first"/> with <paramref name="second"/> as argument; <c>false</c> otherwise.</returns>
+   public static Boolean EqualsTypedEquatable<T>( this T? first, T second )
+      where T : struct, IEquatable<T>
+   {
+      return first.HasValue && first.Equals( second );
+   }
+
+   /// <summary>
+   /// Helper method to invoke <see cref="IEquatable{T}.Equals(T)"/> for nullable structs without throwind exception if this struct does not have value.
+   /// </summary>
+   /// <typeparam name="T">The type of the struct.</typeparam>
+   /// <param name="first">The first struct.</param>
+   /// <param name="second">The second struct, nullable.</param>
+   /// <returns><c>true</c> if <paramref name="second"/> has value and <see cref="IEquatable{T}.Equals(T)"/> returns <c>true</c> when invoked on <paramref name="first"/> with <paramref name="second"/> as argument; <c>false</c> otherwise.</returns>
+   public static Boolean EqualsTypedEquatable<T>( this T first, T? second )
+      where T : struct, IEquatable<T>
+   {
+      return second.HasValue && first.Equals( second );
+   }
+
+   /// <summary>
+   /// Helper method to invoke <see cref="IEquatable{T}.Equals(T)"/> for nullable structs without throwind exception if this struct does not have value.
+   /// </summary>
+   /// <typeparam name="T">The type of the struct.</typeparam>
+   /// <param name="first">The first struct, nullable.</param>
+   /// <param name="second">The second struct, nullable.</param>
+   /// <returns><c>true</c> if both <paramref name="first"/> and <paramref name="second"/> have value and <see cref="IEquatable{T}.Equals(T)"/> returns <c>true</c> when invoked on <paramref name="first"/> with <paramref name="second"/> as argument; <c>false</c> otherwise.</returns>
+   public static Boolean EqualsTypedEquatable<T>( this T? first, T? second )
+      where T : struct, IEquatable<T>
+   {
+      return first.HasValue == second.HasValue && ( !first.HasValue || ( second.HasValue && first.Equals( second.Value ) ) );
+   }
+
+   /// <summary>
    /// Returns only bottom-most types in type hierarchy of <paramref name="types"/>.
    /// </summary>
    /// <param name="types">The types to check.</param>
