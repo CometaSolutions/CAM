@@ -339,15 +339,6 @@ public static partial class E_TabularMetaData
             y.TableContentsNotGeneric.Cast<Object>(),
             x.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
          );
-         if ( !retVal )
-         {
-            var hmmX = x.TableContentsNotGeneric.Cast<Object>()
-               .Where( ( xRow, idx ) => !x.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals( xRow, y.TableContentsNotGeneric[idx] ) )
-               .First();
-            var hmmIdx = x.TableContentsNotGeneric.IndexOf( hmmX );
-            var hmmY = y.TableContentsNotGeneric[hmmIdx];
-            x.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals( hmmX, hmmY );
-         }
 
          return retVal;
       }
