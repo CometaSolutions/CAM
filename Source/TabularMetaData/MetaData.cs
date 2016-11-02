@@ -334,13 +334,11 @@ public static partial class E_TabularMetaData
 
       Boolean IEqualityComparer<MetaDataTable>.Equals( MetaDataTable x, MetaDataTable y )
       {
-         var retVal = SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
+         return SequenceEqualityComparer<IEnumerable<Object>, Object>.SequenceEquality(
             x.TableContentsNotGeneric.Cast<Object>(),
             y.TableContentsNotGeneric.Cast<Object>(),
             x.TableInformationNotGeneric.EqualityComparerNotGeneric.Equals
          );
-
-         return retVal;
       }
 
       Int32 IEqualityComparer<MetaDataTable>.GetHashCode( MetaDataTable obj )
