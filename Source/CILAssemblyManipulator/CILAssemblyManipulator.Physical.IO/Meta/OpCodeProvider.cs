@@ -1529,7 +1529,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             ctx.TableIndexTransformer = arg.TableIndexTransformer;
          } );
 
-         foreach ( var typeInfo in ( this.TypeInfos = typeInfos.ToArrayProxy().CQ ) )
+         foreach ( var typeInfo in typeInfos )
          {
             var codeType = typeInfo.OpCodeType;
             // Edges
@@ -1614,8 +1614,6 @@ namespace CILAssemblyManipulator.Physical.Meta
       public abstract CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider InstantiateOptimizedOpCodeProvider( Type generatedType );
 
       public ArrayQuery<OpCodeSerializationInfo> SerializationInfos { get; }
-
-      protected ArrayQuery<OpCodeElementTypeInfo> TypeInfos { get; }
    }
 
 #pragma warning restore 1591
