@@ -743,12 +743,12 @@ namespace CILMerge
          this._renames = new Lazy<IDictionary<String, String>>( () =>
          {
             var file = options.RenameFile;
-            var renameDic = new Dictionary<String, String>();
+            IDictionary<String, String> renameDic = new Dictionary<String, String>();
             if ( !String.IsNullOrEmpty( file?.Trim() ) )
             {
                try
                {
-                  File.ReadAllLines( file )
+                  renameDic = File.ReadAllLines( file )
                      .Select( line => line?.Split( ';' ) )
                      .Where( parts => parts != null && parts.Length > 1 )
                      .ToDictionary_Overwrite( parts => parts[0], parts => parts[1] );
