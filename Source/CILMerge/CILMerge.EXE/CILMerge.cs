@@ -200,7 +200,7 @@ namespace CILMerge
          options.UnionExcludeFile = args.GetSingleOptionOrNull( UNION_EXCLUDE )?.OptionValueAsString;
          options.NoDebug = args.GetSingleOptionOrNull( NODEBUG ).GetOrDefault( false );
          options.CopyAttributes = args.GetSingleOptionOrNull( COPY_ATTRS ).GetOrDefault( false );
-         options.TargetAssemblyAttributeSource = args.GetSingleOptionOrNull( ATTR ).GetOrDefault<String>();
+         options.TargetAssemblyAttributeSources = args.GetMultipleOptionsOrEmpty( ATTR ).Select( o => o.OptionValueAsString ).ToArray();
          options.AllowMultipleAssemblyAttributes = args.GetSingleOptionOrNull( ALLOW_MULTIPLE ).GetOrDefault( false );
          //options.Target = args.GetSingleOptionOrNull( TARGET ).GetOrDefault<ModuleKind?>();
          var tp = args.GetSingleOptionOrNull( TARGET_PLATFORM ).GetOrDefault<String>();
@@ -250,15 +250,18 @@ namespace CILMerge
          options.AllowWildCards = args.GetSingleOptionOrNull( WILDCARDS ).GetOrDefault<Boolean>();
 
          options.OutPath = RootPath( options.OutPath );
+         options.KeyFile = RootPath( options.KeyFile );
          if ( !options.AllowWildCards )
          {
             for ( var i = 0; i < options.InputAssemblies.Length; ++i )
             {
                options.InputAssemblies[i] = RootPath( options.InputAssemblies[i] );
             }
+            for ( var i = 0; i < options.TargetAssemblyAttributeSources.Length; ++i )
+            {
+               options.TargetAssemblyAttributeSources[i] = RootPath( options.TargetAssemblyAttributeSources[i] );
+            }
          }
-         options.KeyFile = RootPath( options.KeyFile );
-         options.TargetAssemblyAttributeSource = RootPath( options.TargetAssemblyAttributeSource );
          options.InternalizeExcludeFile = RootPath( options.InternalizeExcludeFile );
          options.RenameFile = args.GetSingleOptionOrNull( RENAME_FILE )?.OptionValueAsString;
 

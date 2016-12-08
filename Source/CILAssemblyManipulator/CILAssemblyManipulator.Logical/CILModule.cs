@@ -80,9 +80,9 @@ namespace CILAssemblyManipulator.Logical
       /// <summary>
       /// Gets cached <see cref="LogicalOpCodeInfoWithNoOperand"/> for given <see cref="OpCodeID"/>.
       /// </summary>
-      /// <param name="code">The <see cref="OpCodeID"/>.</param>
+      /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <returns>Cached <see cref="LogicalOpCodeInfoWithNoOperand"/> for given <paramref name="code"/>.</returns>
-      LogicalOpCodeInfoWithNoOperand GetOperandlessOpCode( OpCodeID code );
+      LogicalOpCodeInfoWithNoOperand GetOperandlessOpCode( OpCode code );
    }
 
    /// <summary>

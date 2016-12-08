@@ -77,7 +77,7 @@ namespace UtilPack.Visiting
 
    }
 
-   public interface ManualTransitionAcceptor_WithContextAndReturnValue<out TAcceptor, TElement, TContext, TResult> : AcceptorSetup<TAcceptor, ManualTypeBasedVisitor<TElement>, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>>
+   public interface ManualTransitionAcceptor_WithContextAndReturnValue<out TAcceptor, TElement, TResult, in TDelegate> : AcceptorSetup<TAcceptor, ManualTypeBasedVisitor<TElement>, TDelegate>
    {
 
    }
@@ -180,6 +180,14 @@ namespace UtilPack.Visiting
 
    public delegate TResult AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>( TElement element, TContext context, AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> acceptor );
 
+   public delegate TResult AcceptVertexExplicitWithResultDelegateTyped<TElement, TContext, TResult, in TActualElement>( TActualElement element, TContext context, AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> acceptor );
+
+   public delegate TResult AcceptVertexExplicitCallbackWithResultDelegate<in TElement, in TContext, out TResult>( TElement element, TContext context, Type overrideType = null );
+
+   public delegate TResult AcceptVertexExplicitWithContextAndResultDelegate<TElement, TContext, TResult>( TElement element, TContext context, AcceptVertexExplicitCallbackWithResultDelegate<TElement, TContext, TResult> acceptor );
+
+   public delegate Boolean? PreCheckerDelegate<TElement, TAdditionalInfo>( TElement element, TAdditionalInfo additionalInfo );
+
    public enum TopMostTypeVisitingStrategy
    {
       Never,
@@ -223,10 +231,11 @@ namespace UtilPack.Visiting
          TopMostTypeVisitingStrategy topMostVisitingStrategy,
          Boolean continueOnMissingVertex,
          Func<TContext> contextFactory,
-         Action<TElement, TContext, TAdditionalInfo> contextInitializer
+         Action<TElement, TContext, TAdditionalInfo> contextInitializer,
+         PreCheckerDelegate<TElement, TAdditionalInfo> preChecker
          )
       {
-         return new Implementation.AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo>( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer );
+         return new Implementation.AutomaticTransitionAcceptor_WithContextImpl_Caching<TElement, TEdgeInfo, TContext, TAdditionalInfo>( visitor, topMostVisitingStrategy, continueOnMissingVertex, contextFactory, contextInitializer, preChecker );
       }
 
       public static ManualTransitionAcceptor_NoContext<Acceptor<TElement>, TElement> NewManualAcceptor_NoContext<TElement>(
@@ -250,11 +259,36 @@ namespace UtilPack.Visiting
          return new Implementation.ManualTransitionAcceptor_WithReturnValueImpl<TElement, TResult>( visitor );
       }
 
-      public static ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, TContext, TResult> NewManualAcceptor_WithContextAndReturnValue<TElement, TContext, TResult>(
+      public static ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, TResult, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>> NewManualAcceptor_WithContextAndReturnValue<TElement, TContext, TResult>(
          ManualTypeBasedVisitor<TElement> visitor
          )
       {
          return new Implementation.ManualTransitionAcceptor_WithContextAndReturnValueImpl<TElement, TContext, TResult>( visitor );
+      }
+
+      public static ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, TResult, AcceptVertexExplicitWithContextAndResultDelegate<TElement, TContext, TResult>> NewManualAcceptor_WithContextAndReturnValue_ContextInCallback<TElement, TContext, TResult>(
+         ManualTypeBasedVisitor<TElement> visitor
+         )
+      {
+         return new Implementation.ManualTransitionAcceptor_WithContextAndReturnValueImpl_ContextForCallback<TElement, TContext, TResult>( visitor );
+      }
+
+      public static ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithReturnValue<TElement, TResult>, TElement, TResult, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>> NewManualAcceptor_WithReturnValue_Caching<TElement, TContext, TResult>(
+         ManualTypeBasedVisitor<TElement> visitor,
+         Func<TContext> contextFactory,
+         Action<TElement, TContext> contextInitializer
+         )
+      {
+         return new Implementation.ManualTransitionAcceptor_WithContextAndReturnValueImpl_Caching<TElement, TContext, TResult>( visitor, contextFactory, contextInitializer );
+      }
+
+      public static ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TAdditionalInfo, TResult>, TElement, TResult, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>> NewManualAcceptor_WithHiddenContextAndReturnValue_Caching<TElement, TContext, TResult, TAdditionalInfo>(
+         ManualTypeBasedVisitor<TElement> visitor,
+         Func<TContext> contextFactory,
+         Action<TElement, TContext, TAdditionalInfo> contextInitializer
+         )
+      {
+         return new Implementation.ManualTransitionAcceptor_WithContextAndReturnValueImpl_Caching<TElement, TContext, TResult, TAdditionalInfo>( visitor, contextFactory, contextInitializer );
       }
    }
 }
@@ -282,6 +316,12 @@ public static partial class E_UtilPack
    {
       Boolean success;
       return acceptor.Accept( element, out success );
+   }
+
+   public static TResult Accept<TElement, TContext, TResult>( this AcceptorWithContextAndReturnValue<TElement, TContext, TResult> acceptor, TElement element, TContext context )
+   {
+      Boolean success;
+      return acceptor.Accept( element, context, out success );
    }
 
 

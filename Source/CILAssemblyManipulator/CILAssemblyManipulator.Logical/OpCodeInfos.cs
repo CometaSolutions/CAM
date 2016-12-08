@@ -30,22 +30,22 @@ namespace CILAssemblyManipulator.Logical
    public abstract class LogicalOpCodeInfoWithOneOpCode : LogicalOpCodeInfo
    {
       // TODO - probably now with customizable op codes, this should store physical OpCode instead??
-      private readonly UInt16 _opCode; // Save some memory and store enum instead of actual struct
+      private readonly OpCode _opCode; // Save some memory and store enum instead of actual struct
 
-      internal LogicalOpCodeInfoWithOneOpCode( OpCodeID code )
+      internal LogicalOpCodeInfoWithOneOpCode( OpCode code )
       {
-         this._opCode = (UInt16) code;
+         this._opCode = ArgumentValidator.ValidateNotNull( "Code", code );
       }
 
       /// <summary>
       /// Returns the <see cref="OpCodeID"/> to emit.
       /// </summary>
       /// <value>The <see cref="OpCodeID"/> to emit.</value>
-      public OpCodeID Code
+      public OpCode Code
       {
          get
          {
-            return (OpCodeID) this._opCode; // OpCodes.GetCodeFor( (OpCodeEncoding) this._opCode );
+            return this._opCode; // OpCodes.GetCodeFor( (OpCodeEncoding) this._opCode );
          }
       }
 
@@ -71,7 +71,7 @@ namespace CILAssemblyManipulator.Logical
       /// Creates a new instance of <see cref="LogicalOpCodeInfoWithNoOperand"/>.
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
-      public LogicalOpCodeInfoWithNoOperand( OpCodeID code )
+      public LogicalOpCodeInfoWithNoOperand( OpCode code )
          : base( code )
       {
          ///// <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> property of <paramref name="code"/> is not <see cref="OperandType.InlineNone"/>.</exception>
@@ -123,7 +123,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithFixedSizeOperand : LogicalOpCodeInfoWithOneOpCode
    {
-      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCodeID opCode )
+      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCode opCode )
          : base( opCode )
       {
       }
@@ -137,7 +137,7 @@ namespace CILAssemblyManipulator.Logical
    {
       private readonly TOperand _operand;
 
-      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCodeID opCode, TOperand operand )
+      internal LogicalOpCodeInfoWithFixedSizeOperand( OpCode opCode, TOperand operand )
          : base( opCode )
       {
          this._operand = operand;
@@ -160,7 +160,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public abstract class LogicalOpCodeInfoWithTokenOperand : LogicalOpCodeInfoWithFixedSizeOperand
    {
-      internal LogicalOpCodeInfoWithTokenOperand( OpCodeID opCode )
+      internal LogicalOpCodeInfoWithTokenOperand( OpCode opCode )
          : base( opCode )
       {
       }
@@ -252,7 +252,7 @@ namespace CILAssemblyManipulator.Logical
    {
       private readonly TypeTokenKind _typeTokenKind;
 
-      internal LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind( OpCodeID opCode, TypeTokenKind typeTokenKind )
+      internal LogicalOpCodeInfoWithTokenOperandAndTypeTokenKind( OpCode opCode, TypeTokenKind typeTokenKind )
          : base( opCode ) //, TOKEN_SIZE )
       {
          this._typeTokenKind = typeTokenKind;
@@ -285,7 +285,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="type">The <see cref="CILTypeBase"/> to have as operand.</param>
       /// <param name="typeTokenKind"> The <see cref="TypeTokenKind"/></param>
       /// <exception cref="ArgumentNullException">If <paramref name="type"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithTypeToken( OpCodeID opCode, CILTypeBase type, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithTypeToken( OpCode opCode, CILTypeBase type, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Type", type );
@@ -328,7 +328,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="field">The <see cref="CILField"/> to use as operand.</param>
       /// <param name="typeTokenKind">The <see cref="TypeTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="field"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithFieldToken( OpCodeID opCode, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithFieldToken( OpCode opCode, CILField field, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Field", field );
@@ -447,7 +447,7 @@ namespace CILAssemblyManipulator.Logical
    {
       private readonly MethodTokenKind _tokenKind;
 
-      internal LogicalOpCodeInfoWithMethodBaseToken( OpCodeID opCode, TypeTokenKind typeTokenKind, MethodTokenKind methodTokenKind )
+      internal LogicalOpCodeInfoWithMethodBaseToken( OpCode opCode, TypeTokenKind typeTokenKind, MethodTokenKind methodTokenKind )
          : base( opCode, typeTokenKind )
       {
          this._tokenKind = methodTokenKind;
@@ -482,7 +482,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="methodTokenKind"> The <see cref="Logical.MethodTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="method"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters</remarks>
-      public LogicalOpCodeInfoWithMethodToken( OpCodeID opCode, CILMethod method, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithMethodToken( OpCode opCode, CILMethod method, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation, MethodTokenKind methodTokenKind = MethodTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind, methodTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Method", method );
@@ -526,7 +526,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="typeTokenKind">The <see cref="Logical.TypeTokenKind"/>.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="ctor"/> is <c>null</c>.</exception>
       /// <remarks>TODO varargs parameters.</remarks>
-      public LogicalOpCodeInfoWithCtorToken( OpCodeID opCode, CILConstructor ctor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
+      public LogicalOpCodeInfoWithCtorToken( OpCode opCode, CILConstructor ctor, TypeTokenKind typeTokenKind = TypeTokenKind.GenericInstantiation )
          : base( opCode, typeTokenKind )
       {
          ArgumentValidator.ValidateNotNull( "Constructor", ctor );
@@ -570,7 +570,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="varArgs">The variable arguments for this call site. May be <c>null</c> or empty for non-varargs call.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="methodSig"/> is <c>null</c>.</exception>
       public LogicalOpCodeInfoWithMethodSig( CILMethodSignature methodSig, VarArgInstance[] varArgs )
-         : base( OpCodeID.Calli )
+         : base( OpCodes.Calli )
       {
          ArgumentValidator.ValidateNotNull( "Method signature", methodSig );
 
@@ -623,7 +623,7 @@ namespace CILAssemblyManipulator.Logical
       /// <param name="code">The code to use.</param>
       /// <param name="str">The string to use.</param>
       /// <exception cref="ArgumentNullException">If <paramref name="str"/> is <c>null</c>.</exception>
-      public LogicalOpCodeInfoWithFixedSizeOperandString( OpCodeID code, String str )
+      public LogicalOpCodeInfoWithFixedSizeOperandString( OpCode code, String str )
          : base( code, str ) //, TOKEN_SIZE )
       {
          // <exception cref="ArgumentException">If <see cref="OpCode.OperandType"/> for <paramref name="code"/> is not <see cref="OperandType.InlineString"/>.</exception>
@@ -658,7 +658,7 @@ namespace CILAssemblyManipulator.Logical
       /// CIL will interpret <paramref name="int16"/> as <see cref="UInt16"/>.
       /// Additionally, if <see cref="OpCode.OperandType"/> property of <paramref name="opCode"/> is <see cref="OperandType.ShortInlineVar"/>, the <paramref name="int16"/> will emitted as <see cref="Byte"/>.
       /// </remarks>
-      public LogicalOpCodeInfoWithFixedSizeOperandUInt16( OpCodeID opCode, Int16 int16 )
+      public LogicalOpCodeInfoWithFixedSizeOperandUInt16( OpCode opCode, Int16 int16 )
          : base( opCode, int16 ) //, opCode.OperandType == OperandType.ShortInlineVar ? (Byte) 1 : (Byte) 2 )
       {
       }
@@ -687,7 +687,7 @@ namespace CILAssemblyManipulator.Logical
       /// <remarks>
       /// If <see cref="OpCode.OperandType"/> property of <paramref name="opCode"/> is <see cref="OperandType.ShortInlineI"/>, the <paramref name="int32"/> will be emitted as <see cref="SByte"/>.
       /// </remarks>
-      public LogicalOpCodeInfoWithFixedSizeOperandInt32( OpCodeID opCode, Int32 int32 )
+      public LogicalOpCodeInfoWithFixedSizeOperandInt32( OpCode opCode, Int32 int32 )
          : base( opCode, int32 ) //, opCode.OperandType == OperandType.ShortInlineI ? (Byte) 1 : (Byte) 4 )
       {
       }
@@ -713,7 +713,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="int64">The operand.</param>
-      public LogicalOpCodeInfoWithFixedSizeOperandInt64( OpCodeID opCode, Int64 int64 )
+      public LogicalOpCodeInfoWithFixedSizeOperandInt64( OpCode opCode, Int64 int64 )
          : base( opCode, int64 ) //, (Byte) 8 )
       {
       }
@@ -739,7 +739,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="single">The operand.</param>
-      public LogicalOpCodeInfoWithFixedSizeOperandSingle( OpCodeID opCode, Single single )
+      public LogicalOpCodeInfoWithFixedSizeOperandSingle( OpCode opCode, Single single )
          : base( opCode, single ) //, (Byte) 4 )
       {
       }
@@ -765,7 +765,7 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="opCode">The <see cref="OpCode"/> to emit.</param>
       /// <param name="dbl">The operand.</param>
-      public LogicalOpCodeInfoWithFixedSizeOperandDouble( OpCodeID opCode, Double dbl )
+      public LogicalOpCodeInfoWithFixedSizeOperandDouble( OpCode opCode, Double dbl )
          : base( opCode, dbl ) // , (Byte) 8 )
       {
       }
@@ -796,13 +796,13 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the version of the <see cref="OpCode"/> that uses short operand.
       /// </summary>
       /// <value>The version of the <see cref="OpCode"/> that uses short operand.</value>
-      public abstract OpCodeID ShortForm { get; }
+      public abstract OpCode ShortForm { get; }
 
       /// <summary>
       /// Gets the version of the <see cref="OpCode"/> that uses long operand.
       /// </summary>
       /// <value>The version of the <see cref="OpCode"/> that uses long operand.</value>
-      public abstract OpCodeID LongForm { get; }
+      public abstract OpCode LongForm { get; }
 
       /// <summary>
       /// Gets the target <see cref="ILLabel"/> for this <see cref="LogicalOpCodeInfoForBranchingControlFlow"/>.
@@ -821,44 +821,44 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class LogicalOpCodeInfoForBranch : LogicalOpCodeInfoForBranchingControlFlow
    {
-      private static readonly IDictionary<BranchType, OpCodeID> LONG_BRANCH_OPCODES;
-      private static readonly IDictionary<BranchType, OpCodeID> SHORT_BRANCH_OPCODES;
-      private static readonly IDictionary<OpCodeID, BranchType> LONG_BRANCH_TYPES;
-      private static readonly IDictionary<OpCodeID, BranchType> SHORT_BRANCH_TYPES;
+      private static readonly IDictionary<BranchType, OpCode> LONG_BRANCH_OPCODES;
+      private static readonly IDictionary<BranchType, OpCode> SHORT_BRANCH_OPCODES;
+      private static readonly IDictionary<OpCode, BranchType> LONG_BRANCH_TYPES;
+      private static readonly IDictionary<OpCode, BranchType> SHORT_BRANCH_TYPES;
 
       static LogicalOpCodeInfoForBranch()
       {
-         LONG_BRANCH_OPCODES = new Dictionary<BranchType, OpCodeID>();
-         LONG_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodeID.Br );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodeID.Beq );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodeID.Brfalse );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Bge );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Bge_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodeID.Bgt );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodeID.Bgt_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Ble );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Ble_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodeID.Blt );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodeID.Blt_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodeID.Bne_Un );
-         LONG_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodeID.Brtrue );
+         LONG_BRANCH_OPCODES = new Dictionary<BranchType, OpCode>();
+         LONG_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodes.Br );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodes.Beq );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodes.Brfalse );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Bge );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Bge_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodes.Bgt );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodes.Bgt_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Ble );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Ble_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodes.Blt );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodes.Blt_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodes.Bne_Un );
+         LONG_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodes.Brtrue );
 
-         SHORT_BRANCH_OPCODES = new Dictionary<BranchType, OpCodeID>();
-         SHORT_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodeID.Br_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodeID.Beq_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodeID.Brfalse_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Bge_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Bge_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodeID.Bgt_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodeID.Bgt_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodeID.Ble_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodeID.Ble_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodeID.Blt_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodeID.Blt_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodeID.Bne_Un_S );
-         SHORT_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodeID.Brtrue_S );
+         SHORT_BRANCH_OPCODES = new Dictionary<BranchType, OpCode>();
+         SHORT_BRANCH_OPCODES.Add( BranchType.ALWAYS, OpCodes.Br_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_BOTH_EQUAL, OpCodes.Beq_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FALSE, OpCodes.Brfalse_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Bge_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Bge_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND, OpCodes.Bgt_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_GREATER_THAN_SECOND_UNORDERED, OpCodes.Bgt_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND, OpCodes.Ble_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_OR_EQUAL_TO_SECOND_UNORDERED, OpCodes.Ble_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND, OpCodes.Blt_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_FIRST_LESSER_THAN_SECOND_UNORDERED, OpCodes.Blt_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_NOT_EQUAL_UNORDERED, OpCodes.Bne_Un_S );
+         SHORT_BRANCH_OPCODES.Add( BranchType.IF_TRUE, OpCodes.Brtrue_S );
 
-         LONG_BRANCH_TYPES = new Dictionary<OpCodeID, BranchType>();
+         LONG_BRANCH_TYPES = new Dictionary<OpCode, BranchType>( ReferenceEqualityComparer<OpCode>.ReferenceBasedComparer );
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.ALWAYS], BranchType.ALWAYS );
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_BOTH_EQUAL], BranchType.IF_BOTH_EQUAL );
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_FALSE], BranchType.IF_FALSE );
@@ -873,7 +873,7 @@ namespace CILAssemblyManipulator.Logical
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_NOT_EQUAL_UNORDERED], BranchType.IF_NOT_EQUAL_UNORDERED );
          LONG_BRANCH_TYPES.Add( LONG_BRANCH_OPCODES[BranchType.IF_TRUE], BranchType.IF_TRUE );
 
-         SHORT_BRANCH_TYPES = new Dictionary<OpCodeID, BranchType>();
+         SHORT_BRANCH_TYPES = new Dictionary<OpCode, BranchType>( ReferenceEqualityComparer<OpCode>.ReferenceBasedComparer );
          SHORT_BRANCH_TYPES.Add( SHORT_BRANCH_OPCODES[BranchType.ALWAYS], BranchType.ALWAYS );
          SHORT_BRANCH_TYPES.Add( SHORT_BRANCH_OPCODES[BranchType.IF_BOTH_EQUAL], BranchType.IF_BOTH_EQUAL );
          SHORT_BRANCH_TYPES.Add( SHORT_BRANCH_OPCODES[BranchType.IF_FALSE], BranchType.IF_FALSE );
@@ -902,13 +902,13 @@ namespace CILAssemblyManipulator.Logical
          this._bType = bType;
       }
 
-      internal LogicalOpCodeInfoForBranch( OpCodeID code, Boolean isShort, ILLabel targetLabel )
+      internal LogicalOpCodeInfoForBranch( OpCode code, Boolean isShort, ILLabel targetLabel )
          : this( isShort ? SHORT_BRANCH_TYPES[code] : LONG_BRANCH_TYPES[code], targetLabel )
       {
       }
 
       /// <inheritdoc />
-      public override OpCodeID ShortForm
+      public override OpCode ShortForm
       {
          get
          {
@@ -917,7 +917,7 @@ namespace CILAssemblyManipulator.Logical
       }
 
       /// <inheritdoc />
-      public override OpCodeID LongForm
+      public override OpCode LongForm
       {
          get
          {
@@ -1015,20 +1015,20 @@ namespace CILAssemblyManipulator.Logical
       }
 
       /// <inheritdoc />
-      public override OpCodeID ShortForm
+      public override OpCode ShortForm
       {
          get
          {
-            return OpCodeID.Leave_S;
+            return OpCodes.Leave_S;
          }
       }
 
       /// <inheritdoc />
-      public override OpCodeID LongForm
+      public override OpCode LongForm
       {
          get
          {
-            return OpCodeID.Leave;
+            return OpCodes.Leave;
          }
       }
 
@@ -1047,7 +1047,7 @@ namespace CILAssemblyManipulator.Logical
    /// </summary>
    public sealed class LogicalOpCodeInfoForFixedBranchOrLeave : LogicalOpCodeInfo
    {
-      private readonly UInt16 _code;
+      private readonly OpCode _code;
       private readonly ILLabel _label;
 
       /// <summary>
@@ -1055,10 +1055,10 @@ namespace CILAssemblyManipulator.Logical
       /// </summary>
       /// <param name="code">The <see cref="OpCode"/>.</param>
       /// <param name="label">The <see cref="ILLabel"/> to branch to.</param>
-      public LogicalOpCodeInfoForFixedBranchOrLeave( OpCodeID code, ILLabel label )
+      public LogicalOpCodeInfoForFixedBranchOrLeave( OpCode code, ILLabel label )
       //: base( code.Size + ( code.OperandType == OperandType.ShortInlineBrTarget ? SHORT_BRANCH_OPERAND_SIZE : LONG_BRANCH_OPERAND_SIZE ) )
       {
-         this._code = (UInt16) code;
+         this._code = ArgumentValidator.ValidateNotNull( "Code", code );
          this._label = label;
       }
 
@@ -1079,11 +1079,11 @@ namespace CILAssemblyManipulator.Logical
       /// Gets the fixed branch code for this <see cref="LogicalOpCodeInfoForFixedBranchOrLeave"/>.
       /// </summary>
       /// <value>The fixed branch code for this <see cref="LogicalOpCodeInfoForFixedBranchOrLeave"/>.</value>
-      public OpCodeID Code
+      public OpCode Code
       {
          get
          {
-            return (OpCodeID) this._code;
+            return this._code;
          }
       }
 

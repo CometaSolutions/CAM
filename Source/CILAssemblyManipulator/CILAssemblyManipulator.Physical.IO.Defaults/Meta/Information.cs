@@ -190,13 +190,16 @@ namespace CILAssemblyManipulator.Physical.Meta
       {
          ArgumentValidator.ValidateNotNull( "Raw row factory", rawRowFactory );
          var retVal = new MetaDataTableInformation<TRow>( (Int32) tableKind, equalityComparer, comparer, rowFactory, columns );
-         retVal.RegisterFunctionalityDirect<MetaDataTableInformationWithSerializationCapabilityDelegate>( args => new TableSerializationLogicalFunctionalityImpl<TRow, TRawRow>(
-            (Tables) retVal.TableIndex,
+         retVal.RegisterFunctionalityDirect<MetaDataTableInformationWithSerializationCapabilityDelegate>( args => new TableSerializationLogicalFunctionalityCreationInfo(
             isSorted,
-            retVal.ColumnsInformation.Select( c => c.GetFunctionality<DefaultColumnSerializationInfo<TRow, TRawRow>>() ),
-            retVal.CreateRow,
-            rawRowFactory,
-            args
+            () => new TableSerializationLogicalFunctionalityImpl<TRow, TRawRow>(
+               (Tables) retVal.TableIndex,
+               isSorted,
+               retVal.ColumnsInformation.Select( c => c.GetFunctionality<DefaultColumnSerializationInfo<TRow, TRawRow>>() ),
+               retVal.CreateRow,
+               rawRowFactory,
+               args
+               )
             ) );
 
          return retVal;
@@ -323,7 +326,7 @@ namespace CILAssemblyManipulator.Physical.Meta
 
          yield return CreateSingleTableInfo<MethodDefinition, RawMethodDefinition>(
             Tables.MethodDef,
-            ComparerFromFunctions.NewEqualityComparer<MethodDefinition>( ( x, y ) => TableRowComparisons.Equality_MethodDefinition( sigProvider, opCodeProvider, x, y ), TableRowComparisons.HashCode_MethodDefinition ),
+            ComparerFromFunctions.NewEqualityComparer<MethodDefinition>( ( x, y ) => TableRowComparisons.Equality_MethodDefinition( sigProvider, opCodeProvider.OpCodeEquality, x, y ), TableRowComparisons.HashCode_MethodDefinition ),
             null,
             () => new MethodDefinition(),
             GetMethodDefColumns(),
@@ -1592,7 +1595,47 @@ namespace CILAssemblyManipulator.Physical.Meta
    /// <remarks>
    /// This delegate is accessible through (extension) methods for <see cref="UtilPack.Extension.SelfDescribingExtensionByCompositionProvider{TFunctionality}"/> of <see cref="MetaDataTableInformation"/>.
    /// </remarks>
-   public delegate TableSerializationLogicalFunctionality MetaDataTableInformationWithSerializationCapabilityDelegate( TableSerializationLogicalFunctionalityCreationArgs args );
+   public delegate TableSerializationLogicalFunctionalityCreationInfo MetaDataTableInformationWithSerializationCapabilityDelegate( TableSerializationLogicalFunctionalityCreationArgs args );
+
+   /// <summary>
+   /// This class encapsulates some static information about <see cref="TableSerializationLogicalFunctionality"/> (whether table is sorted), and the lazily evaluated instance of <see cref="TableSerializationBinaryFunctionality"/> itself.
+   /// </summary>
+   public class TableSerializationLogicalFunctionalityCreationInfo
+   {
+      private readonly Lazy<TableSerializationLogicalFunctionality> _functionality;
+
+      /// <summary>
+      /// Creates new instance of <see cref="TableSerializationLogicalFunctionalityCreationInfo"/> with given arguments.
+      /// </summary>
+      /// <param name="isSorted">Whether this table is sorted.</param>
+      /// <param name="functionalityCreator">The callback to create <see cref="TableSerializationLogicalFunctionality"/>.</param>
+      public TableSerializationLogicalFunctionalityCreationInfo(
+         Boolean isSorted,
+         Func<TableSerializationLogicalFunctionality> functionalityCreator
+         )
+      {
+         this.IsSorted = isSorted;
+         this._functionality = new Lazy<TableSerializationLogicalFunctionality>( ArgumentValidator.ValidateNotNull( "Functionality creator", functionalityCreator ), System.Threading.LazyThreadSafetyMode.None );
+      }
+
+      /// <summary>
+      /// Gets whether this table is sorted.
+      /// </summary>
+      /// <value>Whether this table is sorted.</value>
+      public Boolean IsSorted { get; }
+
+      /// <summary>
+      /// Lazily gets the <see cref="TableSerializationLogicalFunctionality"/> instance.
+      /// </summary>
+      /// <value>The <see cref="TableSerializationLogicalFunctionality"/> instance.</value>
+      public TableSerializationLogicalFunctionality Functionality
+      {
+         get
+         {
+            return this._functionality.Value;
+         }
+      }
+   }
 
    /// <summary>
    /// This struct defines all data that is used to create <see cref="TableSerializationLogicalFunctionality"/> by <see cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/>.
@@ -2477,7 +2520,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             ( x != null && y != null && x.MethodIndex.Equals( y.MethodIndex ) );
       }
 
-      internal static Boolean Equality_MethodDefinition( SignatureProvider sigProvider, CAMPhysical::CILAssemblyManipulator.Physical.Meta.OpCodeProvider opCodeProvider, MethodDefinition x, MethodDefinition y )
+      internal static Boolean Equality_MethodDefinition( SignatureProvider sigProvider, Equality<OpCodeInfo> opCodeEquality, MethodDefinition x, MethodDefinition y )
       {
          return Object.ReferenceEquals( x, y ) ||
             ( x != null && y != null
@@ -2486,7 +2529,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             && x.ImplementationAttributes == y.ImplementationAttributes
             && x.ParameterList == y.ParameterList
             && sigProvider.SignatureEquality( x.Signature, y.Signature )
-            && Equality_MethodILDefinition( x.IL, y.IL )
+            && Equality_MethodILDefinition( opCodeEquality, x.IL, y.IL )
             );
       }
 
@@ -2855,12 +2898,12 @@ namespace CILAssemblyManipulator.Physical.Meta
              );
       }
 
-      internal static Boolean Equality_MethodILDefinition( MethodILDefinition x, MethodILDefinition y )
+      internal static Boolean Equality_MethodILDefinition( Equality<OpCodeInfo> opCodeEquality, MethodILDefinition x, MethodILDefinition y )
       {
          return ReferenceEquals( x, y ) ||
             ( x != null && y != null
             && x.LocalsSignatureIndex.EqualsTypedEquatable( y.LocalsSignatureIndex )
-            && ListEqualityComparer<List<OpCodeInfo>, OpCodeInfo>.ListEquality( x.OpCodes, y.OpCodes, Equality_OpCodeInfo )
+            && ListEqualityComparer<List<OpCodeInfo>, OpCodeInfo>.ListEquality( x.OpCodes, y.OpCodes, opCodeEquality )
             && ListEqualityComparer<List<MethodExceptionBlock>, MethodExceptionBlock>.ListEquality( x.ExceptionBlocks, y.ExceptionBlocks, Equality_MethodExceptionBlock )
             && x.InitLocals == y.InitLocals
             && x.MaxStackSize == y.MaxStackSize
@@ -2881,43 +2924,43 @@ namespace CILAssemblyManipulator.Physical.Meta
             );
       }
 
-      internal static Boolean Equality_OpCodeInfo( OpCodeInfo x, OpCodeInfo y )
-      {
-         var retVal = Object.ReferenceEquals( x, y );
-         if ( !retVal && x != null && y != null && x.OpCodeID == y.OpCodeID && x.InfoKind == y.InfoKind )
-         {
-            switch ( x.InfoKind )
-            {
-               case OpCodeInfoKind.OperandInteger:
-                  retVal = ( (IOpCodeInfoWithOperand<Int32>) x ).Operand == ( (IOpCodeInfoWithOperand<Int32>) y ).Operand;
-                  break;
-               case OpCodeInfoKind.OperandInteger64:
-                  retVal = ( (IOpCodeInfoWithOperand<Int64>) x ).Operand == ( (IOpCodeInfoWithOperand<Int64>) y ).Operand;
-                  break;
-               case OpCodeInfoKind.OperandNone:
-                  retVal = true;
-                  break;
-               case OpCodeInfoKind.OperandR4:
-                  // Use .Equals in order for NaN's to work more intuitively
-                  retVal = ( (IOpCodeInfoWithOperand<Single>) x ).Operand.Equals( ( (IOpCodeInfoWithOperand<Single>) y ).Operand );
-                  break;
-               case OpCodeInfoKind.OperandR8:
-                  // Use .Equals in order for NaN's to work more intuitively
-                  retVal = ( (IOpCodeInfoWithOperand<Double>) x ).Operand.Equals( ( (IOpCodeInfoWithOperand<Double>) y ).Operand );
-                  break;
-               case OpCodeInfoKind.OperandString:
-                  retVal = String.Equals( ( (IOpCodeInfoWithOperand<String>) x ).Operand, ( (IOpCodeInfoWithOperand<String>) y ).Operand );
-                  break;
-               case OpCodeInfoKind.OperandIntegerList:
-                  retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (IOpCodeInfoWithOperand<List<Int32>>) x ).Operand, ( (IOpCodeInfoWithOperand<List<Int32>>) y ).Operand );
-                  break;
-               case OpCodeInfoKind.OperandTableIndex:
-                  retVal = ( (IOpCodeInfoWithOperand<TableIndex>) x ).Operand == ( (IOpCodeInfoWithOperand<TableIndex>) y ).Operand;
-                  break;
-            }
-         }
-         return retVal;
-      }
+      //internal static Boolean Equality_OpCodeInfo( OpCodeInfo x, OpCodeInfo y )
+      //{
+      //   var retVal = Object.ReferenceEquals( x, y );
+      //   if ( !retVal && x != null && y != null && x.OpCodeID == y.OpCodeID && x.InfoKind == y.InfoKind )
+      //   {
+      //      switch ( x.InfoKind )
+      //      {
+      //         case OpCodeInfoKind.OperandInteger:
+      //            retVal = ( (IOpCodeInfoWithOperand<Int32>) x ).Operand == ( (IOpCodeInfoWithOperand<Int32>) y ).Operand;
+      //            break;
+      //         case OpCodeInfoKind.OperandInteger64:
+      //            retVal = ( (IOpCodeInfoWithOperand<Int64>) x ).Operand == ( (IOpCodeInfoWithOperand<Int64>) y ).Operand;
+      //            break;
+      //         case OpCodeInfoKind.OperandNone:
+      //            retVal = true;
+      //            break;
+      //         case OpCodeInfoKind.OperandR4:
+      //            // Use .Equals in order for NaN's to work more intuitively
+      //            retVal = ( (IOpCodeInfoWithOperand<Single>) x ).Operand.Equals( ( (IOpCodeInfoWithOperand<Single>) y ).Operand );
+      //            break;
+      //         case OpCodeInfoKind.OperandR8:
+      //            // Use .Equals in order for NaN's to work more intuitively
+      //            retVal = ( (IOpCodeInfoWithOperand<Double>) x ).Operand.Equals( ( (IOpCodeInfoWithOperand<Double>) y ).Operand );
+      //            break;
+      //         case OpCodeInfoKind.OperandString:
+      //            retVal = String.Equals( ( (IOpCodeInfoWithOperand<String>) x ).Operand, ( (IOpCodeInfoWithOperand<String>) y ).Operand );
+      //            break;
+      //         case OpCodeInfoKind.OperandIntegerList:
+      //            retVal = ListEqualityComparer<List<Int32>, Int32>.ListEquality( ( (IOpCodeInfoWithOperand<List<Int32>>) x ).Operand, ( (IOpCodeInfoWithOperand<List<Int32>>) y ).Operand );
+      //            break;
+      //         case OpCodeInfoKind.OperandTableIndex:
+      //            retVal = ( (IOpCodeInfoWithOperand<TableIndex>) x ).Operand == ( (IOpCodeInfoWithOperand<TableIndex>) y ).Operand;
+      //            break;
+      //      }
+      //   }
+      //   return retVal;
+      //}
 
       internal static Boolean Equality_AssemblyInformation( AssemblyInformation x, AssemblyInformation y )
       {
@@ -3380,9 +3423,9 @@ namespace CILAssemblyManipulator.Physical.Meta
          return x == null ? 0 : ( ( 17 * 23 + x.Owner.GetHashCode() ) * 23 + x.Constraint.GetHashCode() );
       }
 
-      internal static Int32 HashCode_MethodILDefinition( MethodILDefinition x )
+      internal static Int32 HashCode_MethodILDefinition( HashCode<OpCodeInfo> opCodeHashCode, MethodILDefinition x )
       {
-         return x == null ? 0 : ( ( 17 * 23 + x.LocalsSignatureIndex.GetHashCodeSafe() ) * 23 + SequenceEqualityComparer<IEnumerable<OpCodeInfo>, OpCodeInfo>.SequenceHashCode( x.OpCodes.Take( 10 ), HashCode_OpCodeInfo ) );
+         return x == null ? 0 : ( ( 17 * 23 + x.LocalsSignatureIndex.GetHashCodeSafe() ) * 23 + SequenceEqualityComparer<IEnumerable<OpCodeInfo>, OpCodeInfo>.SequenceHashCode( x.OpCodes.Take( 10 ), opCodeHashCode ) );
       }
 
       internal static Int32 HashCode_MethodExceptionBlock( MethodExceptionBlock x )
@@ -3390,50 +3433,50 @@ namespace CILAssemblyManipulator.Physical.Meta
          return x == null ? 0 : ( ( ( 17 * 23 + (Int32) x.BlockType ) * 23 + x.TryOffset ) * 23 + x.TryLength );
       }
 
-      internal static Int32 HashCode_OpCodeInfo( OpCodeInfo x )
-      {
-         Int32 retVal;
-         if ( x == null )
-         {
-            retVal = 0;
-         }
-         else
-         {
-            retVal = 17 * 23 + x.OpCodeID.GetHashCode();
-            var infoKind = x.InfoKind;
-            if ( infoKind != OpCodeInfoKind.OperandNone )
-            {
-               Int32 operandHashCode;
-               switch ( infoKind )
-               {
-                  case OpCodeInfoKind.OperandInteger:
-                     operandHashCode = ( (IOpCodeInfoWithOperand<Int32>) x ).Operand;
-                     break;
-                  case OpCodeInfoKind.OperandInteger64:
-                     operandHashCode = ( (IOpCodeInfoWithOperand<Int64>) x ).Operand.GetHashCode();
-                     break;
-                  case OpCodeInfoKind.OperandR4:
-                     operandHashCode = ( (IOpCodeInfoWithOperand<Single>) x ).Operand.GetHashCode();
-                     break;
-                  case OpCodeInfoKind.OperandR8:
-                     operandHashCode = ( (IOpCodeInfoWithOperand<Double>) x ).Operand.GetHashCode();
-                     break;
-                  case OpCodeInfoKind.OperandString:
-                     operandHashCode = ( (IOpCodeInfoWithOperand<String>) x ).Operand.GetHashCodeSafe();
-                     break;
-                  case OpCodeInfoKind.OperandTableIndex:
-                     operandHashCode = ( (IOpCodeInfoWithOperand<TableIndex>) x ).Operand.GetHashCode();
-                     break;
-                  default:
-                     operandHashCode = 0;
-                     break;
-               }
-               retVal = retVal * 23 + operandHashCode;
-            }
-         }
+      //internal static Int32 HashCode_OpCodeInfo( OpCodeInfo x )
+      //{
+      //   Int32 retVal;
+      //   if ( x == null )
+      //   {
+      //      retVal = 0;
+      //   }
+      //   else
+      //   {
+      //      retVal = 17 * 23 + x.OpCodeID.GetHashCode();
+      //      var infoKind = x.InfoKind;
+      //      if ( infoKind != OpCodeInfoKind.OperandNone )
+      //      {
+      //         Int32 operandHashCode;
+      //         switch ( infoKind )
+      //         {
+      //            case OpCodeInfoKind.OperandInteger:
+      //               operandHashCode = ( (IOpCodeInfoWithOperand<Int32>) x ).Operand;
+      //               break;
+      //            case OpCodeInfoKind.OperandInteger64:
+      //               operandHashCode = ( (IOpCodeInfoWithOperand<Int64>) x ).Operand.GetHashCode();
+      //               break;
+      //            case OpCodeInfoKind.OperandR4:
+      //               operandHashCode = ( (IOpCodeInfoWithOperand<Single>) x ).Operand.GetHashCode();
+      //               break;
+      //            case OpCodeInfoKind.OperandR8:
+      //               operandHashCode = ( (IOpCodeInfoWithOperand<Double>) x ).Operand.GetHashCode();
+      //               break;
+      //            case OpCodeInfoKind.OperandString:
+      //               operandHashCode = ( (IOpCodeInfoWithOperand<String>) x ).Operand.GetHashCodeSafe();
+      //               break;
+      //            case OpCodeInfoKind.OperandTableIndex:
+      //               operandHashCode = ( (IOpCodeInfoWithOperand<TableIndex>) x ).Operand.GetHashCode();
+      //               break;
+      //            default:
+      //               operandHashCode = 0;
+      //               break;
+      //         }
+      //         retVal = retVal * 23 + operandHashCode;
+      //      }
+      //   }
 
-         return retVal;
-      }
+      //   return retVal;
+      //}
 
       internal static Int32 HashCode_AssemblyInformation( AssemblyInformation x )
       {

@@ -53,6 +53,7 @@ using CILAssemblyManipulator.Physical.IO;
 using TabularMetaData;
 using CILAssemblyManipulator.Physical.Crypto;
 using CILAssemblyManipulator.Physical.Loading;
+using TabularMetaData.Meta;
 
 namespace CILMerge
 {
@@ -610,6 +611,25 @@ namespace CILMerge
          }
       }
 
+      // This class is using when merging multiple static constructors, and there is a need to transform some op code operands
+      private sealed class OpCodeTransformerInfo
+      {
+         public OpCodeTransformerInfo(
+            Func<Int32, IOpCodeInfo, Int32> calculateNewLocalIndex,
+            Func<Int32, OpCode> getOptimalLocalsCode
+            )
+         {
+            this.CalculateNewLocalIndex = ArgumentValidator.ValidateNotNull( "Calculate new local index", calculateNewLocalIndex );
+            this.GetOptimalLocalsCode = ArgumentValidator.ValidateNotNull( "Get optimal locals code", getOptimalLocalsCode );
+         }
+
+         public Func<Int32, IOpCodeInfo, Int32> CalculateNewLocalIndex { get; }
+
+         public Func<Int32, OpCode> GetOptimalLocalsCode { get; }
+
+
+      }
+
       private static readonly Type ATTRIBUTE_USAGE_TYPE = typeof( AttributeUsageAttribute );
       private static readonly System.Reflection.PropertyInfo ALLOW_MULTIPLE_PROP = typeof( AttributeUsageAttribute ).GetProperty( "AllowMultiple" );
 
@@ -626,6 +646,7 @@ namespace CILMerge
 
       // Key: one of input modules. Value: dictionary; Key: table index in input module. Value: table index in output module
       private readonly IDictionary<CILMetaData, IDictionary<TableIndex, TableIndex>> _tableIndexMappings;
+      private readonly IDictionary<CILMetaData, Func<TableIndex, TableIndex>> _tableIndexTransformers;
       // Key: table index in target module, Value: input module, and corresponding index in corresponding table in the input module
       private readonly IDictionary<TableIndex, Tuple<CILMetaData, Int32>> _targetTableIndexMappings;
       // Key: one of input modules. Value: dictionary; Key: full type name, value: type def index in TARGET module
@@ -645,6 +666,9 @@ namespace CILMerge
 
       private readonly CILAssemblyManipulator.Physical.Meta.SignatureMatcher _signatureMatcher; // For matching which member-refs should be changed to field/method defs.
 
+      private readonly IDictionary<OpCode, OpCodeTransformerInfo> _opCodeTransformerInfos;
+      private readonly Lazy<MetaDataTableInformationProvider> _tableInfoProvider;
+
       internal CILAssemblyMerger( CILMerger merger, CILMergeOptions options, String inputBasePath )
       {
          this._merger = merger;
@@ -654,6 +678,31 @@ namespace CILMerge
          this._loaderCallbacks = new CILMetaDataLoaderResourceCallbacksForFiles(
             referenceAssemblyBasePath: options.ReferenceAssembliesDirectory
             );
+         this._tableInfoProvider = new Lazy<MetaDataTableInformationProvider>( () =>
+         {
+            var opCodeProviderTypeAttribute = this.GetType().Assembly.GetCustomAttributes( typeof( OptimizedOpCodeProviderTypeAttribute ), true ).GetOrDefault( 0 );
+            CILAssemblyManipulator.Physical.Meta.OpCodeProvider ocProvider;
+            if ( opCodeProviderTypeAttribute == null )
+            {
+               this._merger.Log( MessageLevel.Info, "Detected this to be merge of CILMerge itself." );
+               ocProvider = CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.DefaultInstance;
+            }
+            else
+            {
+               ocProvider = ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.DefaultInstance )
+               .InstantiateOptimizedOpCodeProvider( ( (OptimizedOpCodeProviderTypeAttribute) opCodeProviderTypeAttribute ).Type );
+            }
+            CILAssemblyManipulator.Physical.Meta.SignatureProvider sigProvider = CILAssemblyManipulator.Physical.Meta.DefaultSignatureProvider.DefaultInstance;
+
+            return CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProviderFactory.CreateWithExactTables(
+               CILAssemblyManipulator.Physical.Meta.CILMetaDataTableInformationProviderFactory.CreateFixedTableInformations(
+                  sigProvider,
+                  ocProvider
+               ),
+               sigProvider,
+               ocProvider
+               );
+         }, LazyThreadSafetyMode.None );
          this._moduleLoader = options.Parallel ?
             (CILMetaDataBinaryLoader) new CILMetaDataLoaderThreadSafeConcurrentForFiles( readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks ) :
             new CILMetaDataLoaderNotThreadSafeForFiles( readingArgsFactory: this.ReadingArgumentsFactory, callbacks: this._loaderCallbacks );
@@ -662,6 +711,7 @@ namespace CILMerge
          this._inputModulesAsAssemblyReferences = new Dictionary<AssemblyReference, CILMetaData>( AssemblyReferenceMatcherExact.AssemblyRefInstance );
          this._inputModulesAsModuleReferences = new Dictionary<CILMetaData, IDictionary<String, CILMetaData>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._tableIndexMappings = new Dictionary<CILMetaData, IDictionary<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
+         this._tableIndexTransformers = new Dictionary<CILMetaData, Func<TableIndex, TableIndex>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._targetTableIndexMappings = new Dictionary<TableIndex, Tuple<CILMetaData, Int32>>();
          this._inputModuleTypeNamesInTargetModule = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
          this._inputModuleTypeNamesInInputModule = new Dictionary<CILMetaData, IDictionary<String, Int32>>( ReferenceEqualityComparer<CILMetaData>.ReferenceBasedComparer );
@@ -711,6 +761,63 @@ namespace CILMerge
 
             return renameDic;
          }, LazyThreadSafetyMode.None );
+
+         Func<Int32, OpCode> ldLocaTransformer = newOperand => newOperand > Byte.MaxValue ? OpCodes.Ldloca : OpCodes.Ldloca_S;
+         Func<Int32, OpCode> ldLocTransformer = newOperand =>
+         {
+            switch ( newOperand )
+            {
+               case 0:
+                  return OpCodes.Ldloc_0;
+               case 1:
+                  return OpCodes.Ldloc_1;
+               case 2:
+                  return OpCodes.Ldloc_2;
+               case 3:
+                  return OpCodes.Ldloc_3;
+               default:
+                  return newOperand > Byte.MaxValue ? OpCodes.Ldloc : OpCodes.Ldloc_S;
+            }
+         };
+         Func<Int32, OpCode> stlocTransformer = newOperand =>
+         {
+            switch ( newOperand )
+            {
+               case 0:
+                  return OpCodes.Stloc_0;
+               case 1:
+                  return OpCodes.Stloc_1;
+               case 2:
+                  return OpCodes.Stloc_2;
+               case 3:
+                  return OpCodes.Stloc_3;
+               default:
+                  return newOperand > Byte.MaxValue ? OpCodes.Stloc : OpCodes.Stloc_S;
+            }
+         };
+         Func<Int32, IOpCodeInfo, Int32> zeroCalc = ( localsOffset, instance ) => localsOffset;
+         Func<Int32, IOpCodeInfo, Int32> oneCalc = ( localOffset, instance ) => localOffset + 1;
+         Func<Int32, IOpCodeInfo, Int32> twoCalc = ( localOffset, instance ) => localOffset + 2;
+         Func<Int32, IOpCodeInfo, Int32> threeCalc = ( localOffset, instance ) => localOffset + 3;
+         Func<Int32, IOpCodeInfo, Int32> otherCalc = ( localOffset, instance ) => localOffset + ( (IOpCodeInfoWithOperand<Int32>) instance ).Operand;
+
+         this._opCodeTransformerInfos = new Dictionary<OpCode, OpCodeTransformerInfo>( ReferenceEqualityComparer<OpCode>.ReferenceBasedComparer )
+         {
+            { OpCodes.Ldloca_S, new OpCodeTransformerInfo( otherCalc, ldLocaTransformer ) },
+            { OpCodes.Ldloca, new OpCodeTransformerInfo( otherCalc, ldLocaTransformer ) },
+            { OpCodes.Ldloc_S, new OpCodeTransformerInfo( otherCalc, ldLocTransformer ) },
+            { OpCodes.Ldloc, new OpCodeTransformerInfo(otherCalc, ldLocTransformer ) },
+            { OpCodes.Ldloc_0, new OpCodeTransformerInfo( zeroCalc, ldLocTransformer ) },
+            { OpCodes.Ldloc_1, new OpCodeTransformerInfo( oneCalc, ldLocTransformer ) },
+            { OpCodes.Ldloc_2, new OpCodeTransformerInfo( twoCalc, ldLocTransformer ) },
+            { OpCodes.Ldloc_3, new OpCodeTransformerInfo( threeCalc, ldLocTransformer ) },
+            { OpCodes.Stloc_S, new OpCodeTransformerInfo( otherCalc, stlocTransformer ) },
+            { OpCodes.Stloc, new OpCodeTransformerInfo( otherCalc, stlocTransformer ) },
+            { OpCodes.Stloc_0, new OpCodeTransformerInfo( zeroCalc, stlocTransformer ) },
+            { OpCodes.Stloc_1, new OpCodeTransformerInfo( oneCalc, stlocTransformer ) },
+            { OpCodes.Stloc_2, new OpCodeTransformerInfo( twoCalc, stlocTransformer ) },
+            { OpCodes.Stloc_3, new OpCodeTransformerInfo( threeCalc, stlocTransformer ) },
+         };
       }
 
       internal CILModuleMergeResult MergeModules( CryptoCallbacks cryptoCallbacks )
@@ -720,32 +827,48 @@ namespace CILMerge
          PDBHelper pdbHelper = null;
          this._merger.DoWithStopWatch( "Merging modules and assemblies as a whole", () =>
          {
-
-            // First of all, load all input modules
-            this._merger.DoWithStopWatch( "Phase 1: Loading input assemblies and modules", () =>
+            var thisDir = Path.GetDirectoryName( new Uri( System.Reflection.Assembly.GetExecutingAssembly().CodeBase ).LocalPath ) + Path.DirectorySeparatorChar;
+            ResolveEventHandler resolveHandler = ( sender, args ) =>
             {
-               this.LoadAllInputModules();
-            } );
+               return System.Reflection.Assembly.LoadFrom( thisDir + AssemblyInformation.Parse( args.Name ).Name + ".dll" );
+            };
 
-
-            // Then, create target module
-            this.CreateTargetAssembly();
-            this._merger.DoWithStopWatch( "Phase 2: Populating target module", () =>
+            // This is required since optimized assembly is loaded directly from byte array instead of saving to disk.
+            // Furthermore, MSBuild sets Environment.CurrentDirectory to point into same directory where .targets file is, which sometimes is different from the directory containing this DLL.
+            AppDomain.CurrentDomain.AssemblyResolve += resolveHandler;
+            try
             {
-               // 1. Create structural tables
-               var typeDefInfo = this.ConstructStructuralTables();
-               // 2. Create tables used in signatures and IL tokens
-               this.ConstructTablesUsedInSignaturesAndILTokens( typeDefInfo );
-               // 3. Create signatures and IL
-               this.ConstructSignaturesAndMethodIL();
-               // 4. Create the rest of the tables
-               this.ConstructTheRestOfTheTables();
-               // 5. Create assembly & module custom attributes
-               this.ApplyAssemblyAndModuleCustomAttributes();
-               // 6. Fix regargetable assembly references if needed
-               // Do it here, after TargetFrameworkAttribute has been applied specified
-               this.FixTargetAssemblyReferences();
-            } );
+               // First of all, load all input modules
+               this._merger.DoWithStopWatch( "Phase 1: Loading input assemblies and modules", () =>
+               {
+                  this.LoadAllInputModules();
+               } );
+
+
+               // Then, create target module
+               this.CreateTargetAssembly();
+               this._merger.DoWithStopWatch( "Phase 2: Populating target module", () =>
+               {
+                  // 1. Create structural tables
+                  var typeDefInfo = this.ConstructStructuralTables();
+                  // 2. Create tables used in signatures and IL tokens
+                  this.ConstructTablesUsedInSignaturesAndILTokens( typeDefInfo );
+                  // 3. Create signatures and IL
+                  this.ConstructSignaturesAndMethodIL();
+                  // 4. Create the rest of the tables
+                  this.ConstructTheRestOfTheTables();
+                  // 5. Create assembly & module custom attributes
+                  this.ApplyAssemblyAndModuleCustomAttributes();
+                  // 6. Fix regargetable assembly references if needed
+                  // Do it here, after TargetFrameworkAttribute has been applied specified
+                  this.FixTargetAssemblyReferences();
+               } );
+            }
+            finally
+            {
+               AppDomain.CurrentDomain.AssemblyResolve -= resolveHandler;
+            }
+
             // Process target module
 
             this._merger.DoWithStopWatch( "Phase 3: Reordering target module tables and removing duplicates", () =>
@@ -847,10 +970,12 @@ namespace CILMerge
 
          if ( this._options.UseFullPublicKeyForRefs )
          {
+            var fullPublicKeyInfos = new Dictionary<AssemblyInformation, List<Tuple<CILMetaData, AssemblyReference, Int32>>>();
+
             foreach ( var inputModule in this._inputModules )
             {
                var aRefs = inputModule.AssemblyReferences.TableContents;
-               var inputModulePath = this._moduleLoader.GetResourceFor( inputModule );
+               //var inputModulePath = this._moduleLoader.GetResourceFor( inputModule );
                var inputMappings = this._tableIndexMappings[inputModule];
                for ( var i = 0; i < aRefs.Count; ++i )
                {
@@ -860,24 +985,53 @@ namespace CILMerge
                      var aRef = aRefs[i];
                      if ( !aRef.Attributes.IsFullPublicKey() && !retargetableInfos.Contains( targetAssemblyRefIndex.Index ) )
                      {
-                        var aRefModule = this.GetPossibleResourcesForAssemblyReference( inputModule, aRef )
-                        .Where( p => File.Exists( p ) )
-                        .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
-                        .Where( m => m.AssemblyDefinitions.GetRowCount() > 0 )
-                        .FirstOrDefault();
+                        fullPublicKeyInfos
+                           .GetOrAdd_NotThreadSafe( aRef.AssemblyInformation, aRefParam => new List<Tuple<CILMetaData, AssemblyReference, Int32>>() )
+                           .Add( Tuple.Create( inputModule, aRef, targetAssemblyRefIndex.Index ) );
 
-                        if ( aRefModule != null )
-                        {
-                           var targetARef = this._targetModule.AssemblyReferences.TableContents[targetAssemblyRefIndex.Index];
-                           targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions.TableContents[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
-                           targetARef.Attributes |= AssemblyFlags.PublicKey;
-                        }
-                        else
-                        {
-                           this.Log( MessageLevel.Warning, "Failed to get referenced assembly {0} in {1}, target module most likely won't have full public key in all of its assembly references.", aRef, inputModulePath );
-                        }
+                        //var aRefModule = this.GetPossibleResourcesForAssemblyReference( inputModule, aRef )
+                        //.Where( p => File.Exists( p ) )
+                        //.Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
+                        //.Where( m => m.AssemblyDefinitions.GetRowCount() > 0 )
+                        //.FirstOrDefault();
+
+                        //if ( aRefModule != null )
+                        //{
+                        //   var targetARef = this._targetModule.AssemblyReferences.TableContents[targetAssemblyRefIndex.Index];
+                        //   targetARef.AssemblyInformation.PublicKeyOrToken = aRefModule.AssemblyDefinitions.TableContents[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
+                        //   targetARef.Attributes |= AssemblyFlags.PublicKey;
+                        //}
+                        //else
+                        //{
+                        //   this.Log( MessageLevel.Warning, "Failed to get referenced assembly {0} in {1}, target module most likely won't have full public key in all of its assembly references.", aRef, inputModulePath );
+                        //}
                      }
                   }
+               }
+            }
+
+            foreach ( var kvp in fullPublicKeyInfos )
+            {
+               var info = kvp.Value;
+               var suitableModule = info
+                  .Select( tuple => this.GetPossibleResourcesForAssemblyReference( tuple.Item1, tuple.Item2 )
+                         .Where( p => File.Exists( p ) )
+                         .Select( p => this._moduleLoader.GetOrLoadMetaData( p ) )
+                         .Where( m => m.AssemblyDefinitions.GetRowCount() > 0 )
+                         .FirstOrDefault() )
+                  .FirstOrDefault( loadedModule => loadedModule != null );
+               if ( suitableModule != null )
+               {
+                  foreach ( var targetModuleARefIndex in info.Select( tuple => tuple.Item3 ).Distinct() )
+                  {
+                     var targetARef = this._targetModule.AssemblyReferences.TableContents[targetModuleARefIndex];
+                     targetARef.AssemblyInformation.PublicKeyOrToken = suitableModule.AssemblyDefinitions.TableContents[0].AssemblyInformation.PublicKeyOrToken.CreateBlockCopy();
+                     targetARef.Attributes |= AssemblyFlags.PublicKey;
+                  }
+               }
+               else
+               {
+                  this.Log( MessageLevel.Warning, "Failed to get referenced assembly {0} from {1}, target module most likely won't have full public key in all of its assembly references.", kvp.Key.ToString( false, false ), String.Join( ", ", info.Select( tuple => this._moduleLoader.GetResourceFor( tuple.Item1 ) ) ) );
                }
             }
          }
@@ -936,7 +1090,8 @@ namespace CILMerge
 
          return new ReadingArguments()
          {
-            RawValueReading = rawValueLoading
+            RawValueReading = rawValueLoading,
+            TableInformationProvider = this._tableInfoProvider.Value
          };
       }
 
@@ -1321,6 +1476,7 @@ namespace CILMerge
             }
 
             this._tableIndexMappings.Add( md, thisModuleMapping );
+            this._tableIndexTransformers.Add( md, tIdx => thisModuleMapping[tIdx] );
             this._inputModuleTypeNamesInTargetModule.Add( md, thisTypeStringInfo );
          }
 
@@ -1508,7 +1664,7 @@ namespace CILMerge
             };
 
             // Locals signature might change -> so create a copy
-            var locals = this._targetModule.GetSignatureProvider().CreateCopy( this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx ), true ) ?? new LocalVariablesSignature();
+            var locals = this._targetModule.GetSignatureProvider().CopySignature( this._targetModule.GetLocalsSignatureForMethodOrNull( targetMDefIdx ), true ) ?? new LocalVariablesSignature();
             var originalLocalCount = locals.Locals.Count;
 
             // TODO this could be generalized as appending IL from one method at the end of the another method.
@@ -1553,7 +1709,7 @@ namespace CILMerge
                   );
             }
 
-            targetIL.OpCodes.Add( targetOCP.GetOperandlessInfoFor( OpCodeID.Ret ) );
+            targetIL.OpCodes.Add( targetOCP.GetOperandlessInfoFor( OpCodes.Ret ) );
             blocks[blocks.Length - 1] = byteOffsetsIndex;
             blockByteOffsets[blockByteOffsets.Length - 1] = codeOffsetsIndex;
 
@@ -1626,7 +1782,7 @@ namespace CILMerge
                sourceByteOffset += oldCodeByteCount;
                codeOffsets.FillWithOffsetAndCount( byteOffsets[i], oldCodeByteCount, i );
 
-               var newCode = this.CreateTargetModuleOpCode( opCode, thisMappings );
+               var newCode = this.CreateTargetModuleOpCode( opCode, inputModule );
 
                FixOpCodeWhenMergingIL( ref newCode, sourceByteOffset, ilByteSize, localCount );
 
@@ -1650,7 +1806,7 @@ namespace CILMerge
             var sourceSig = inputModule.GetLocalsSignatureForMethodOrNull( mDefIndex );
             if ( sourceSig != null && sourceSig.Locals.Count > 0 )
             {
-               targetLocals.Locals.AddRange( inputModule.GetSignatureProvider().CreateCopy( sourceSig, true, tIdx => thisMappings[tIdx] ).Locals );
+               targetLocals.Locals.AddRange( inputModule.GetSignatureProvider().CopySignature( sourceSig, true, tIdx => thisMappings[tIdx] ).Locals );
             }
 
          }
@@ -1669,45 +1825,18 @@ namespace CILMerge
          if ( localsOffset > 0 )
          {
             var codeValue = newCode.OpCodeID;
-            switch ( codeValue )
+            OpCodeTransformerInfo transformerInfo;
+            if ( this._opCodeTransformerInfos.TryGetValue( codeValue, out transformerInfo ) )
             {
-               case OpCodeID.Ldloc_0:
-               case OpCodeID.Stloc_0:
-                  newLocalIndex = localsOffset;
-                  break;
-               case OpCodeID.Ldloc_1:
-               case OpCodeID.Stloc_1:
-                  newLocalIndex = localsOffset + 1;
-                  break;
-               case OpCodeID.Ldloc_2:
-               case OpCodeID.Stloc_2:
-                  newLocalIndex = localsOffset + 2;
-                  break;
-               case OpCodeID.Ldloc_3:
-               case OpCodeID.Stloc_3:
-                  newLocalIndex = localsOffset + 3;
-                  break;
-               case OpCodeID.Ldloc_S:
-               case OpCodeID.Ldloca_S:
-               case OpCodeID.Stloc_S:
-               case OpCodeID.Ldloc:
-               case OpCodeID.Ldloca:
-               case OpCodeID.Stloc:
-                  newLocalIndex = localsOffset + ( (OpCodeInfoWithInt32) newCode ).Operand;
-                  break;
-            }
-
-            if ( newLocalIndex >= 0 )
-            {
-               var newOpCodeKind = GetOptimalLocalsCode( codeValue, newLocalIndex );
-               var ocp = this._targetModule.GetOpCodeProvider();
-               switch ( ocp.GetCodeFor( newOpCodeKind ).OperandType )
+               newLocalIndex = transformerInfo.CalculateNewLocalIndex( localsOffset, newCode );
+               var newOpCodeKind = transformerInfo.GetOptimalLocalsCode( newLocalIndex );
+               switch ( newOpCodeKind.OperandType )
                {
                   case OperandType.InlineNone:
-                     newCode = ocp.GetOperandlessInfoFor( newOpCodeKind );
+                     newCode = this._targetModule.GetOpCodeProvider().GetOperandlessInfoFor( newOpCodeKind );
                      break;
                   default:
-                     newCode = new OpCodeInfoWithInt32( newOpCodeKind, newLocalIndex );
+                     newCode = new OpCodeInfoWithOperand<Int32>( newOpCodeKind, newLocalIndex );
                      break;
                }
             }
@@ -1716,88 +1845,23 @@ namespace CILMerge
          // Then, check op codes that branch, or return
          if ( newLocalIndex == -1 )
          {
-            var newOpCodeInfo = this._targetModule.GetOpCodeProvider().GetCodeFor( newCode.OpCodeID );
+            var newOpCodeInfo = newCode.OpCodeID;
             switch ( newOpCodeInfo.OperandType )
             {
                case OperandType.ShortInlineBrTarget:
                   // Change all existing short branch instructions to long branch instructions
                   // TODO this probably is not necessary once the branch code size optimization code is ready.
-                  newCode = new OpCodeInfoWithInt32( newOpCodeInfo.OtherForm, ( (OpCodeInfoWithInt32) newCode ).Operand );
+                  newCode = new OpCodeInfoWithOperand<Int32>( newOpCodeInfo.OtherForm, ( (IOpCodeInfoWithOperand<Int32>) newCode ).Operand );
                   break;
                case OperandType.InlineNone:
-                  if ( newCode.OpCodeID == OpCodeID.Ret )
+                  if ( newCode.OpCodeID == OpCodes.Ret )
                   {
                      // Replace all 'Ret' instructions with long branch instructions to next 'block'
                      var jump = sourceILByteSize - sourceILByteOffsetAfterCode;
-                     newCode = jump == 0 ? null : new OpCodeInfoWithInt32( OpCodeID.Br, jump );
+                     newCode = jump == 0 ? null : new OpCodeInfoWithOperand<Int32>( OpCodes.Br, jump );
                   }
                   break;
             }
-         }
-      }
-
-      private static OpCodeID GetOptimalLocalsCode(
-         OpCodeID oldValue,
-         Int32 newOperand
-         )
-      {
-         // Assumes that newOperand always > oldOperand
-         switch ( oldValue )
-         {
-            case OpCodeID.Ldloca_S:
-               // Either Ldloca_S or Ldloca
-               return newOperand > Byte.MaxValue ? OpCodeID.Ldloca : OpCodeID.Ldloca_S;
-            case OpCodeID.Ldloca:
-               // No other option
-               return OpCodeID.Ldloca;
-            case OpCodeID.Ldloc_S:
-               // Either LdLoc_S or Ldloc
-               return newOperand > Byte.MaxValue ? OpCodeID.Ldloc : OpCodeID.Ldloc_S;
-            case OpCodeID.Ldloc:
-               // No other option
-               return OpCodeID.Ldloc;
-            case OpCodeID.Ldloc_0:
-            case OpCodeID.Ldloc_1:
-            case OpCodeID.Ldloc_2:
-            case OpCodeID.Ldloc_3:
-               switch ( newOperand )
-               {
-                  case 0:
-                     return OpCodeID.Ldloc_0;
-                  case 1:
-                     return OpCodeID.Ldloc_1;
-                  case 2:
-                     return OpCodeID.Ldloc_2;
-                  case 3:
-                     return OpCodeID.Ldloc_3;
-                  default:
-                     return newOperand > Byte.MaxValue ? OpCodeID.Ldloc : OpCodeID.Ldloc_S;
-               }
-            case OpCodeID.Stloc_S:
-               // Either Stloc_S or Stloc
-               return newOperand > Byte.MaxValue ? OpCodeID.Stloc : OpCodeID.Stloc_S;
-            case OpCodeID.Stloc:
-               // No other option
-               return OpCodeID.Stloc;
-            case OpCodeID.Stloc_0:
-            case OpCodeID.Stloc_1:
-            case OpCodeID.Stloc_2:
-            case OpCodeID.Stloc_3:
-               switch ( newOperand )
-               {
-                  case 0:
-                     return OpCodeID.Stloc_0;
-                  case 1:
-                     return OpCodeID.Stloc_1;
-                  case 2:
-                     return OpCodeID.Stloc_2;
-                  case 3:
-                     return OpCodeID.Stloc_3;
-                  default:
-                     return newOperand > Byte.MaxValue ? OpCodeID.Stloc : OpCodeID.Stloc_S;
-               }
-            default:
-               throw new InvalidOperationException( "Unrecognized locals-related opcode: " + oldValue + "." );
          }
       }
 
@@ -1825,11 +1889,11 @@ namespace CILMerge
             //}
 
             var code = opCodes[i];
-            switch ( targetOCP.GetCodeFor( code.OpCodeID ).OperandType )
+            switch ( code.OpCodeID.OperandType )
             {
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
-                  var branchCode = (OpCodeInfoWithInt32) code;
+                  var branchCode = (IOpCodeInfoWithOperandAndSetter<Int32>) code;
                   var jump = branchCode.Operand;
                   var curCodeByteCount = targetOCP.GetTotalByteCount( code );
                   var curBlockStart = blocks[curBlockOffset];
@@ -2234,7 +2298,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Field, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            fDefs[i].Signature = sp.CreateCopy( inputModule.FieldDefinitions.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
+            fDefs[i].Signature = sp.CopySignature( inputModule.FieldDefinitions.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // MethodDef
@@ -2249,7 +2313,7 @@ namespace CILMerge
                var thisMappings = this._tableIndexMappings[inputModule];
                var inputMethodDef = inputModule.MethodDefinitions.TableContents[inputInfo.Item2];
                var targetMethodDef = mDefs[i];
-               targetMethodDef.Signature = sp.CreateCopy( inputMethodDef.Signature, true, tIdx => thisMappings[tIdx] );
+               targetMethodDef.Signature = sp.CopySignature( inputMethodDef.Signature, true, tIdx => thisMappings[tIdx] );
 
                // Create IL
                // IL tokens reference only TypeDef, TypeRef, TypeSpec, MethodDef, FieldDef, MemberRef, MethodSpec or StandaloneSignature tables, all of which should've been processed in ConstructNonStructuralTablesUsedInSignaturesAndILTokens method
@@ -2271,7 +2335,7 @@ namespace CILMerge
                   targetIL.InitLocals = inputIL.InitLocals;
                   targetIL.LocalsSignatureIndex = inputIL.LocalsSignatureIndex.HasValue ? thisMappings[inputIL.LocalsSignatureIndex.Value] : (TableIndex?) null;
                   targetIL.MaxStackSize = inputIL.MaxStackSize;
-                  targetIL.OpCodes.AddRange( inputIL.OpCodes.Select( oc => this.CreateTargetModuleOpCode( oc, thisMappings ) ) );
+                  targetIL.OpCodes.AddRange( inputIL.OpCodes.Select( oc => this.CreateTargetModuleOpCode( oc, inputModule ) ) );
                }
             }
          }
@@ -2286,7 +2350,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MemberRef, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            mRefs[i].Signature = sp.CreateCopy( inputModule.MemberReferences.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
+            mRefs[i].Signature = sp.CopySignature( inputModule.MemberReferences.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // StandaloneSignature
@@ -2299,7 +2363,7 @@ namespace CILMerge
             {
                var inputModule = inputInfo.Item1;
                var thisMappings = this._tableIndexMappings[inputModule];
-               sSigs[i].Signature = sp.CreateCopy( inputModule.StandaloneSignatures.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
+               sSigs[i].Signature = sp.CopySignature( inputModule.StandaloneSignatures.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
             }
          }
 
@@ -2310,7 +2374,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.Property, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            pDefs[i].Signature = sp.CreateCopy( inputModule.PropertyDefinitions.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
+            pDefs[i].Signature = sp.CopySignature( inputModule.PropertyDefinitions.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // TypeSpec
@@ -2320,7 +2384,7 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.TypeSpec, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            tSpecs[i].Signature = sp.CreateCopy( inputModule.TypeSpecifications.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
+            tSpecs[i].Signature = sp.CopySignature( inputModule.TypeSpecifications.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // MethodSpecification
@@ -2330,39 +2394,16 @@ namespace CILMerge
             var inputInfo = this._targetTableIndexMappings[new TableIndex( Tables.MethodSpec, i )];
             var inputModule = inputInfo.Item1;
             var thisMappings = this._tableIndexMappings[inputModule];
-            mSpecs[i].Signature = sp.CreateCopy( inputModule.MethodSpecifications.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
+            mSpecs[i].Signature = sp.CopySignature( inputModule.MethodSpecifications.TableContents[inputInfo.Item2].Signature, true, tIdx => thisMappings[tIdx] );
          }
 
          // CustomAttribute and DeclarativeSecurity signatures do not reference table indices, so they are processed in ConstructTheRestOfTheTables method
 
       }
 
-      private OpCodeInfo CreateTargetModuleOpCode( OpCodeInfo sourceOpCode, IDictionary<TableIndex, TableIndex> thisMappings )
+      private OpCodeInfo CreateTargetModuleOpCode( OpCodeInfo sourceOpCode, CILMetaData module )
       {
-         switch ( sourceOpCode.InfoKind )
-         {
-            case OpCodeInfoKind.OperandInteger:
-               return new OpCodeInfoWithInt32( sourceOpCode.OpCodeID, ( (OpCodeInfoWithInt32) sourceOpCode ).Operand );
-            case OpCodeInfoKind.OperandInteger64:
-               return new OpCodeInfoWithInt64( sourceOpCode.OpCodeID, ( (OpCodeInfoWithInt64) sourceOpCode ).Operand );
-            case OpCodeInfoKind.OperandNone:
-               return sourceOpCode;
-            case OpCodeInfoKind.OperandR4:
-               return new OpCodeInfoWithSingle( sourceOpCode.OpCodeID, ( (OpCodeInfoWithSingle) sourceOpCode ).Operand );
-            case OpCodeInfoKind.OperandR8:
-               return new OpCodeInfoWithDouble( sourceOpCode.OpCodeID, ( (OpCodeInfoWithDouble) sourceOpCode ).Operand );
-            case OpCodeInfoKind.OperandString:
-               return new OpCodeInfoWithString( sourceOpCode.OpCodeID, ( (OpCodeInfoWithString) sourceOpCode ).Operand );
-            case OpCodeInfoKind.OperandIntegerList:
-               var ocSwitch = (OpCodeInfoWithIntegers) sourceOpCode;
-               var ocSwitchTarget = new OpCodeInfoWithIntegers( sourceOpCode.OpCodeID, ocSwitch.Operand.Count );
-               ocSwitchTarget.Operand.AddRange( ocSwitch.Operand );
-               return ocSwitchTarget;
-            case OpCodeInfoKind.OperandTableIndex:
-               return new OpCodeInfoWithTableIndex( sourceOpCode.OpCodeID, thisMappings[( (OpCodeInfoWithTableIndex) sourceOpCode ).Operand] );
-            default:
-               throw new NotSupportedException( "Unknown op code kind: " + sourceOpCode.InfoKind + "." );
-         }
+         return this._targetModule.GetOpCodeProvider().CopyOpCode( sourceOpCode, true, this._tableIndexTransformers[module] );
       }
 
       private void ConstructTheRestOfTheTables()
@@ -2604,13 +2645,13 @@ namespace CILMerge
 
       private void ApplyAssemblyAndModuleCustomAttributes()
       {
-         var attrSource = this._options.TargetAssemblyAttributeSource;
+         var attrSources = this._options.TargetAssemblyAttributeSources;
          this.CopyModuleAndAssemblyAttributesFrom(
-            String.IsNullOrEmpty( attrSource ) ?
+            attrSources.IsNullOrEmpty() ?
                ( this._options.CopyAttributes ?
                 this._inputModules :
                 this._primaryModule.Singleton() ) :
-            this._moduleLoader.GetOrLoadMetaData( attrSource ).Singleton()
+            attrSources.Select( aSource => this._moduleLoader.GetOrLoadMetaData( aSource ) )
             );
       }
 
@@ -4199,5 +4240,16 @@ namespace CILMerge
             }
          }
       }
+   }
+
+   [AttributeUsage( AttributeTargets.Assembly )]
+   public sealed class OptimizedOpCodeProviderTypeAttribute : Attribute
+   {
+      public OptimizedOpCodeProviderTypeAttribute( Type type )
+      {
+         this.Type = type;
+      }
+
+      public Type Type { get; }
    }
 }

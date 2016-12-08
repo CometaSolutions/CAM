@@ -150,7 +150,7 @@ namespace CILMerge.MSBuild
 
       public Boolean AllowWildCards { get; set; }
 
-      public String TargetAssemblyAttributeSource { get; set; }
+      public String[] TargetAssemblyAttributeSources { get; set; }
 
       public Boolean Closed { get; set; }
 

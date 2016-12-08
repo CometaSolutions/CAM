@@ -1083,7 +1083,7 @@ public static partial class E_CILStructural
                switch ( o.OpCodeStructureKind )
                {
                   case OpCodeStructureKind.Simple:
-                     return ocp.GetOperandlessInfoFor( ( (OpCodeStructureSimple) o ).SimpleOpCode.OpCodeID );
+                     return ocp.GetOperandlessInfoFor( ( (OpCodeStructureSimple) o ).SimpleOpCode );
                   case OpCodeStructureKind.Wrapper:
                      return ( (OpCodeStructureWrapper) o ).PhysicalOpCode; // TODO clone
                   case OpCodeStructureKind.WithReference:
@@ -1126,7 +1126,7 @@ public static partial class E_CILStructural
                               throw new InvalidOperationException( "Invalid referenced structure token kind: " + oRefStructure.StructureTokenKind + " in IL." );
                         }
                      }
-                     return new OpCodeInfoWithTableIndex( oRef.OpCode.OpCodeID, refIdx );
+                     return new OpCodeInfoWithOperand<TableIndex>( oRef.OpCode, refIdx );
 
                   default:
                      throw new InvalidOperationException( "Invalid structural op code kind: " + o.OpCodeStructureKind + "." );

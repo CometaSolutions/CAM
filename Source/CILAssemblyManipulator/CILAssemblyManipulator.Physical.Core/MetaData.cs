@@ -2199,14 +2199,13 @@ public static partial class E_CILPhysical
             }
 
             // Op codes
-            foreach ( var code in il.OpCodes.Where( code => code.InfoKind == OpCodeInfoKind.OperandTableIndex ) )
+            foreach ( var code in il.OpCodes.OfType<IOpCodeInfoWithOperandAndSetter<TableIndex>>() )
             {
-               var codeInfo = (OpCodeInfoWithTableIndex) code;
-               var token = codeInfo.Operand;
+               var token = code.Operand;
                var newIdx = state.GetFinalIndex( token );
                if ( newIdx != token.Index )
                {
-                  codeInfo.Operand = token.ChangeIndex( newIdx );
+                  code.Operand = token.ChangeIndex( newIdx );
                }
             }
          }

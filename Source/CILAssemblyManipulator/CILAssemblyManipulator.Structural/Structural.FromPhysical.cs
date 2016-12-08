@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using UtilPack;
 
 public static partial class E_CILStructural
 {
@@ -729,7 +730,7 @@ public static partial class E_CILStructural
 
       // IL
       var ocp = md.GetOpCodeProvider();
-      var operandless = new Dictionary<OpCodeID, OpCodeStructureSimple>();
+      var operandless = new Dictionary<OpCode, OpCodeStructureSimple>( ReferenceEqualityComparer<OpCode>.ReferenceBasedComparer );
       for ( var i = 0; i < mDefs.Count; ++i )
       {
          var il = mDefs[i].IL;
@@ -754,21 +755,27 @@ public static partial class E_CILStructural
             } ) );
             ilStructure.OpCodes.AddRange( il.OpCodes.Select<OpCodeInfo, OpCodeStructure>( o =>
             {
-               switch ( o.InfoKind )
+               OpCodeInfoWithNoOperand noOperand;
+               OpCodeInfoWithOperand<TableIndex> withTableIndex;
+               // TODO type-based acceptor
+               if ( ( noOperand = o as OpCodeInfoWithNoOperand ) != null )
                {
-                  case OpCodeInfoKind.OperandNone:
-                     return operandless.GetOrAdd_NotThreadSafe( o.OpCodeID, c => new OpCodeStructureSimple( ocp.GetCodeFor( o.OpCodeID ) ) );
-                  case OpCodeInfoKind.OperandTableIndex:
-                     return new OpCodeStructureWithReference()
-                     {
-                        OpCode = ocp.GetCodeFor( o.OpCodeID ),
-                        Structure = state.FromILToken( fDefList, mDefList, memberRefList, standaloneSigList, methodSpecList, ( (OpCodeInfoWithTableIndex) o ).Operand )
-                     };
-                  default:
-                     return new OpCodeStructureWrapper()
-                     {
-                        PhysicalOpCode = o // TODO Clone
-                     };
+                  return operandless.GetOrAdd_NotThreadSafe( o.OpCodeID, c => new OpCodeStructureSimple( o.OpCodeID ) );
+               }
+               else if ( ( withTableIndex = o as OpCodeInfoWithOperand<TableIndex> ) != null )
+               {
+                  return new OpCodeStructureWithReference()
+                  {
+                     OpCode = o.OpCodeID,
+                     Structure = state.FromILToken( fDefList, mDefList, memberRefList, standaloneSigList, methodSpecList, withTableIndex.Operand )
+                  };
+               }
+               else
+               {
+                  return new OpCodeStructureWrapper()
+                  {
+                     PhysicalOpCode = o // TODO Clone
+                  };
                }
             } ) );
          }

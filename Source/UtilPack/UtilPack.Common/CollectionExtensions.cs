@@ -511,6 +511,18 @@ public static partial class E_UtilPack
    }
 
    /// <summary>
+   /// Helper method to safely fetch an element from array, even if array is <c>null</c>.
+   /// </summary>
+   /// <typeparam name="T">The type of array elements.</typeparam>
+   /// <param name="array">The array.</param>
+   /// <param name="index">The index where to get element.</param>
+   /// <returns>The element at given index in given array. If <paramref name="array"/> is <c>null</c>, or if <paramref name="index"/> is out of suitable range (negative or greater or equal to array length), this will return default value for <typeparamref name="T"/>.</returns>
+   public static T GetOrDefault<T>( this T[] array, Int32 index )
+   {
+      return array == null || index < 0 || index >= array.Length ? default( T ) : array[index];
+   }
+
+   /// <summary>
    /// Helper method to return empty enumerable in case given enumerable is <c>null</c>.
    /// </summary>
    /// <typeparam name="T">The type of enumerable elements.</typeparam>

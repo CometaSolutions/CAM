@@ -100,7 +100,7 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          Assert.AreEqual( 1, md.TypeSpecifications.TableContents.Count );
          Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions.TableContents[0].Signature.Parameters[0].Type ).Type );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithTableIndex) md.MethodDefinitions.TableContents[0].IL.OpCodes[0] ).Operand );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithOperand<TableIndex>) md.MethodDefinitions.TableContents[0].IL.OpCodes[0] ).Operand );
       }
 
       [Test]
@@ -124,9 +124,9 @@ namespace CILAssemblyManipulator.Tests.Physical
 
          Assert.AreEqual( 2, md.TypeSpecifications.TableContents.Count );
          Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions.TableContents[0].Signature.Parameters[0].Type ).Type );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithTableIndex) md.MethodDefinitions.TableContents[0].IL.OpCodes[0] ).Operand );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 0 ), ( (OpCodeInfoWithOperand<TableIndex>) md.MethodDefinitions.TableContents[0].IL.OpCodes[0] ).Operand );
          Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (ClassOrValueTypeSignature) md.MethodDefinitions.TableContents[1].Signature.Parameters[0].Type ).Type );
-         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (OpCodeInfoWithTableIndex) md.MethodDefinitions.TableContents[1].IL.OpCodes[0] ).Operand );
+         Assert.AreEqual( new TableIndex( Tables.TypeSpec, 1 ), ( (OpCodeInfoWithOperand<TableIndex>) md.MethodDefinitions.TableContents[1].IL.OpCodes[0] ).Operand );
       }
 
       //[Test]
@@ -207,7 +207,7 @@ namespace CILAssemblyManipulator.Tests.Physical
          var type = new ClassOrValueTypeSignature() { Type = new TableIndex( Tables.TypeSpec, typeSpecIndex ) };
          method.Signature.Parameters.Add( new ParameterSignature() { Type = type } );
          method.Signature.ReturnType = new ParameterSignature() { Type = md.GetSignatureProvider().GetSimpleTypeSignature( SimpleTypeSignatureKind.Void ) };
-         method.IL.OpCodes.Add( new OpCodeInfoWithTableIndex( OpCodeID.Ldtoken, new TableIndex( Tables.TypeSpec, typeSpecIndex + 1 ) ) );
+         method.IL.OpCodes.Add( new OpCodeInfoWithOperand<TableIndex>( OpCodes.Ldtoken, new TableIndex( Tables.TypeSpec, typeSpecIndex + 1 ) ) );
 
          var typeSpecRow = new TypeSpecification() { Signature = typeSpec };
          md.TypeSpecifications.TableContents.Add( typeSpecRow );

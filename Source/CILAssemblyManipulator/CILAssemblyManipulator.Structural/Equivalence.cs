@@ -15,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
+extern alias CAMPhysicalIO;
+
 using CILAssemblyManipulator.Physical;
 using CILAssemblyManipulator.Physical.Crypto;
 using UtilPack;
@@ -696,7 +698,8 @@ namespace CILAssemblyManipulator.Structural
                   retVal = ( (OpCodeStructureSimple) x ).SimpleOpCode == ( (OpCodeStructureSimple) y ).SimpleOpCode;
                   break;
                case OpCodeStructureKind.Wrapper:
-                  retVal = Comparers.OpCodeInfoEqualityComparer.Equals( ( (OpCodeStructureWrapper) x ).PhysicalOpCode, ( (OpCodeStructureWrapper) y ).PhysicalOpCode );
+                  // TODO store IOpCodeProvider somewhere!
+                  retVal = CAMPhysicalIO.CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.DefaultInstance.OpCodeEquality( ( (OpCodeStructureWrapper) x ).PhysicalOpCode, ( (OpCodeStructureWrapper) y ).PhysicalOpCode );
                   break;
                case OpCodeStructureKind.WithReference:
                   var xRef = (OpCodeStructureWithReference) x;

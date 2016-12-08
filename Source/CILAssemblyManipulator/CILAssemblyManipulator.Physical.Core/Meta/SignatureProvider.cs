@@ -142,8 +142,8 @@ namespace CILAssemblyManipulator.Physical.Meta
       /// <summary>
       /// This class contains required callbacks and information for various functionalities required from signature type by CAM framework.
       /// </summary>
-      /// <seealso cref="SignatureElementTypeInfo.NewInfo{TSignature}(Action{VisitorVertexInfoFactory{SignatureElement, int}, TSignatureEqualityAcceptorSetup}, Equality{TSignature}, HashCode{TSignature}, AcceptVertexDelegate{TSignature, TableIndexCollectorContext}, SignatureVertexMatchingFunctionality, CopySignatureDelegate{TSignature})"/>
-      /// <seealso cref="SignatureElementTypeInfo.NewInfo{TSignature}(Action{VisitorVertexInfoFactory{SignatureElement, int}, TSignatureEqualityAcceptorSetup}, Equality{TSignature}, HashCodeWithContext{TSignature, AcceptVertexExplicitCallbackWithResultDelegate{SignatureElement, int}}, AcceptVertexDelegate{TSignature, TableIndexCollectorContext}, SignatureVertexMatchingFunctionality, CopySignatureDelegate{TSignature})"/>
+      /// <seealso cref="SignatureElementTypeInfo.NewInfo{TSignature}(Action{VisitorVertexInfoFactory{SignatureElement, int}, TSignatureEqualityAcceptorSetup}, Equality{TSignature}, HashCode{TSignature}, AcceptVertexDelegate{TSignature, TableIndexCollectorContext}, SignatureVertexMatchingFunctionality, AcceptVertexExplicitWithResultDelegateTyped{SignatureElement, CAMCopyingContext, SignatureElement, TSignature})"/>
+      /// <seealso cref="SignatureElementTypeInfo.NewInfo{TSignature}(Action{VisitorVertexInfoFactory{SignatureElement, int}, TSignatureEqualityAcceptorSetup}, Equality{TSignature}, HashCodeWithContext{TSignature, AcceptVertexExplicitCallbackWithResultDelegate{SignatureElement, int}}, AcceptVertexDelegate{TSignature, TableIndexCollectorContext}, SignatureVertexMatchingFunctionality, AcceptVertexExplicitWithResultDelegateTyped{SignatureElement, CAMCopyingContext, SignatureElement, TSignature})"/>
       public class SignatureElementTypeInfo
       {
          /// <summary>
@@ -155,7 +155,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <param name="registerHashCode">The callback to register hash code computation for the signature type.</param>
          /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
          /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
-         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
+         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CopySignature"/> method. May be <c>null</c>.</param>
          /// <exception cref="ArgumentNullException">If any of <paramref name="signatureElementType"/> or <paramref name="matchingFunctionality"/> is <c>null</c>.</exception>
          /// <exception cref="ArgumentException">If <paramref name="signatureElementType"/> is generic type, or not subtype of <see cref="SignatureElement"/>.</exception>
          public SignatureElementTypeInfo(
@@ -165,7 +165,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             Action<TSignatureHashCodeAcceptorSetup> registerHashCode,
             AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext> tableIndexCollectionFunctionality,
             SignatureVertexMatchingFunctionality matchingFunctionality,
-            AcceptVertexExplicitDelegate<SignatureElement, CopyingContext> cloningFunctionality
+            AcceptVertexExplicitWithResultDelegate<SignatureElement, CAMCopyingContext, SignatureElement> cloningFunctionality
             )
          {
             this.SignatureElementType = ArgumentValidator.ValidateNotNull( "Signature element type", signatureElementType );
@@ -223,10 +223,10 @@ namespace CILAssemblyManipulator.Physical.Meta
          public SignatureVertexMatchingFunctionality MatchingFunctionality { get; }
 
          /// <summary>
-         /// Gets the callback used by <see cref="E_CILPhysical.CreateCopy"/> method.
+         /// Gets the callback used by <see cref="E_CILPhysical.CopySignature"/> method.
          /// </summary>
-         /// <value>The callback used by <see cref="E_CILPhysical.CreateCopy"/> method.</value>
-         public AcceptVertexExplicitDelegate<SignatureElement, CopyingContext> CloningFunctionality { get; }
+         /// <value>The callback used by <see cref="E_CILPhysical.CopySignature"/> method.</value>
+         public AcceptVertexExplicitWithResultDelegate<SignatureElement, CAMCopyingContext, SignatureElement> CloningFunctionality { get; }
 
          /// <summary>
          /// Convenience method to create a new instance of <see cref="SignatureElementTypeInfo"/> when the type of the signature is known at compile-time.
@@ -237,7 +237,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <param name="hashCode">The callback to compute hash code for the signature type.</param>
          /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
          /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
-         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
+         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CopySignature"/> method. May be <c>null</c>.</param>
          /// <returns>A new instance of <see cref="SignatureElementTypeInfo"/> with given parameters.</returns>
          public static SignatureElementTypeInfo NewInfo<TSignature>(
             Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptorSetup> registerEdgesForVisitor,
@@ -245,10 +245,11 @@ namespace CILAssemblyManipulator.Physical.Meta
             HashCode<TSignature> hashCode,
             AcceptVertexDelegate<TSignature, TableIndexCollectorContext> tableIndexCollectionFunctionality,
             SignatureVertexMatchingFunctionality matchingFunctionality,
-            CopySignatureDelegate<TSignature> cloningFunctionality
+            AcceptVertexExplicitWithResultDelegateTyped<SignatureElement, CAMCopyingContext, SignatureElement, TSignature> cloningFunctionality
             )
             where TSignature : class, SignatureElement
          {
+
             return new SignatureElementTypeInfo(
                typeof( TSignature ),
                registerEdgesForVisitor,
@@ -256,10 +257,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                hashCode == null ? (Action<TSignatureHashCodeAcceptorSetup>) null : hashCodeAcceptor => hashCodeAcceptor.RegisterHashCodeComputer( hashCode ),
                tableIndexCollectionFunctionality == null ? (AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>) null : ( el, ctx ) => tableIndexCollectionFunctionality( (TSignature) el, ctx ),
                matchingFunctionality,
-               cloningFunctionality == null ? (AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>) null : ( el, ctx, cb ) =>
-               {
-                  ctx.CurrentObject = cloningFunctionality( (TSignature) el, ctx, cb );
-               }
+               cloningFunctionality == null ? (AcceptVertexExplicitWithResultDelegate<SignatureElement, CAMCopyingContext, SignatureElement>) null : ( el, ctx, cb ) => cloningFunctionality( (TSignature) el, ctx, cb )
                );
          }
 
@@ -272,7 +270,7 @@ namespace CILAssemblyManipulator.Physical.Meta
          /// <param name="hashCode">The callback to compute hash code for the signature type.</param>
          /// <param name="tableIndexCollectionFunctionality">The callback used by <see cref="E_CILPhysical.GetSignatureTableIndexInfos"/> method. May be <c>null</c>.</param>
          /// <param name="matchingFunctionality">The callback used by <see cref="E_CILPhysical.MatchSignatures"/> method.</param>
-         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CreateCopy"/> method. May be <c>null</c>.</param>
+         /// <param name="cloningFunctionality">The callback used by <see cref="E_CILPhysical.CopySignature"/> method. May be <c>null</c>.</param>
          /// <returns>A new instance of <see cref="SignatureElementTypeInfo"/> with given parameters.</returns>
          public static SignatureElementTypeInfo NewInfo<TSignature>(
             Action<VisitorVertexInfoFactory<SignatureElement, Int32>, TSignatureEqualityAcceptorSetup> registerEdgesForVisitor,
@@ -280,7 +278,7 @@ namespace CILAssemblyManipulator.Physical.Meta
             HashCodeWithContext<TSignature, AcceptVertexExplicitCallbackWithResultDelegate<SignatureElement, Int32>> hashCode,
             AcceptVertexDelegate<TSignature, TableIndexCollectorContext> tableIndexCollectionFunctionality,
             SignatureVertexMatchingFunctionality matchingFunctionality,
-            CopySignatureDelegate<TSignature> cloningFunctionality
+            AcceptVertexExplicitWithResultDelegateTyped<SignatureElement, CAMCopyingContext, SignatureElement, TSignature> cloningFunctionality
             )
             where TSignature : class, SignatureElement
          {
@@ -291,10 +289,7 @@ namespace CILAssemblyManipulator.Physical.Meta
                hashCode == null ? (Action<TSignatureHashCodeAcceptorSetup>) null : hashCodeAcceptor => hashCodeAcceptor.RegisterHashCodeComputer( hashCode ),
                tableIndexCollectionFunctionality == null ? (AcceptVertexDelegate<SignatureElement, TableIndexCollectorContext>) null : ( el, ctx ) => tableIndexCollectionFunctionality( (TSignature) el, ctx ),
                matchingFunctionality,
-               cloningFunctionality == null ? (AcceptVertexExplicitDelegate<SignatureElement, CopyingContext>) null : ( el, ctx, cb ) =>
-               {
-                  ctx.CurrentObject = cloningFunctionality( (TSignature) el, ctx, cb );
-               }
+               cloningFunctionality == null ? (AcceptVertexExplicitWithResultDelegate<SignatureElement, CAMCopyingContext, SignatureElement>) null : ( el, ctx, cb ) => cloningFunctionality( (TSignature) el, ctx, cb )
                );
          }
       }
@@ -343,7 +338,11 @@ namespace CILAssemblyManipulator.Physical.Meta
          decomposer.RegisterVertexAcceptor( typeof( SignatureElement ), ( el, ctx ) => ctx.AddElement( el ) );
          var tableIndexCollector = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, TableIndexCollectorContext>( visitor, TopMostTypeVisitingStrategy.Never, true );
          var matcher = AcceptorFactory.NewAutomaticAcceptor_WithContext<SignatureElement, Int32, SignatureMatchingContext>( visitor, TopMostTypeVisitingStrategy.Never, false );
-         var cloner = AcceptorFactory.NewManualAcceptor_WithContext<SignatureElement, CopyingContext>( visitor );
+         var cloner = AcceptorFactory.NewCopyingAcceptor<SignatureElement, CAMCopyingContext, CopyingArgs>( visitor, () => new CAMCopyingContext(), ( el, ctx, arg ) =>
+         {
+            ctx.IsDeepCopy = arg.IsDeep;
+            ctx.TableIndexTransformer = arg.TableIndexTransformer;
+         } );
          var equality = AcceptorFactory.NewEqualityComparisonAcceptor( visitor );
          var hashCode = AcceptorFactory.NewHashCodeComputationAcceptor( visitor );
 
@@ -1295,22 +1294,22 @@ namespace CILAssemblyManipulator.Physical.Meta
    public delegate Boolean EqualityWithContext<TItem, TContext>( TItem x, TItem y, TContext context );
 
 #pragma warning disable 1591
-   public class CopyingContext
+   public class CAMCopyingContext : CopyingContext
    {
-      public CopyingContext( Boolean isDeep, Func<TableIndex, TableIndex> tableIndexTransformer )
+      public Func<TableIndex, TableIndex> TableIndexTransformer { get; set; }
+   }
+
+   public struct CopyingArgs
+   {
+      public CopyingArgs( Boolean isDeep, Func<TableIndex, TableIndex> tableIndexTransformer )
       {
-         this.IsDeepCopy = isDeep;
+         this.IsDeep = isDeep;
          this.TableIndexTransformer = tableIndexTransformer;
       }
 
-      public Object CurrentObject { get; set; }
-
-      public Boolean IsDeepCopy { get; }
-
+      public Boolean IsDeep { get; }
       public Func<TableIndex, TableIndex> TableIndexTransformer { get; }
    }
-
-   public delegate TSignature CopySignatureDelegate<TSignature>( TSignature signature, CopyingContext context, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback );
 }
 
 public static partial class E_CILPhysical
@@ -1563,7 +1562,7 @@ public static partial class E_CILPhysical
    /// <returns>A new instance of <typeparamref name="TSignature"/>, which has all of its contents deeply copied from given signature.</returns>
    /// <exception cref="NullReferenceException">If <paramref name="sig"/> is <c>null</c>.</exception>
    /// <exception cref="NotSupportedException">If <see cref="AbstractSignature.SignatureKind"/> returns any other value than what the <see cref="SignatureKind"/> enumeration has.</exception>
-   public static TSignature CreateCopy<TSignature>( this SignatureProvider provider, TSignature sig, Boolean isDeep, Func<TableIndex, TableIndex> tableIndexTranslator = null )
+   public static TSignature CopySignature<TSignature>( this SignatureProvider provider, TSignature sig, Boolean isDeep, Func<TableIndex, TableIndex> tableIndexTranslator = null )
       where TSignature : AbstractSignature
    {
       TSignature retVal;
@@ -1573,24 +1572,23 @@ public static partial class E_CILPhysical
       }
       else
       {
-         var acceptor = provider.GetFunctionality<AcceptorWithContext<SignatureElement, CopyingContext>>();
-         var ctx = new CopyingContext( isDeep, tableIndexTranslator );
-         if ( !acceptor.Accept( sig, ctx ) )
+         var acceptor = provider.GetFunctionality<AcceptorWithContextAndReturnValue<SignatureElement, CopyingArgs, SignatureElement>>();
+         Boolean success;
+         retVal = (TSignature) acceptor.Accept( sig, new CopyingArgs( isDeep, tableIndexTranslator ), out success );
+         if ( !success )
          {
             throw new NotSupportedException( "Could not find functionality to copy signature or part of it." );
          }
-         retVal = (TSignature) ctx.CurrentObject;
       }
       return retVal;
    }
 
-   internal static TSignature CloneSingle<TSignature>( this CopyingContext context, TSignature signature, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback )
+   internal static TSignature CloneSingle<TSignature>( this CopyingContext context, TSignature signature, AcceptVertexExplicitCallbackWithResultDelegate<SignatureElement, SignatureElement> callback )
       where TSignature : class, SignatureElement
    {
       if ( signature != null && context.IsDeepCopy )
       {
-         callback( signature );
-         return (TSignature) context.CurrentObject;
+         return (TSignature) callback( signature );
       }
       else
       {
@@ -1598,7 +1596,7 @@ public static partial class E_CILPhysical
       }
    }
 
-   internal static void CloneList<TSignature>( this CopyingContext context, List<TSignature> listToWrite, List<TSignature> listToRead, AcceptVertexExplicitCallbackDelegate<SignatureElement> callback )
+   internal static void CloneList<TSignature>( this CopyingContext context, List<TSignature> listToWrite, List<TSignature> listToRead, AcceptVertexExplicitCallbackWithResultDelegate<SignatureElement, SignatureElement> callback )
       where TSignature : class, SignatureElement
    {
       if ( context.IsDeepCopy )
@@ -1626,8 +1624,7 @@ public static partial class E_CILPhysical
    /// <returns><c>true</c> if <paramref name="x"/> and <paramref name="y"/> are same object or otherwise are exactly equal; <c>false</c> otherwise.</returns>
    public static Boolean SignatureEquality( this SignatureProvider provider, SignatureElement x, SignatureElement y )
    {
-      // We have to do ReferenceEquals etc check here, as acceptor does not do it for us (yet at least).
-      return ReferenceEquals( x, y ) || ( x != null && y != null && provider.GetFunctionality<TSignatureEqualityAcceptor>().Accept( x, y ) );
+      return provider.GetFunctionality<TSignatureEqualityAcceptor>().Accept( x, y );
    }
 
    /// <summary>

@@ -61,6 +61,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Extension", "UtilP
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UtilPack.Visiting", "UtilPack\UtilPack.Visiting\UtilPack.Visiting.csproj", "{66866813-AB98-4A0F-AB88-53F89B2D65EE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CILMerge.MSBuild.OptimizedAssemblyGenerator", "CILMerge\CILMerge.MSBuild.OptimizedAssemblyGenerator\CILMerge.MSBuild.OptimizedAssemblyGenerator.csproj", "{C16A9DCF-6B47-4817-A9AE-06195BB5C230}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_Portable|Any CPU = Debug_Portable|Any CPU
@@ -509,6 +511,21 @@ Global
 		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release_WP|Any CPU.Build.0 = Release|Any CPU
 		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{66866813-AB98-4A0F-AB88-53F89B2D65EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Debug_Portable|Any CPU.ActiveCfg = Debug|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Debug_Portable|Any CPU.Build.0 = Debug|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Debug_SL|Any CPU.ActiveCfg = Debug|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Debug_SL|Any CPU.Build.0 = Debug|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Debug_WP|Any CPU.ActiveCfg = Debug|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Debug_WP|Any CPU.Build.0 = Debug|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release_Portable|Any CPU.ActiveCfg = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release_Portable|Any CPU.Build.0 = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release_SL|Any CPU.ActiveCfg = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release_SL|Any CPU.Build.0 = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release_WP|Any CPU.ActiveCfg = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release_WP|Any CPU.Build.0 = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C16A9DCF-6B47-4817-A9AE-06195BB5C230}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

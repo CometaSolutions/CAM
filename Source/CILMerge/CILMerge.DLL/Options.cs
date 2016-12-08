@@ -33,7 +33,7 @@ namespace CILMerge
       System.Collections.Generic.ISet<string> AllowDuplicateTypes { get; set; }
       bool AllowMultipleAssemblyAttributes { get; set; }
       bool AllowWildCards { get; set; }
-      string TargetAssemblyAttributeSource { get; set; }
+      string[] TargetAssemblyAttributeSources { get; set; }
       bool Closed { get; set; }
       bool CopyAttributes { get; set; }
       bool DelaySign { get; set; }
@@ -164,7 +164,7 @@ namespace CILMerge
       public String UnionExcludeFile { get; set; }
       public Boolean NoDebug { get; set; }
       public Boolean CopyAttributes { get; set; }
-      public String TargetAssemblyAttributeSource { get; set; }
+      public String[] TargetAssemblyAttributeSources { get; set; }
       public Boolean AllowMultipleAssemblyAttributes { get; set; }
       //public ModuleKind? Target { get; set; }
       public String MetadataVersionString { get; set; }

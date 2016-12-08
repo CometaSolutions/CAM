@@ -73,50 +73,52 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var codeInfoILOffsets = new Dictionary<Int32, Int32>();
          Func<Int32, ILLabel> ilLabelDefiner = i => this.DefineLabel();
          var ocp = CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.DefaultOpCodeProvider.DefaultInstance;
+         var deserializer = ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) ocp ).CreateDeserializer( new CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeDeserializationArguments( t => (String) tokenResolver( t, ILResolveKind.String ) ) );
          while ( ilOffset < il.Length )
          {
             codeInfoILOffsets.Add( ilOffset, this._opCodes.Count );
 
-            var physical = ocp.TryReadOpCode( il, ref ilOffset, t => (String) tokenResolver( t, ILResolveKind.String ) );
+            Int32 bytesRead;
+            var physical = deserializer.Deserialize( new ArrayIndex<Byte>( il, ilOffset ), out bytesRead );
+            ilOffset += bytesRead;
             LogicalOpCodeInfo logical;
             Int32 int32;
             var codeID = physical.OpCodeID;
-            var code = ocp.GetCodeFor( codeID );
-            switch ( code.OperandType )
+            switch ( codeID.OperandType )
             {
                case OperandType.InlineNone:
                   logical = this._module.GetOperandlessOpCode( codeID );
                   break;
                case OperandType.ShortInlineBrTarget:
                case OperandType.InlineBrTarget:
-                  int32 = ilOffset + ( (OpCodeInfoWithInt32) physical ).Operand;
+                  int32 = ilOffset + ( (OpCodeInfoWithOperand<Int32>) physical ).Operand;
                   logical = new LogicalOpCodeInfoForFixedBranchOrLeave( codeID, labelsDic.GetOrAdd_NotThreadSafe( int32, ilLabelDefiner ) );
                   break;
                case OperandType.ShortInlineI:
                case OperandType.InlineI:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt32( codeID, ( (OpCodeInfoWithInt32) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt32( codeID, ( (OpCodeInfoWithOperand<Int32>) physical ).Operand );
                   break;
                case OperandType.ShortInlineVar:
                case OperandType.InlineVar:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( codeID, (Int16) ( (OpCodeInfoWithInt32) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( codeID, (Int16) ( (OpCodeInfoWithOperand<Int32>) physical ).Operand );
                   break;
                case OperandType.ShortInlineR:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandSingle( codeID, ( (OpCodeInfoWithSingle) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandSingle( codeID, ( (OpCodeInfoWithOperand<Single>) physical ).Operand );
                   break;
                case OperandType.InlineR:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandDouble( codeID, ( (OpCodeInfoWithDouble) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandDouble( codeID, ( (OpCodeInfoWithOperand<Double>) physical ).Operand );
                   break;
                case OperandType.InlineI8:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt64( codeID, ( (OpCodeInfoWithInt64) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandInt64( codeID, ( (OpCodeInfoWithOperand<Int64>) physical ).Operand );
                   break;
                case OperandType.InlineString:
-                  logical = new LogicalOpCodeInfoWithFixedSizeOperandString( codeID, ( (OpCodeInfoWithString) physical ).Operand );
+                  logical = new LogicalOpCodeInfoWithFixedSizeOperandString( codeID, ( (OpCodeInfoWithOperand<String>) physical ).Operand );
                   break;
                case OperandType.InlineField:
                case OperandType.InlineMethod:
                case OperandType.InlineType:
                case OperandType.InlineToken:
-                  var tableIndex = ( (OpCodeInfoWithTableIndex) physical ).Operand;
+                  var tableIndex = ( (OpCodeInfoWithOperand<TableIndex>) physical ).Operand;
                   ILResolveKind resolveKind;
                   var table = tableIndex.Table;
                   switch ( table )
@@ -163,17 +165,17 @@ namespace CILAssemblyManipulator.Logical.Implementation
                   }
                   break;
                case OperandType.InlineSwitch:
-                  var sw = (OpCodeInfoWithIntegers) physical;
+                  var sw = (OpCodeInfoWithList<Int32>) physical;
                   logical = new LogicalOpCodeInfoForSwitch( sw.Operand
                      .Select( ( o, sIdx ) => labelsDic.GetOrAdd_NotThreadSafe( ilOffset + o, ilLabelDefiner ) )
                      .ToArray() );
                   break;
                case OperandType.InlineSignature:
-                  var methodSig = (Tuple<CILMethodSignature, VarArgInstance[]>) tokenResolver( ( (OpCodeInfoWithTableIndex) physical ).Operand.GetOneBasedToken(), ILResolveKind.Signature );
+                  var methodSig = (Tuple<CILMethodSignature, VarArgInstance[]>) tokenResolver( ( (OpCodeInfoWithOperand<TableIndex>) physical ).Operand.GetOneBasedToken(), ILResolveKind.Signature );
                   logical = new LogicalOpCodeInfoWithMethodSig( methodSig.Item1, methodSig.Item2 );
                   break;
                default:
-                  throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
+                  throw new ArgumentException( "Unknown operand type: " + codeID.OperandType + " for " + codeID + "." );
             }
 
             this._opCodes.Add( logical );
@@ -353,7 +355,7 @@ namespace CILAssemblyManipulator.Logical.Implementation
          var info = tuple.Item1;
          if ( ExceptionBlockType.Finally == info.BlockType || ExceptionBlockType.Fault == info.BlockType )
          {
-            this.Add( this._module.GetOperandlessOpCode( OpCodeID.Endfinally ) );
+            this.Add( this._module.GetOperandlessOpCode( OpCodes.Endfinally ) );
          }
 
          this.MarkLabel( tuple.Item2 );

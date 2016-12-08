@@ -69,6 +69,7 @@
     <Compile Include="ComparerWrappers.cs" />
     <Compile Include="Lazies.cs" />
     <Compile Include="NullableComparer.cs" />
+    <Compile Include="Serialization.cs" />
     <Compile Include="StreamHelper.cs" />
     <Compile Include="TimeComparers.cs" />
     <Compile Include="TypeUtils.cs" />

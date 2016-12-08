@@ -82,7 +82,14 @@
     <None Include="CILMergeTask.targets" />
   </ItemGroup>
   <!-- Merge target assembly using the task itself -->
-  <UsingTask TaskName="CILMerge.MSBuild.CILMergeTask" AssemblyFile="$(IntermediateOutputPath)$(AssemblyName).dll" />
+  <UsingTask
+    TaskName="CILMerge.MSBuild.CILMergeTask"
+    AssemblyFile="$(IntermediateOutputPath)$(AssemblyName).dll"
+    />
+  <UsingTask
+    TaskName="CILMerge.MSBuild.OptimizedAssemblyGenerator.GenerateOptimizedCAMAssemblyTask"
+    AssemblyFile="$(MSBuildProjectDirectory)\..\..\..\Output\Infrastructure\CILMergeOptimizedAssemblyGenerator\CILMerge.MSBuild.OptimizedAssemblyGenerator.dll"
+    />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <KeyFilePath>$(MSBuildProjectDirectory)\..\..\..\Keys\CILMerge.snk</KeyFilePath>
@@ -105,12 +112,40 @@
       <MSBuildExeName Condition=" '$(MonoBuild)' != '' and '$(OS)' != 'Unix' ">$(MSBuildBinPath)\..\..\..\bin\xbuild.bat</MSBuildExeName>
       <MSBuildExeName Condition=" '$(MonoBuild)' != '' and '$(OS)' == 'Unix' ">/usr/bin/xbuild</MSBuildExeName>
     </PropertyGroup>
-    <Exec Command="&quot;$(MSBuildExeName)&quot; /t:MergeThisTask /p:&quot;Configuration=$(Configuration)&quot; /p:&quot;Platform=$(Platform)&quot; &quot;$(MSBuildProjectFullPath)&quot;" />
+    <!-- We have to specify WorkingDirectory so that dynamic assembly loading (e.g. by using optimized op code provider etc) would work properly -->
+    <Exec
+      Command="&quot;$(MSBuildExeName)&quot; /t:MergeThisTask /p:&quot;Configuration=$(Configuration)&quot; /p:&quot;Platform=$(Platform)&quot; &quot;$(MSBuildProjectFullPath)&quot;"
+      WorkingDirectory="$(MSBuildProjectDirectory)\$(IntermediateOutputPath)"
+      />
   </Target>
   <!-- Create .snk file if it doesn't exist to ensure smooth build -->
   <Import Project="$(MSBuildThisFileDirectory)../../../CommonBuildTools/CLR/MSBuild/CreateKeyFileIfNeeded.targets" />
   <Target Name="MergeThisTask">
-    <CILMerge.MSBuild.CILMergeTask InputAssemblies="@(IntermediateAssembly)" OutDir="$(MSBuildProjectDirectory)\$(OutputPath)" Union="True" Closed="True" Internalize="True" UseFullPublicKeyForRefs="True" XmlDocs="True" KeyFile="$(KeyFilePath)" VerifyOutput="True" UnionExcludeFile="$(MSBuildProjectDirectory)\..\..\CAMPhysicalUnionExcludes.txt" />
+    <!-- First, create MSBuild task that will generate optimized CAM providers assembly -->
+    <MSBuild
+      Projects="$(MSBuildProjectDirectory)\..\CILMerge.MSBuild.OptimizedAssemblyGenerator\CILMerge.MSBuild.OptimizedAssemblyGenerator.csproj"
+      Properties="Configuration=Release"
+      />
+    
+    <!-- Then, run the MSBuild task -->
+    <CILMerge.MSBuild.OptimizedAssemblyGenerator.GenerateOptimizedCAMAssemblyTask
+      OutputFile="$(IntermediateOutputPath)OptimizedCAMProviders.dll"
+      />
+    
+    <!-- Finally, invoke this CILMerge task to create merged assembly -->
+    <CILMerge.MSBuild.CILMergeTask
+      InputAssemblies="@(IntermediateAssembly);$(IntermediateOutputPath)OptimizedCAMProviders.dll"
+      OutDir="$(MSBuildProjectDirectory)\$(OutputPath)"
+      Union="True"
+      Closed="True"
+      Internalize="True"
+      UseFullPublicKeyForRefs="True"
+      XmlDocs="True"
+      KeyFile="$(KeyFilePath)"
+      VerifyOutput="True"
+      UnionExcludeFile="$(MSBuildProjectDirectory)\..\..\CAMPhysicalUnionExcludes.txt"
+      TargetAssemblyAttributeSources="$(IntermediateOutputPath)$(AssemblyName).dll;$(IntermediateOutputPath)OptimizedCAMProviders.dll"
+      />
     <!-- Copy the DLL to infra folder so that deleting DLL's from output folders would work (when making NuGet packages). -->
     <Copy SourceFiles="$(MSBuildProjectDirectory)\$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(MSBuildProjectDirectory)\..\..\..\Output\Infrastructure\MSBuild\" />
   </Target>

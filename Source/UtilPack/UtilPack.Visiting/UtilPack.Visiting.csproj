@@ -74,8 +74,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Acceptors\API.cs" />
+    <Compile Include="Acceptors\Copying.cs" />
     <Compile Include="Acceptors\Implementation.cs" />
     <Compile Include="Acceptors\Equality.cs" />
+    <Compile Include="Acceptors\Serialization.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Visitors\API.cs" />
     <Compile Include="Visitors\Implementation.cs" />

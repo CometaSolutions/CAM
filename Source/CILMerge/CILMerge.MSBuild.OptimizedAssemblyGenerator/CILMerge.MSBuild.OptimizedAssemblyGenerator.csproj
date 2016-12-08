@@ -1,0 +1,84 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{C16A9DCF-6B47-4817-A9AE-06195BB5C230}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CILMerge.MSBuild.OptimizedAssemblyGenerator</RootNamespace>
+    <AssemblyName>CILMerge.MSBuild.OptimizedAssemblyGenerator</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>..\..\..\Output\Infrastructure\CILMergeOptimizedAssemblyGenerator\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>..\..\..\Output\Infrastructure\CILMergeOptimizedAssemblyGenerator\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Build.Framework" />
+    <Reference Include="Microsoft.Build.Utilities.v4.0" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="GenerateOptimizedCAMAssemblyTask.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.Core\CILAssemblyManipulator.Physical.Core.csproj">
+      <Project>{f8ba1950-209d-477f-83d6-3f969c0cbee6}</Project>
+      <Name>CILAssemblyManipulator.Physical.Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO.Defaults\CILAssemblyManipulator.Physical.IO.Defaults.csproj">
+      <Project>{c444fb53-6a71-4ff2-b412-8b1c88595955}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO.Defaults</Name>
+      <Aliases>CAMPhysicalIOD</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.IO\CILAssemblyManipulator.Physical.IO.csproj">
+      <Project>{4e0e1695-a15e-4b3d-adb2-c3ed8a0962a1}</Project>
+      <Name>CILAssemblyManipulator.Physical.IO</Name>
+      <Aliases>CAMPhysicalIO</Aliases>
+    </ProjectReference>
+    <ProjectReference Include="..\..\CILAssemblyManipulator\CILAssemblyManipulator.Physical.NonPortable\CILAssemblyManipulator.Physical.NonPortable.csproj">
+      <Project>{3afd5732-18ad-47a2-93f9-4a55d1e50b44}</Project>
+      <Name>CILAssemblyManipulator.Physical.NonPortable</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\TabularMetaData\TabularMetaData.csproj">
+      <Project>{bcacfc5f-2656-4428-9450-890df6855591}</Project>
+      <Name>TabularMetaData</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\UtilPack\UtilPack.Extension\UtilPack.Extension.csproj">
+      <Project>{fc5050c0-76f8-4023-9450-ad64048b8a03}</Project>
+      <Name>UtilPack.Extension</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CILMerge.DLL\CILMerge.DLL.csproj">
+      <Project>{b9bbe0ca-0eba-4fc9-b433-fe358da4080b}</Project>
+      <Name>CILMerge.DLL</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

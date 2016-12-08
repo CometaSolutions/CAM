@@ -985,32 +985,32 @@ namespace CILAssemblyManipulator.Physical
          Call = new OpCode( OpCodeID.Call, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_CallOrCallvirt, DynamicStackChanges.Varpop_CallOrCallvirt_Count ), Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpush_Any, DynamicStackChanges.Varpush_Any_Count ), OperandType.InlineMethod, OpCodeType.Primitive, FlowControl.Call );
          Calli = new OpCode( OpCodeID.Calli, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Calli, DynamicStackChanges.Varpop_Calli_Count ), Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpush_Any, DynamicStackChanges.Varpush_Any_Count ), OperandType.InlineSignature, OpCodeType.Primitive, FlowControl.Call );
          Ret = new OpCode( OpCodeID.Ret, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Ret, DynamicStackChanges.Varpop_Ret_Count ), Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Return );
-         Br_S = new OpCode( OpCodeID.Br_S, Pop0, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Branch, OpCodeID.Br );
-         Brfalse_S = new OpCode( OpCodeID.Brfalse_S, Popi, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Brfalse );
-         Brtrue_S = new OpCode( OpCodeID.Brtrue_S, Popi, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Brtrue );
-         Beq_S = new OpCode( OpCodeID.Beq_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Beq );
-         Bge_S = new OpCode( OpCodeID.Bge_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bge );
-         Bgt_S = new OpCode( OpCodeID.Bgt_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bgt );
-         Ble_S = new OpCode( OpCodeID.Ble_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Ble );
-         Blt_S = new OpCode( OpCodeID.Blt_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Blt );
-         Bne_Un_S = new OpCode( OpCodeID.Bne_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bne_Un );
-         Bge_Un_S = new OpCode( OpCodeID.Bge_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bge_Un );
-         Bgt_Un_S = new OpCode( OpCodeID.Bgt_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bgt_Un );
-         Ble_Un_S = new OpCode( OpCodeID.Ble_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Ble_Un );
-         Blt_Un_S = new OpCode( OpCodeID.Blt_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Blt_Un );
-         Br = new OpCode( OpCodeID.Br, Pop0, Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, OpCodeID.Br_S );
-         Brfalse = new OpCode( OpCodeID.Brfalse, Popi, Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, OpCodeID.Brfalse_S );
-         Brtrue = new OpCode( OpCodeID.Brtrue, Popi, Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, OpCodeID.Brtrue_S );
-         Beq = new OpCode( OpCodeID.Beq, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Beq_S );
-         Bge = new OpCode( OpCodeID.Bge, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bge_S );
-         Bgt = new OpCode( OpCodeID.Bgt, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bgt_S );
-         Ble = new OpCode( OpCodeID.Ble, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Ble_S );
-         Blt = new OpCode( OpCodeID.Blt, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Blt_S );
-         Bne_Un = new OpCode( OpCodeID.Bne_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bne_Un_S );
-         Bge_Un = new OpCode( OpCodeID.Bge_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bge_Un_S );
-         Bgt_Un = new OpCode( OpCodeID.Bgt_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Bgt_Un_S );
-         Ble_Un = new OpCode( OpCodeID.Ble_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Ble_Un_S );
-         Blt_Un = new OpCode( OpCodeID.Blt_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, OpCodeID.Blt_Un_S );
+         Br_S = new OpCode( OpCodeID.Br_S, Pop0, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Branch, () => OpCodes.Br );
+         Brfalse_S = new OpCode( OpCodeID.Brfalse_S, Popi, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Brfalse );
+         Brtrue_S = new OpCode( OpCodeID.Brtrue_S, Popi, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Brtrue );
+         Beq_S = new OpCode( OpCodeID.Beq_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Beq );
+         Bge_S = new OpCode( OpCodeID.Bge_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bge );
+         Bgt_S = new OpCode( OpCodeID.Bgt_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bgt );
+         Ble_S = new OpCode( OpCodeID.Ble_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Ble );
+         Blt_S = new OpCode( OpCodeID.Blt_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Blt );
+         Bne_Un_S = new OpCode( OpCodeID.Bne_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bne_Un );
+         Bge_Un_S = new OpCode( OpCodeID.Bge_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bge_Un );
+         Bgt_Un_S = new OpCode( OpCodeID.Bgt_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bgt_Un );
+         Ble_Un_S = new OpCode( OpCodeID.Ble_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Ble_Un );
+         Blt_Un_S = new OpCode( OpCodeID.Blt_Un_S, Pop1_pop1, Push0, OperandType.ShortInlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Blt_Un );
+         Br = new OpCode( OpCodeID.Br, Pop0, Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, () => OpCodes.Br_S );
+         Brfalse = new OpCode( OpCodeID.Brfalse, Popi, Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, () => OpCodes.Brfalse_S );
+         Brtrue = new OpCode( OpCodeID.Brtrue, Popi, Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Cond_Branch, () => OpCodes.Brtrue_S );
+         Beq = new OpCode( OpCodeID.Beq, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Beq_S );
+         Bge = new OpCode( OpCodeID.Bge, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bge_S );
+         Bgt = new OpCode( OpCodeID.Bgt, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bgt_S );
+         Ble = new OpCode( OpCodeID.Ble, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Ble_S );
+         Blt = new OpCode( OpCodeID.Blt, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Blt_S );
+         Bne_Un = new OpCode( OpCodeID.Bne_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bne_Un_S );
+         Bge_Un = new OpCode( OpCodeID.Bge_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bge_Un_S );
+         Bgt_Un = new OpCode( OpCodeID.Bgt_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Bgt_Un_S );
+         Ble_Un = new OpCode( OpCodeID.Ble_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Ble_Un_S );
+         Blt_Un = new OpCode( OpCodeID.Blt_Un, Pop1_pop1, Push0, OperandType.InlineBrTarget, OpCodeType.Macro, FlowControl.Cond_Branch, () => OpCodes.Blt_Un_S );
          Switch = new OpCode( OpCodeID.Switch, Popi, Push0, OperandType.InlineSwitch, OpCodeType.Primitive, FlowControl.Cond_Branch );
          Ldind_I1 = new OpCode( OpCodeID.Ldind_I1, Popi, Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next );
          Ldind_U1 = new OpCode( OpCodeID.Ldind_U1, Popi, Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next );
@@ -1130,8 +1130,8 @@ namespace CILAssemblyManipulator.Physical
          Sub_Ovf = new OpCode( OpCodeID.Sub_Ovf, Pop1_pop1, Push1, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next );
          Sub_Ovf_Un = new OpCode( OpCodeID.Sub_Ovf_Un, Pop1_pop1, Push1, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next );
          Endfinally = new OpCode( OpCodeID.Endfinally, Pop0, Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Return );
-         Leave = new OpCode( OpCodeID.Leave, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Leave, DynamicStackChanges.Varpop_Leave_Count ), Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, OpCodeID.Leave_S );
-         Leave_S = new OpCode( OpCodeID.Leave_S, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Leave, DynamicStackChanges.Varpop_Leave_Count ), Push0, OperandType.ShortInlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, OpCodeID.Leave );
+         Leave = new OpCode( OpCodeID.Leave, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Leave, DynamicStackChanges.Varpop_Leave_Count ), Push0, OperandType.InlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, () => OpCodes.Leave_S );
+         Leave_S = new OpCode( OpCodeID.Leave_S, Tuple.Create<DynamicStackChangeDelegate, DynamicStackChangeSizeDelegate>( DynamicStackChanges.Varpop_Leave, DynamicStackChanges.Varpop_Leave_Count ), Push0, OperandType.ShortInlineBrTarget, OpCodeType.Primitive, FlowControl.Branch, () => OpCodes.Leave );
          Stind_I = new OpCode( OpCodeID.Stind_I, Popi_popi, Push0, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next );
          Conv_U = new OpCode( OpCodeID.Conv_U, Pop1, Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next );
          Arglist = new OpCode( OpCodeID.Arglist, Pop0, Pushi, OperandType.InlineNone, OpCodeType.Primitive, FlowControl.Next );
@@ -1298,7 +1298,7 @@ namespace CILAssemblyManipulator.Physical
 
          private static AbstractMethodSignature GetSignatureFromOpCodeInfo( CILMetaData md, OpCodeInfo codeInfo )
          {
-            return GetSignatureFromTableIndex( md, ( codeInfo as OpCodeInfoWithTableIndex )?.Operand );
+            return GetSignatureFromTableIndex( md, ( codeInfo as IOpCodeInfoWithOperand<TableIndex> )?.Operand );
          }
 
          private static AbstractMethodSignature GetSignatureFromTableIndex( CILMetaData md, TableIndex? tableIndex, Boolean methodSpecAllowed = true )
@@ -1430,7 +1430,7 @@ namespace CILAssemblyManipulator.Physical
    {
       private readonly TDynamicStackChangeParameter _dynamicPop;
       private readonly TDynamicStackChangeParameter _dynamicPush;
-      private readonly Lazy<String> _name;
+      private readonly Lazy<OpCode> _otherForm;
 
       internal OpCode(
          OpCodeID codeID,
@@ -1439,7 +1439,7 @@ namespace CILAssemblyManipulator.Physical
          OperandType operand,
          OpCodeType type,
          FlowControl flowControl,
-         OpCodeID otherForm = 0
+         Func<OpCode> otherForm = null
          )
          : this( codeID, staticPop, staticPush, null, null, operand, type, flowControl, otherForm )
       {
@@ -1453,7 +1453,7 @@ namespace CILAssemblyManipulator.Physical
          OperandType operand,
          OpCodeType type,
          FlowControl flowControl,
-         OpCodeID otherForm = 0
+         Func<OpCode> otherForm = null
          )
          : this( codeID, null, null, dynamicPop, dynamicPush, operand, type, flowControl, otherForm )
       {
@@ -1467,7 +1467,7 @@ namespace CILAssemblyManipulator.Physical
          OperandType operand,
          OpCodeType type,
          FlowControl flowControl,
-         OpCodeID otherForm = 0
+         Func<OpCode> otherForm = null
          )
          : this( codeID, staticPop, null, null, dynamicPush, operand, type, flowControl, otherForm )
       {
@@ -1481,7 +1481,7 @@ namespace CILAssemblyManipulator.Physical
          OperandType operand,
          OpCodeType type,
          FlowControl flowControl,
-         OpCodeID otherForm = 0
+         Func<OpCode> otherForm = null
          )
          : this( codeID, null, staticPush, dynamicPop, null, operand, type, flowControl, otherForm )
       {
@@ -1498,7 +1498,7 @@ namespace CILAssemblyManipulator.Physical
          OperandType operand,
          OpCodeType type,
          FlowControl flowControl,
-         OpCodeID otherForm
+         Func<OpCode> otherForm
          )
       {
          if ( staticPop == null )
@@ -1531,21 +1531,15 @@ namespace CILAssemblyManipulator.Physical
          this.OperandType = operand;
          this.OpCodeType = type;
          this.FlowControl = flowControl;
-         this.OtherForm = otherForm;
-         this._name = new Lazy<String>( () => codeID.ToString( "g" ).ToLowerInvariant().Replace( "_", "." ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this._otherForm = new Lazy<OpCode>( otherForm ?? new Func<OpCode>( () => null ), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication );
+         this.Name = codeID.ToString( "g" ).ToLowerInvariant().Replace( "_", "." );
       }
 
       /// <summary>
       /// Gets the textual name of this <see cref="OpCode"/>.
       /// </summary>
       /// <value>The textual name of this <see cref="OpCode"/>.</value>
-      public String Name
-      {
-         get
-         {
-            return this._name.Value;
-         }
-      }
+      public String Name { get; }
 
       /// <summary>
       /// Gets the <see cref="OperandType"/> of this <see cref="OpCode"/>.
@@ -1641,7 +1635,13 @@ namespace CILAssemblyManipulator.Physical
       /// For long branch instructions, returns their short instruction aliases.
       /// For others, returns <see cref="OpCodeID.Nop"/>.
       /// </summary>
-      public OpCodeID OtherForm { get; }
+      public OpCode OtherForm
+      {
+         get
+         {
+            return this._otherForm.Value;
+         }
+      }
 
       /// <inheritdoc/>
       public override String ToString()
@@ -1668,30 +1668,30 @@ namespace CILAssemblyManipulator.Physical
       /// <returns><c>true</c> if this opcode has same <see cref="OpCodeID"/> as <paramref name="code"/>; <c>false</c> otherwise.</returns>
       public Boolean Equals( OpCode code )
       {
-         return this.OpCodeID == code.OpCodeID;
+         return code != null && this.OpCodeID == code.OpCodeID;
       }
 
-      /// <summary>
-      /// Checks whether two <see cref="OpCode"/>s are equal.
-      /// </summary>
-      /// <param name="a">An <see cref="OpCode"/>.</param>
-      /// <param name="b">Another <see cref="OpCode"/>.</param>
-      /// <returns><c>true</c> if <paramref name="a"/> is equal to <paramref name="b"/>; <c>false</c> otherwise.</returns>
-      public static Boolean operator ==( OpCode a, OpCode b )
-      {
-         return a.Equals( b );
-      }
+      ///// <summary>
+      ///// Checks whether two <see cref="OpCode"/>s are equal.
+      ///// </summary>
+      ///// <param name="a">An <see cref="OpCode"/>.</param>
+      ///// <param name="b">Another <see cref="OpCode"/>.</param>
+      ///// <returns><c>true</c> if <paramref name="a"/> is equal to <paramref name="b"/>; <c>false</c> otherwise.</returns>
+      //public static Boolean operator ==( OpCode a, OpCode b )
+      //{
+      //   return a.Equals( b );
+      //}
 
-      /// <summary>
-      /// Checks whether two <see cref="OpCode"/>s are not equal.
-      /// </summary>
-      /// <param name="a">An <see cref="OpCode"/>.</param>
-      /// <param name="b">Another <see cref="OpCode"/>.</param>
-      /// <returns><c>true</c> if <paramref name="a"/> is not equal to <paramref name="b"/>; <c>false</c> otherwise.</returns>
-      public static Boolean operator !=( OpCode a, OpCode b )
-      {
-         return !( a == b );
-      }
+      ///// <summary>
+      ///// Checks whether two <see cref="OpCode"/>s are not equal.
+      ///// </summary>
+      ///// <param name="a">An <see cref="OpCode"/>.</param>
+      ///// <param name="b">Another <see cref="OpCode"/>.</param>
+      ///// <returns><c>true</c> if <paramref name="a"/> is not equal to <paramref name="b"/>; <c>false</c> otherwise.</returns>
+      //public static Boolean operator !=( OpCode a, OpCode b )
+      //{
+      //   return !( a == b );
+      //}
    }
 
    /// <summary>

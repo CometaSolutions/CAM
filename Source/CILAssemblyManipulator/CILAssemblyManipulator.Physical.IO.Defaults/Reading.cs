@@ -397,7 +397,10 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          this.TableStreamHeader = tableHeader;
          this.TableSizes = tableHeader.CreateTableSizesArray().ToArrayProxy().CQ;
 
-         var tableSerializationsArray = serializationCreationArgs.CreateTableSerializationInfos( tableInfoProvider.GetAllSupportedTableInformations() ).ToArray();
+         var tableSerializationsArray = serializationCreationArgs.CreateTableSerializationInfos(
+            tableInfoProvider.GetAllSupportedTableInformations()
+            .Where( info => this.TableSizes.GetOrDefault( info.TableIndex ) > 0 )
+            ).Select( info => info?.Functionality ).ToArray();
          this.TableSerializationInfos = tableSerializationsArray
             .Concat( Enumerable.Repeat<TableSerializationLogicalFunctionality>( null, Math.Max( 0, this.TableSizes.Count - tableSerializationsArray.Length ) ) )
             .ToArrayProxy()

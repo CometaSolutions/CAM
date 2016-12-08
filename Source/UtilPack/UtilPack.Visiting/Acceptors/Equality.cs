@@ -45,6 +45,7 @@ namespace UtilPack.Visiting
       public static AutomaticTransitionAcceptor_WithContext<AcceptorWithContext<TElement, TElement>, TElement, Int32, ObjectGraphEqualityContext<TElement>> NewEqualityComparisonAcceptor<TElement>(
          AutomaticTypeBasedVisitor<TElement, Int32> visitor
          )
+         where TElement : class
       {
          return NewAutomaticAcceptor_WithHiddenContext_Caching(
             visitor,
@@ -55,7 +56,9 @@ namespace UtilPack.Visiting
             {
                ctx.CurrentElementStack.Clear();
                ctx.CurrentElementStack.Push( otherObj );
-            } );
+            },
+            ( x, y ) => ReferenceEquals( x, y ) ? true : ( x != null && y != null ? (Boolean?) null : false )
+            );
       }
 
       /// <summary>

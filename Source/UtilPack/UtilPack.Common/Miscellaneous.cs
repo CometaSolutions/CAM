@@ -93,6 +93,23 @@ namespace UtilPack
    }
 #endif
 
+   /// <summary>
+   /// This class holds reference to <see cref="Func{T, TResult}"/> which directly returns the given argument, i.e. identity function.
+   /// </summary>
+   /// <typeparam name="T">The type of argument and return value of callback.</typeparam>
+   public static class Identity<T>
+   {
+      /// <summary>
+      /// Gets the identity function for type <typeparamref name="T"/>.
+      /// </summary>
+      /// <value>The identity function for type <typeparamref name="T"/>.</value>
+      public static Func<T, T> Function { get; }
+
+      static Identity()
+      {
+         Function = item => item;
+      }
+   }
 }
 
 public static partial class E_UtilPack

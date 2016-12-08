@@ -162,7 +162,7 @@ public static partial class E_CILPhysical
       )
    {
       var curStacksize = Math.Max( state.CurrentStack, state.StackSizes[state.CurrentCodeByteOffset] );
-      var code = state.MD.GetOpCodeProvider().GetCodeFor( codeInfo.OpCodeID );
+      var code = codeInfo.OpCodeID;
       // Calling GetStackChange will take care of calculating stack change even for Ret/Call/Callvirt/Calli/Newobj codes.
       curStacksize += code.GetStackChange( state.MD, state.Method, codeInfo, curStacksize );
 
@@ -172,19 +172,18 @@ public static partial class E_CILPhysical
       // Copy branch stack size
       if ( curStacksize > 0 )
       {
+         // TODO instead add "public IEnumerable<Int32> ExtractBranchTargets(IOpCodeInfo instance);" method to OpCode.
          switch ( code.OperandType )
          {
-            case OperandType.InlineBrTarget:
-               UpdateStackSizeAtBranchTarget( state, ( (OpCodeInfoWithInt32) codeInfo ).Operand, curStacksize );
-               break;
             case OperandType.ShortInlineBrTarget:
-               UpdateStackSizeAtBranchTarget( state, ( (OpCodeInfoWithInt32) codeInfo ).Operand, curStacksize );
+            case OperandType.InlineBrTarget:
+               UpdateStackSizeAtBranchTarget( state, ( (IOpCodeInfoWithOperand<Int32>) codeInfo ).Operand, curStacksize );
                break;
             case OperandType.InlineSwitch:
-               var offsets = ( (OpCodeInfoWithIntegers) codeInfo ).Operand;
-               for ( var i = 0; i < offsets.Count; ++i )
+               // var offsets = ( (IOpCodeInfoWithOperand<IList<Int32>>) codeInfo ).Operand;
+               foreach ( var offset in ( (IOpCodeInfoWithOperand<IList<Int32>>) codeInfo ).Operand )
                {
-                  UpdateStackSizeAtBranchTarget( state, offsets[i], curStacksize );
+                  UpdateStackSizeAtBranchTarget( state, offset, curStacksize );
                }
                break;
          }

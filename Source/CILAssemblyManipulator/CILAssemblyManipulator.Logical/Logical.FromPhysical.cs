@@ -2345,58 +2345,35 @@ public static partial class E_CILLogical
             logicalByteOffsets.Add( curByteOffset, codeIdx );
             curByteOffset += ocp.GetTotalByteCount( code );
             var physOpCodeID = code.OpCodeID;
-            var physOpCode = ocp.GetCodeFor( physOpCodeID );
             LogicalOpCodeInfo logicalCode;
-            switch ( code.InfoKind )
+            switch ( physOpCodeID.OperandType )
             {
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandInteger:
-                  var physIntCode = (OpCodeInfoWithInt32) code;
-                  switch ( physOpCode.OperandType )
-                  {
-                     case OperandType.InlineBrTarget:
-                     case OperandType.ShortInlineBrTarget:
-                        var label = retVal.DefineLabel();
-                        logicalCode = new LogicalOpCodeInfoForFixedBranchOrLeave( physOpCodeID, label );
-                        labelByteOffsets.Add( label, curByteOffset + physIntCode.Operand );
-                        break;
-                     case OperandType.InlineI:
-                     case OperandType.InlineVar:
-                        logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt32( physOpCodeID, physIntCode.Operand );
-                        break;
-                     case OperandType.ShortInlineI:
-                     case OperandType.ShortInlineVar:
-                        logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( physOpCodeID, (Int16) physIntCode.Operand );
-                        break;
-                     default:
-                        throw new InvalidOperationException( "Unsupported op code for physical op code with integer: " + code + "." );
-                  }
-                  break;
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandInteger64:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt64( physOpCodeID, ( (OpCodeInfoWithInt64) code ).Operand );
-                  break;
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandNone:
+               case OperandType.InlineNone:
                   logicalCode = state.Module.GetOperandlessOpCode( code.OpCodeID );
                   break;
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandR4:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandSingle( physOpCodeID, ( (OpCodeInfoWithSingle) code ).Operand );
+               case OperandType.ShortInlineBrTarget:
+               case OperandType.InlineBrTarget:
+                  var label = retVal.DefineLabel();
+                  logicalCode = new LogicalOpCodeInfoForFixedBranchOrLeave( physOpCodeID, label );
+                  labelByteOffsets.Add( label, curByteOffset + ( (IOpCodeInfoWithOperand<Int32>) code ).Operand );
                   break;
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandR8:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandDouble( physOpCodeID, ( (OpCodeInfoWithDouble) code ).Operand );
+               case OperandType.InlineI:
+               case OperandType.InlineVar:
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt32( physOpCodeID, ( (IOpCodeInfoWithOperand<Int32>) code ).Operand );
                   break;
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandString:
-                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandString( physOpCodeID, ( (OpCodeInfoWithString) code ).Operand );
+               case OperandType.ShortInlineI:
+               case OperandType.ShortInlineVar:
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( physOpCodeID, (Int16) ( (IOpCodeInfoWithOperand<Int32>) code ).Operand );
                   break;
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandIntegerList:
-                  var physSwitch = (OpCodeInfoWithIntegers) code;
-                  var labels = retVal.DefineLabels( physSwitch.Operand.Count );
-                  logicalCode = new LogicalOpCodeInfoForSwitch( labels );
-                  for ( var i = 0; i < labels.Length; ++i )
-                  {
-                     labelByteOffsets.Add( labels[i], curByteOffset + physSwitch.Operand[i] );
-                  }
+               case OperandType.ShortInlineR:
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandSingle( physOpCodeID, ( (IOpCodeInfoWithOperand<Single>) code ).Operand );
                   break;
-               case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandTableIndex:
-                  var token = ( (OpCodeInfoWithTableIndex) code ).Operand;
+               case OperandType.InlineField:
+               case OperandType.InlineMethod:
+               case OperandType.InlineSignature:
+               case OperandType.InlineToken:
+               case OperandType.InlineType:
+                  var token = ( (IOpCodeInfoWithOperand<TableIndex>) code ).Operand;
                   var resolved = state.ResolveToken( token, contextType, method );
                   switch ( resolved.ElementTypeKind )
                   {
@@ -2424,9 +2401,113 @@ public static partial class E_CILLogical
                         throw new InvalidOperationException( "Unrecognized tokenizable element kind: " + resolved.ElementTypeKind + "." );
                   }
                   break;
+               case OperandType.InlineString:
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandString( physOpCodeID, ( (IOpCodeInfoWithOperand<String>) code ).Operand );
+                  break;
+               case OperandType.InlineI8:
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt64( physOpCodeID, ( (IOpCodeInfoWithOperand<Int64>) code ).Operand );
+                  break;
+               case OperandType.InlineR:
+                  logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandDouble( physOpCodeID, ( (IOpCodeInfoWithOperand<Double>) code ).Operand );
+                  break;
+               case OperandType.InlineSwitch:
+                  var physSwitch = (IOpCodeInfoWithOperand<List<Int32>>) code;
+                  var labels = retVal.DefineLabels( physSwitch.Operand.Count );
+                  logicalCode = new LogicalOpCodeInfoForSwitch( labels );
+                  for ( var i = 0; i < labels.Length; ++i )
+                  {
+                     labelByteOffsets.Add( labels[i], curByteOffset + physSwitch.Operand[i] );
+                  }
+                  break;
                default:
-                  throw new InvalidOperationException( "Unsupported physical op code kind: " + code.InfoKind + "." );
+                  throw new InvalidOperationException( "Unsupported physical op code kind: " + physOpCodeID.OperandType + "." );
             }
+
+
+
+
+
+
+            //switch ( code.InfoKind )
+            //{
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandInteger:
+            //      var physIntCode = (OpCodeInfoWithInt32) code;
+            //      switch ( physOpCode.OperandType )
+            //      {
+            //         case OperandType.InlineBrTarget:
+            //         case OperandType.ShortInlineBrTarget:
+            //            var label = retVal.DefineLabel();
+            //            logicalCode = new LogicalOpCodeInfoForFixedBranchOrLeave( physOpCodeID, label );
+            //            labelByteOffsets.Add( label, curByteOffset + physIntCode.Operand );
+            //            break;
+            //         case OperandType.InlineI:
+            //         case OperandType.InlineVar:
+            //            logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt32( physOpCodeID, physIntCode.Operand );
+            //            break;
+            //         case OperandType.ShortInlineI:
+            //         case OperandType.ShortInlineVar:
+            //            logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandUInt16( physOpCodeID, (Int16) physIntCode.Operand );
+            //            break;
+            //         default:
+            //            throw new InvalidOperationException( "Unsupported op code for physical op code with integer: " + code + "." );
+            //      }
+            //      break;
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandInteger64:
+            //      logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandInt64( physOpCodeID, ( (OpCodeInfoWithInt64) code ).Operand );
+            //      break;
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandNone:
+            //      logicalCode = state.Module.GetOperandlessOpCode( code.OpCodeID );
+            //      break;
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandR4:
+            //      logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandSingle( physOpCodeID, ( (OpCodeInfoWithSingle) code ).Operand );
+            //      break;
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandR8:
+            //      logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandDouble( physOpCodeID, ( (OpCodeInfoWithDouble) code ).Operand );
+            //      break;
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandString:
+            //      logicalCode = new LogicalOpCodeInfoWithFixedSizeOperandString( physOpCodeID, ( (OpCodeInfoWithString) code ).Operand );
+            //      break;
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandIntegerList:
+            //      var physSwitch = (OpCodeInfoWithIntegers) code;
+            //      var labels = retVal.DefineLabels( physSwitch.Operand.Count );
+            //      logicalCode = new LogicalOpCodeInfoForSwitch( labels );
+            //      for ( var i = 0; i < labels.Length; ++i )
+            //      {
+            //         labelByteOffsets.Add( labels[i], curByteOffset + physSwitch.Operand[i] );
+            //      }
+            //      break;
+            //   case CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandTableIndex:
+            //      var token = ( (OpCodeInfoWithTableIndex) code ).Operand;
+            //      var resolved = state.ResolveToken( token, contextType, method );
+            //      switch ( resolved.ElementTypeKind )
+            //      {
+            //         case CILElementWithinILCode.Field:
+            //            var field = (CILField) resolved;
+            //            logicalCode = new LogicalOpCodeInfoWithFieldToken( physOpCodeID, field, contextType.GetTypeTokenKind( field.DeclaringType, token.Table, Tables.Field ) );
+            //            break;
+            //         case CILElementWithinILCode.Method:
+            //            if ( resolved is CILMethod )
+            //            {
+            //               var cilMethod = (CILMethod) resolved;
+            //               var typeTable = state.GetTypeTableFromMethodDefOrMemberRef( token.Table == Tables.MethodSpec ? methodSpecs[token.Index].Method : token );
+            //               logicalCode = new LogicalOpCodeInfoWithMethodToken( physOpCodeID, cilMethod, contextType.GetTypeTokenKind( cilMethod.DeclaringType, typeTable, Tables.TypeDef ), method.GetMethodTokenKind( cilMethod, token.Table ) );
+            //            }
+            //            else
+            //            {
+            //               var ctor = (CILConstructor) resolved;
+            //               logicalCode = new LogicalOpCodeInfoWithCtorToken( physOpCodeID, ctor, contextType.GetTypeTokenKind( ctor.DeclaringType, token.Table, Tables.MethodDef ) );
+            //            }
+            //            break;
+            //         case CILElementWithinILCode.Type:
+            //            logicalCode = new LogicalOpCodeInfoWithTypeToken( physOpCodeID, (CILTypeBase) resolved, contextType.GetTypeTokenKind( resolved as CILType, token.Table, Tables.TypeDef ) );
+            //            break;
+            //         default:
+            //            throw new InvalidOperationException( "Unrecognized tokenizable element kind: " + resolved.ElementTypeKind + "." );
+            //      }
+            //      break;
+            //   default:
+            //      throw new InvalidOperationException( "Unsupported physical op code kind: " + code.InfoKind + "." );
+            //}
 
             retVal.Add( logicalCode );
          }

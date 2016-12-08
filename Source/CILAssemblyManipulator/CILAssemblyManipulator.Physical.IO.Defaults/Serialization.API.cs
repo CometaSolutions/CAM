@@ -2427,10 +2427,10 @@ public static partial class E_CILPhysical
    /// </summary>
    /// <param name="serializationCreationArgs">The <see cref="TableSerializationLogicalFunctionalityCreationArgs"/>.</param>
    /// <param name="tableInfos">The enumerable of <see cref="MetaDataTableInformation"/>s.</param>
-   /// <returns>An enumerable of created <see cref="TableSerializationLogicalFunctionality"/> objects.</returns>
+   /// <returns>An enumerable of created <see cref="TableSerializationLogicalFunctionalityCreationInfo"/> objects.</returns>
    /// <exception cref="ArgumentNullException">If <paramref name="tableInfos"/> is <c>null</c>.</exception>
    /// <seealso cref="MetaDataTableInformationWithSerializationCapabilityDelegate"/>
-   public static IEnumerable<TableSerializationLogicalFunctionality> CreateTableSerializationInfos(
+   public static IEnumerable<TableSerializationLogicalFunctionalityCreationInfo> CreateTableSerializationInfos(
       this TableSerializationLogicalFunctionalityCreationArgs serializationCreationArgs,
       IEnumerable<MetaDataTableInformation> tableInfos
       )

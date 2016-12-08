@@ -1384,13 +1384,14 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private const Int32 FAT_HEADER_SIZE = 12;
 
       private readonly CILMetaData _md;
-      private readonly IDictionary<OpCodeInfoWithString, Int32> _stringTokens;
+      private readonly IDictionary<IOpCodeInfoWithOperand<String>, Int32> _stringTokens;
+      private readonly Byte[] _auxArray;
 
       /// <summary>
       /// Creates a new instance of <see cref="SectionPartFunctionality_MethodIL"/>.
       /// </summary>
       /// <param name="md">The <see cref="CILMetaData"/> to use to obtain <see cref="MethodILDefinition"/>s from <see cref="CILMetaData.MethodDefinitions"/>.</param>
-      /// <param name="userStrings">The <see cref="WriterStringStreamHandler"/> to get indices for string values of <see cref="OpCodeInfoWithString"/>s.</param>
+      /// <param name="userStrings">The <see cref="WriterStringStreamHandler"/> to get indices for op codes with string value as operand.</param>
       /// <param name="columnIndex">The column index of <see cref="MethodDefinition"/>. Should be left at zero.</param>
       /// <param name="min">The minimum index to start reading contents of <see cref="CILMetaData.MethodDefinitions"/>, inclusive. Use <c>-1</c> or <c>0</c> to start reading from beginning.</param>
       /// <param name="max">The maximum index to end reading contents of <see cref="CILMetaData.MethodDefinitions"/>, exclusive. Use <c>-1</c> to read until the end.</param>
@@ -1407,11 +1408,33 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "User strings", userStrings );
 
          this._md = md;
-         this._stringTokens = md.MethodDefinitions.TableContents
+         var opc = md.GetOpCodeProvider();
+         var stringTokens = new Dictionary<IOpCodeInfoWithOperand<String>, Int32>( ReferenceEqualityComparer<IOpCodeInfoWithOperand<String>>.ReferenceBasedComparer );
+         var maxOpCodeSize = 0;
+         foreach ( var code in md.MethodDefinitions.TableContents
             .Select( m => m?.IL )
             .Where( il => il != null )
-            .SelectMany( il => il.OpCodes.OfType<OpCodeInfoWithString>() )
-            .ToDictionary_Overwrite( o => o, o => userStrings.RegisterString( o.Operand ), ReferenceEqualityComparer<OpCodeInfoWithString>.ReferenceBasedComparer );
+            .SelectMany( il => il.OpCodes ) )
+         {
+            var size = opc.GetTotalByteCount( code );
+            if ( size > maxOpCodeSize )
+            {
+               maxOpCodeSize = size;
+            }
+
+            var stringCode = code as IOpCodeInfoWithOperand<String>;
+            if ( stringCode != null )
+            {
+               stringTokens[stringCode] = userStrings.RegisterString( stringCode.Operand );
+            }
+         }
+         this._stringTokens = stringTokens;
+         this._auxArray = new Byte[maxOpCodeSize];
+         //this._stringTokens = md.MethodDefinitions.TableContents
+         //   .Select( m => m?.IL )
+         //   .Where( il => il != null )
+         //   .SelectMany( il => il.OpCodes.OfType<IOpCodeInfoWithOperand<String>>() )
+         //   .ToDictionary_Overwrite( o => o, o => userStrings.RegisterString( o.Operand ), ReferenceEqualityComparer<IOpCodeInfoWithOperand<String>>.ReferenceBasedComparer );
       }
 
       /// <summary>
@@ -1506,9 +1529,22 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
 
          // Emit IL code
+         var oProvider = this._md.GetOpCodeProvider();
+         var serializer = ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) oProvider ).CreateSerializer( new CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeSerializationArguments( info =>
+         {
+            const Int32 USER_STRING_MASK = 0x70 << 24;
+            Int32 token;
+            this._stringTokens.TryGetValue( info, out token );
+            return token | USER_STRING_MASK;
+         } ) );
+
+         var aIdx = new ArrayIndex<Byte>( this._auxArray, 0 );
          foreach ( var info in il.OpCodes )
          {
-            EmitOpCodeInfo( info, array, ref idx );
+            serializer.Serialize( aIdx, info );
+            var len = oProvider.GetTotalByteCount( info );
+            Array.Copy( this._auxArray, 0, array, idx, len );
+            idx += len;
          }
 
          // Emit exception block infos
@@ -1578,86 +1614,6 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
             }
 
-         }
-      }
-
-      /// <summary>
-      /// This method is used by <see cref="WriteDataToArray"/>, in order to write single <see cref="OpCodeInfo"/> to byte array.
-      /// </summary>
-      /// <param name="codeInfo">The <see cref="OpCodeInfo"/> to write.</param>
-      /// <param name="array">The array to write <paramref name="codeInfo"/> to.</param>
-      /// <param name="idx">The index in <paramref name="array"/> where to start writing.</param>
-      /// <exception cref="NullReferenceException"></exception>
-      private void EmitOpCodeInfo(
-         OpCodeInfo codeInfo,
-         Byte[] array,
-         ref Int32 idx
-      )
-      {
-         const Int32 USER_STRING_MASK = 0x70 << 24;
-         var codeID = codeInfo.OpCodeID;
-         var ocp = this._md.GetOpCodeProvider();
-         var ocpInfo = ocp.GetInfoFor( codeID );
-         ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) ocp ).WriteOpCode( ocpInfo, array, idx );
-         idx += ocpInfo.CodeSize;
-         var code = ocpInfo.Code;
-         var operandType = code.OperandType;
-         if ( operandType != OperandType.InlineNone )
-         {
-            Int32 i32;
-            switch ( operandType )
-            {
-               case OperandType.ShortInlineI:
-               case OperandType.ShortInlineVar:
-                  array.WriteByteToBytes( ref idx, (Byte) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
-                  break;
-               case OperandType.ShortInlineBrTarget:
-                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                  array.WriteByteToBytes( ref idx, (Byte) i32 );
-                  break;
-               case OperandType.ShortInlineR:
-                  array.WriteSingleLEToBytes( ref idx, (Single) ( (OpCodeInfoWithSingle) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineBrTarget:
-                  i32 = ( (OpCodeInfoWithInt32) codeInfo ).Operand;
-                  array.WriteInt32LEToBytes( ref idx, i32 );
-                  break;
-               case OperandType.InlineI:
-                  array.WriteInt32LEToBytes( ref idx, ( (OpCodeInfoWithInt32) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineVar:
-                  array.WriteInt16LEToBytes( ref idx, (Int16) ( (OpCodeInfoWithInt32) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineR:
-                  array.WriteDoubleLEToBytes( ref idx, (Double) ( (OpCodeInfoWithDouble) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineI8:
-                  array.WriteInt64LEToBytes( ref idx, (Int64) ( (OpCodeInfoWithInt64) codeInfo ).Operand );
-                  break;
-               case OperandType.InlineString:
-                  Int32 token;
-                  this._stringTokens.TryGetValue( (OpCodeInfoWithString) codeInfo, out token );
-                  array.WriteInt32LEToBytes( ref idx, token | USER_STRING_MASK );
-                  break;
-               case OperandType.InlineField:
-               case OperandType.InlineMethod:
-               case OperandType.InlineType:
-               case OperandType.InlineToken:
-               case OperandType.InlineSignature:
-                  var tIdx = ( (OpCodeInfoWithTableIndex) codeInfo ).Operand;
-                  array.WriteInt32LEToBytes( ref idx, tIdx.GetOneBasedToken() );
-                  break;
-               case OperandType.InlineSwitch:
-                  var offsets = ( (OpCodeInfoWithIntegers) codeInfo ).Operand;
-                  array.WriteInt32LEToBytes( ref idx, offsets.Count );
-                  foreach ( var offset in offsets )
-                  {
-                     array.WriteInt32LEToBytes( ref idx, offset );
-                  }
-                  break;
-               default:
-                  throw new ArgumentException( "Unknown operand type: " + code.OperandType + " for " + code + "." );
-            }
          }
       }
 
@@ -3103,6 +3059,7 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
 
       private readonly CILMetaData _md;
       private readonly WritingOptions_TableStream _options;
+      private readonly Boolean[] _sortedTables;
       private WriteDependantInfo _writeDependantInfo;
 
       /// <summary>
@@ -3122,7 +3079,9 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
          ArgumentValidator.ValidateNotNull( "Meta data", md );
 
          this._md = md;
-         this.TableSerializations = serializationCreationArgs.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) ).ToArrayProxy().CQ; ;
+         var tableSerInfoArray = serializationCreationArgs.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) ).ToArray();
+         this._sortedTables = tableSerInfoArray.Select( info => info?.IsSorted ?? false ).ToArray();
+         this.TableSerializations = tableSerInfoArray.Select( ( info, idx ) => md.GetByTable( idx ).GetRowCount() > 0 ? info.Functionality : null ).ToArrayProxy().CQ; // serializationCreationArgs.CreateTableSerializationInfos( md.GetAllTables().Select( t => t.TableInformationNotGeneric ) ).ToArrayProxy().CQ;
          this.TableSizes = this.TableSerializations.CreateTableSizeArray( md );
          this.WritingStatus = writingStatus;
          this._options = options ?? new WritingOptions_TableStream();
@@ -3372,11 +3331,11 @@ namespace CILAssemblyManipulator.Physical.IO.Defaults
       private Int64 GetSortedTablesBitVector()
       {
          var sortedBitvector = 0UL;
-         var tableSerializations = this.TableSerializations;
-         for ( var i = tableSerializations.Count - 1; i >= 0; --i )
+         var sortedArray = this._sortedTables;
+         for ( var i = sortedArray.Length - 1; i >= 0; --i )
          {
             sortedBitvector = sortedBitvector << 1;
-            if ( tableSerializations[i]?.IsSorted ?? false )
+            if ( sortedArray[i] )
             {
                sortedBitvector |= 1;
             }

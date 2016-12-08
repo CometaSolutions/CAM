@@ -85,12 +85,20 @@ namespace UtilPack.Visiting.Implementation
       }
    }
 
-   internal class ManualVisitorInformationWithResult<TElement, TContext, TResult> : AbstractVisitorInformation<AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult>, ExplicitAcceptorInformationWithResult<TElement, TContext, TResult>>
+   internal class ManualVisitorInformationWithResult<TElement, TContext, TResult> : AbstractVisitorInformation<AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult>, ExplicitAcceptorInformationWithResult<TElement, TContext, TResult>, TContext>
    {
-      public ManualVisitorInformationWithResult( AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback, ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> acceptorInfo )
-         : base( callback, acceptorInfo )
+      public ManualVisitorInformationWithResult( AcceptVertexExplicitCallbackWithResultDelegate<TElement, TResult> callback, ExplicitAcceptorInformationWithResult<TElement, TContext, TResult> acceptorInfo, TContext context )
+         : base( callback, acceptorInfo, context )
       {
 
+      }
+   }
+
+   internal class ManualVisitorInformationWithResultAndContext<TElement, TContext, TResult> : AbstractVisitorInformation<AcceptVertexExplicitCallbackWithResultDelegate<TElement, TContext, TResult>, ExplicitAcceptorInformationWithResultAndContext<TElement, TContext, TResult>>
+   {
+      public ManualVisitorInformationWithResultAndContext( AcceptVertexExplicitCallbackWithResultDelegate<TElement, TContext, TResult> callback, ExplicitAcceptorInformationWithResultAndContext<TElement, TContext, TResult> acceptorInfo )
+         : base( callback, acceptorInfo )
+      {
       }
    }
 

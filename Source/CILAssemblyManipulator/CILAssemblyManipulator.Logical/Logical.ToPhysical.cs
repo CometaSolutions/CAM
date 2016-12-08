@@ -995,70 +995,70 @@ public static partial class E_CILLogical
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandTypeToken:
                var lt = (LogicalOpCodeInfoWithTypeToken) lOpCode;
-               pOpCode = new OpCodeInfoWithTableIndex( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( lt.ReflectionObject, lt.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithOperand<TableIndex>( lt.Code, state.GetTypeDefOrRefOrSpec( lt.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( lt.ReflectionObject, lt.TypeTokenKind ) ) );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandFieldToken:
                var ft = (LogicalOpCodeInfoWithFieldToken) lOpCode;
-               pOpCode = new OpCodeInfoWithTableIndex( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( ft.ReflectionObject.DeclaringType, ft.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithOperand<TableIndex>( ft.Code, state.GetFieldDefOrMemberRef( ft.ReflectionObject, thisType.IsConvertTypeDefToTypeSpec( ft.ReflectionObject.DeclaringType, ft.TypeTokenKind ) ) );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandMethodToken:
                var lm = (LogicalOpCodeInfoWithMethodToken) lOpCode;
-               pOpCode = new OpCodeInfoWithTableIndex( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, thisMethod.IsConvertGenericMethodDefToMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind ), thisType.IsConvertTypeDefToTypeSpec( lm.ReflectionObject.DeclaringType, lm.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithOperand<TableIndex>( lm.Code, state.GetMethodDefOrMemberRefOrMethodSpec( lm.ReflectionObject, thisMethod.IsConvertGenericMethodDefToMemberRefOrMethodSpec( lm.ReflectionObject, lm.MethodTokenKind ), thisType.IsConvertTypeDefToTypeSpec( lm.ReflectionObject.DeclaringType, lm.TypeTokenKind ) ) );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandCtorToken:
                var ct = (LogicalOpCodeInfoWithCtorToken) lOpCode;
-               pOpCode = new OpCodeInfoWithTableIndex( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, thisType.IsConvertTypeDefToTypeSpec( ct.ReflectionObject.DeclaringType, ct.TypeTokenKind ) ) );
+               pOpCode = new OpCodeInfoWithOperand<TableIndex>( ct.Code, state.GetMethodDefOrMemberRefOrMethodSpec( ct.ReflectionObject, false, thisType.IsConvertTypeDefToTypeSpec( ct.ReflectionObject.DeclaringType, ct.TypeTokenKind ) ) );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandMethodSigToken:
                var lms = (LogicalOpCodeInfoWithMethodSig) lOpCode;
-               pOpCode = new OpCodeInfoWithTableIndex( lms.Code, state.GetMethodSignatureToken( lms.ReflectionObject, lms.VarArgs ) );
+               pOpCode = new OpCodeInfoWithOperand<TableIndex>( lms.Code, state.GetMethodSignatureToken( lms.ReflectionObject, lms.VarArgs ) );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandString:
                var s = (LogicalOpCodeInfoWithFixedSizeOperandString) lOpCode;
-               pOpCode = new OpCodeInfoWithString( s.Code, s.Operand );
+               pOpCode = new OpCodeInfoWithOperand<String>( s.Code, s.Operand );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandUInt16:
                var sh = (LogicalOpCodeInfoWithFixedSizeOperandUInt16) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( sh.Code, sh.Operand );
+               pOpCode = new OpCodeInfoWithOperand<Int32>( sh.Code, sh.Operand );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandInt32:
                var lg = (LogicalOpCodeInfoWithFixedSizeOperandInt32) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( lg.Code, lg.Operand );
+               pOpCode = new OpCodeInfoWithOperand<Int32>( lg.Code, lg.Operand );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandInt64:
                var llg = (LogicalOpCodeInfoWithFixedSizeOperandInt64) lOpCode;
-               pOpCode = new OpCodeInfoWithInt64( llg.Code, llg.Operand );
+               pOpCode = new OpCodeInfoWithOperand<Int64>( llg.Code, llg.Operand );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandR4:
                var fs = (LogicalOpCodeInfoWithFixedSizeOperandSingle) lOpCode;
-               pOpCode = new OpCodeInfoWithSingle( fs.Code, fs.Operand );
+               pOpCode = new OpCodeInfoWithOperand<Single>( fs.Code, fs.Operand );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.OperandR8:
                var fd = (LogicalOpCodeInfoWithFixedSizeOperandDouble) lOpCode;
-               pOpCode = new OpCodeInfoWithDouble( fd.Code, fd.Operand );
+               pOpCode = new OpCodeInfoWithOperand<Double>( fd.Code, fd.Operand );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.Branch:
                var bl = (LogicalOpCodeInfoForBranch) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( bl.ShortForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithOperand<Int32>( bl.ShortForm, logicalIL.GetLabelOffset( bl.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.Switch:
                var sw = (LogicalOpCodeInfoForSwitch) lOpCode;
-               var pSw = new OpCodeInfoWithIntegers( OpCodeID.Switch, sw.Labels.Count() );
+               var pSw = new OpCodeInfoWithList<Int32>( OpCodes.Switch, sw.Labels.Count() );
                pSw.Operand.AddRange( sw.Labels.Select( l => logicalIL.GetLabelOffset( l ) ) );
                pOpCode = pSw;
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.Leave:
                var ll = (LogicalOpCodeInfoForLeave) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( ll.ShortForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithOperand<Int32>( ll.ShortForm, logicalIL.GetLabelOffset( ll.TargetLabel ) );
                dynamicBranchInfos.Add( pOpCodes.Count );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             case CILAssemblyManipulator.Logical.OpCodeInfoKind.BranchOrLeaveFixed:
                var bf = (LogicalOpCodeInfoForFixedBranchOrLeave) lOpCode;
-               pOpCode = new OpCodeInfoWithInt32( bf.Code, logicalIL.GetLabelOffset( bf.TargetLabel ) );
+               pOpCode = new OpCodeInfoWithOperand<Int32>( bf.Code, logicalIL.GetLabelOffset( bf.TargetLabel ) );
                branchCodeIndices.Add( pOpCodes.Count );
                break;
             default:
@@ -1075,14 +1075,14 @@ public static partial class E_CILLogical
       for ( var i = 0; i < dynamicBranchInfos.Count; ++i )
       {
          var opCodeOffset = dynamicBranchInfos[i];
-         var codeInfo = (OpCodeInfoWithInt32) pOpCodes[opCodeOffset];
+         var codeInfo = (OpCodeInfoWithOperand<Int32>) pOpCodes[opCodeOffset];
          var pCode = codeInfo.OpCodeID;
          var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( opCodeOffset, ocp.GetFixedByteCount( pCode ), codeInfo.Operand );
          if ( !physicalOffset.IsShortJump() )
          {
             // Have to use long form
             var newForm = ( (LogicalOpCodeInfoForBranchingControlFlow) logicalIL.GetOpCodeInfo( opCodeOffset ) ).LongForm;
-            pOpCodes[opCodeOffset] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
+            pOpCodes[opCodeOffset] = new OpCodeInfoWithOperand<Int32>( newForm, codeInfo.Operand );
 
             // Fix byte offsets and recursively check all previous jumps that jump over this
             ilState.UpdateAllByteOffsetsFollowing( opCodeOffset, ocp.GetFixedByteCount( newForm ) - ocp.GetFixedByteCount( pCode ) );
@@ -1094,9 +1094,11 @@ public static partial class E_CILLogical
       foreach ( var i in branchCodeIndices )
       {
          var codeInfo = pOpCodes[i];
-         if ( codeInfo.InfoKind == CILAssemblyManipulator.Physical.OpCodeInfoKind.OperandIntegerList )
+         var codeInfoBranch = codeInfo as OpCodeInfoWithOperand<Int32>;
+
+         if ( codeInfoBranch == null )
          {
-            var switchInfo = (OpCodeInfoWithIntegers) codeInfo;
+            var switchInfo = (OpCodeInfoWithList<Int32>) codeInfo;
             var switchByteCount = ocp.GetTotalByteCount( switchInfo );
             var targetList = switchInfo.Operand;
             for ( var j = 0; j < targetList.Count; ++j )
@@ -1106,9 +1108,8 @@ public static partial class E_CILLogical
          }
          else
          {
-            var codeInfoBranch = (OpCodeInfoWithInt32) codeInfo;
             var pCodeInfo = codeInfo.OpCodeID;
-            var pCodeBranchInfo = ocp.GetCodeFor( codeInfoBranch.OpCodeID );
+            var pCodeBranchInfo = codeInfoBranch.OpCodeID;
             var physicalOffset = ilState.TransformLogicalOffsetToPhysicalOffset( i, ocp.GetFixedByteCount( pCodeInfo ), codeInfoBranch.Operand );
 
             if ( pCodeBranchInfo.OperandType == OperandType.ShortInlineBrTarget
@@ -1166,7 +1167,7 @@ public static partial class E_CILLogical
       {
          var currentDynamicIndex = dynIndices[idx];
          var dynamicJump = (LogicalOpCodeInfoForBranchingControlFlow) state.LogicalIL.GetOpCodeInfo( currentDynamicIndex );
-         var codeInfo = (OpCodeInfoWithInt32) pOpCodes[currentDynamicIndex];
+         var codeInfo = (OpCodeInfoWithOperand<Int32>) pOpCodes[currentDynamicIndex];
          if ( codeInfo.Operand > currentOpCodeIndex && dynamicJump.ShortForm == codeInfo.OpCodeID )
          {
             // Short jump over the changed offset, see if we need to change this as well
@@ -1176,7 +1177,7 @@ public static partial class E_CILLogical
             {
                // Have to use long form
                var newForm = dynamicJump.LongForm;
-               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithInt32( newForm, codeInfo.Operand );
+               pOpCodes[currentDynamicIndex] = new OpCodeInfoWithOperand<Int32>( newForm, codeInfo.Operand );
                // Modify all byte offsets following this.
                state.UpdateAllByteOffsetsFollowing( currentDynamicIndex, ocp.GetFixedByteCount( newForm ) - ocp.GetFixedByteCount( dynamicJump.ShortForm ) );
                // Re-check dynamic jumps between start and this.

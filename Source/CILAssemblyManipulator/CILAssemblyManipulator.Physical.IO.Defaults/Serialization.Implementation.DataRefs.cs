@@ -160,13 +160,18 @@ public static partial class E_CILPhysical
          var opCodes = methodIL.OpCodes;
          var idx = 0;
          var bytes = array.ReadIntoResizableArray( stream, codeSize );
+         var deserializer = ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).CreateDeserializer( new CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeDeserializationArguments( strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index ) ) );
+         Int32 bytesRead;
          while ( idx < codeSize && success )
          {
-            var curCodeInfo = opCodeProvider.TryReadOpCode(
-               bytes,
-               ref idx,
-               strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index )
-               );
+            var curCodeInfo = (OpCodeInfo) deserializer.Deserialize( new ArrayIndex<Byte>( bytes, idx ), out bytesRead );
+            idx += bytesRead;
+
+            //var curCodeInfo = opCodeProvider.TryReadOpCode(
+            //   bytes,
+            //   ref idx,
+            //   strToken => userStrings.GetString( TableIndex.FromZeroBasedToken( strToken ).Index )
+            //   );
 
             if ( curCodeInfo == null )
             {
@@ -183,93 +188,93 @@ public static partial class E_CILPhysical
    }
 
 
-   /// <summary>
-   /// Using this <see cref="OpCodeProvider"/>, tries to read one <see cref="OpCodeInfo"/> from given byte array.
-   /// </summary>
-   /// <param name="opCodeProvider">This <see cref="OpCodeProvider"/>.</param>
-   /// <param name="bytes">The byte array.</param>
-   /// <param name="idx">The index in <paramref name="bytes"/> where to start reading.</param>
-   /// <param name="stringGetter">The callback to get a string for <see cref="OpCodeInfoWithString"/>.</param>
-   /// <returns>Deserialized <see cref="OpCodeInfo"/>, or <c>null</c> if deserialization failed.</returns>
-   /// <exception cref="NullReferenceException">If this <see cref="OpCodeProvider"/> is <c>null</c>.</exception>
-   /// <exception cref="ArgumentNullException">If any of the <paramref name="bytes"/> or <paramref name="stringGetter"/> is <c>null</c>.</exception>
-   public static OpCodeInfo TryReadOpCode(
-     this OpCodeProvider opCodeProvider,
-     Byte[] bytes,
-     ref Int32 idx,
-     Func<Int32, String> stringGetter
-     )
-   {
-      ArgumentValidator.ValidateNotNullReference( opCodeProvider );
-      ArgumentValidator.ValidateNotNull( "Byte array", bytes );
+   ///// <summary>
+   ///// Using this <see cref="OpCodeProvider"/>, tries to read one <see cref="OpCodeInfo"/> from given byte array.
+   ///// </summary>
+   ///// <param name="opCodeProvider">This <see cref="OpCodeProvider"/>.</param>
+   ///// <param name="bytes">The byte array.</param>
+   ///// <param name="idx">The index in <paramref name="bytes"/> where to start reading.</param>
+   ///// <param name="stringGetter">The callback to get a string for op codes with string as operand.</param>
+   ///// <returns>Deserialized <see cref="OpCodeInfo"/>, or <c>null</c> if deserialization failed.</returns>
+   ///// <exception cref="NullReferenceException">If this <see cref="OpCodeProvider"/> is <c>null</c>.</exception>
+   ///// <exception cref="ArgumentNullException">If any of the <paramref name="bytes"/> or <paramref name="stringGetter"/> is <c>null</c>.</exception>
+   //public static OpCodeInfo TryReadOpCode(
+   //  this OpCodeProvider opCodeProvider,
+   //  Byte[] bytes,
+   //  ref Int32 idx,
+   //  Func<Int32, String> stringGetter
+   //  )
+   //{
+   //   ArgumentValidator.ValidateNotNullReference( opCodeProvider );
+   //   ArgumentValidator.ValidateNotNull( "Byte array", bytes );
 
-      CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo ocpInfo;
-      OpCodeInfo info;
-      if ( ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryReadOpCode( bytes, idx, out ocpInfo ) )
-      {
-         idx += ocpInfo.CodeSize;
-         var codeID = ocpInfo.Code.OpCodeID;
-         switch ( ocpInfo.Code.OperandType )
-         {
-            case OperandType.InlineNone:
-               info = opCodeProvider.GetOperandlessInfoFor( codeID );
-               break;
-            case OperandType.ShortInlineBrTarget:
-            case OperandType.ShortInlineI:
-               info = new OpCodeInfoWithInt32( codeID, (Int32) ( bytes.ReadSByteFromBytes( ref idx ) ) );
-               break;
-            case OperandType.ShortInlineVar:
-               info = new OpCodeInfoWithInt32( codeID, bytes.ReadByteFromBytes( ref idx ) );
-               break;
-            case OperandType.ShortInlineR:
-               info = new OpCodeInfoWithSingle( codeID, bytes.ReadSingleLEFromBytes( ref idx ) );
-               break;
-            case OperandType.InlineBrTarget:
-            case OperandType.InlineI:
-               info = new OpCodeInfoWithInt32( codeID, bytes.ReadInt32LEFromBytes( ref idx ) );
-               break;
-            case OperandType.InlineVar:
-               info = new OpCodeInfoWithInt32( codeID, bytes.ReadUInt16LEFromBytes( ref idx ) );
-               break;
-            case OperandType.InlineR:
-               info = new OpCodeInfoWithDouble( codeID, bytes.ReadDoubleLEFromBytes( ref idx ) );
-               break;
-            case OperandType.InlineI8:
-               info = new OpCodeInfoWithInt64( codeID, bytes.ReadInt64LEFromBytes( ref idx ) );
-               break;
-            case OperandType.InlineString:
-               ArgumentValidator.ValidateNotNull( "String getter", stringGetter );
-               info = new OpCodeInfoWithString( codeID, stringGetter( bytes.ReadInt32LEFromBytes( ref idx ) ) );
-               break;
-            case OperandType.InlineField:
-            case OperandType.InlineMethod:
-            case OperandType.InlineType:
-            case OperandType.InlineToken:
-            case OperandType.InlineSignature:
-               info = new OpCodeInfoWithTableIndex( codeID, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
-               break;
-            case OperandType.InlineSwitch:
-               var count = bytes.ReadInt32LEFromBytes( ref idx );
-               var sInfo = new OpCodeInfoWithIntegers( codeID, count );
-               for ( var i = 0; i < count; ++i )
-               {
-                  sInfo.Operand.Add( bytes.ReadInt32LEFromBytes( ref idx ) );
-               }
-               info = sInfo;
-               break;
-            default:
-               info = null;
-               break;
-         }
-      }
-      else
-      {
-         info = null;
-      }
+   //   CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeSerializationInfo ocpInfo;
+   //   OpCodeInfo info;
+   //   if ( ( (CAMPhysicalIO::CILAssemblyManipulator.Physical.Meta.OpCodeProvider) opCodeProvider ).TryReadOpCode( bytes, idx, out ocpInfo ) )
+   //   {
+   //      idx += ocpInfo.CodeSize;
+   //      var codeID = ocpInfo.Code;
+   //      switch ( ocpInfo.Code.OperandType )
+   //      {
+   //         case OperandType.InlineNone:
+   //            info = opCodeProvider.GetOperandlessInfoFor( codeID );
+   //            break;
+   //         case OperandType.ShortInlineBrTarget:
+   //         case OperandType.ShortInlineI:
+   //            info = new OpCodeInfoWithOperand<Int32>( codeID, (Int32) ( bytes.ReadSByteFromBytes( ref idx ) ) );
+   //            break;
+   //         case OperandType.ShortInlineVar:
+   //            info = new OpCodeInfoWithOperand<Int32>( codeID, bytes.ReadByteFromBytes( ref idx ) );
+   //            break;
+   //         case OperandType.ShortInlineR:
+   //            info = new OpCodeInfoWithOperand<Single>( codeID, bytes.ReadSingleLEFromBytes( ref idx ) );
+   //            break;
+   //         case OperandType.InlineBrTarget:
+   //         case OperandType.InlineI:
+   //            info = new OpCodeInfoWithOperand<Int32>( codeID, bytes.ReadInt32LEFromBytes( ref idx ) );
+   //            break;
+   //         case OperandType.InlineVar:
+   //            info = new OpCodeInfoWithOperand<Int32>( codeID, bytes.ReadUInt16LEFromBytes( ref idx ) );
+   //            break;
+   //         case OperandType.InlineR:
+   //            info = new OpCodeInfoWithOperand<Double>( codeID, bytes.ReadDoubleLEFromBytes( ref idx ) );
+   //            break;
+   //         case OperandType.InlineI8:
+   //            info = new OpCodeInfoWithOperand<Int64>( codeID, bytes.ReadInt64LEFromBytes( ref idx ) );
+   //            break;
+   //         case OperandType.InlineString:
+   //            ArgumentValidator.ValidateNotNull( "String getter", stringGetter );
+   //            info = new OpCodeInfoWithOperand<String>( codeID, stringGetter( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+   //            break;
+   //         case OperandType.InlineField:
+   //         case OperandType.InlineMethod:
+   //         case OperandType.InlineType:
+   //         case OperandType.InlineToken:
+   //         case OperandType.InlineSignature:
+   //            info = new OpCodeInfoWithOperand<TableIndex>( codeID, TableIndex.FromOneBasedToken( bytes.ReadInt32LEFromBytes( ref idx ) ) );
+   //            break;
+   //         case OperandType.InlineSwitch:
+   //            var count = bytes.ReadInt32LEFromBytes( ref idx );
+   //            var sInfo = new OpCodeInfoWithList<Int32>( codeID, count );
+   //            for ( var i = 0; i < count; ++i )
+   //            {
+   //               sInfo.Operand.Add( bytes.ReadInt32LEFromBytes( ref idx ) );
+   //            }
+   //            info = sInfo;
+   //            break;
+   //         default:
+   //            info = null;
+   //            break;
+   //      }
+   //   }
+   //   else
+   //   {
+   //      info = null;
+   //   }
 
-      return info;
+   //   return info;
 
-   }
+   //}
 
    /// <summary>
    /// This helper method tries to calculate the size of the type of the given field, in bytes.

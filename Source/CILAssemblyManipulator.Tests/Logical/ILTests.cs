@@ -107,7 +107,7 @@ namespace CILAssemblyManipulator.Tests.Logical
                {
                   il2.EmitLoadString( "" )
                      .EmitLoadLocal( local2 )
-                     .Add( new LogicalOpCodeInfoWithTypeToken( OpCodeID.Box, objType ) )
+                     .Add( new LogicalOpCodeInfoWithTypeToken( OpCodes.Box, objType ) )
                      .EmitLoadString( "" )
                      .EmitCall( objMethod )
                      .EmitReflectionObjectOf( objType )
@@ -154,17 +154,17 @@ namespace CILAssemblyManipulator.Tests.Logical
             var physIL = phys.MethodDefinitions.TableContents[0].IL;
 
             var curCode = physIL.OpCodes[0];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MemberRef );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MemberRef );
             curCode = physIL.OpCodes[4];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MethodSpec );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MethodSpec );
             curCode = physIL.OpCodes[8];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MemberRef );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MemberRef );
             curCode = physIL.OpCodes[12];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MethodSpec );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MethodSpec );
          }
       }
 
@@ -191,24 +191,24 @@ namespace CILAssemblyManipulator.Tests.Logical
             var physIL = phys.MethodDefinitions.TableContents[0].IL;
 
             var curCode = physIL.OpCodes[0];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            var token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            var token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.MethodDef );
 
             curCode = physIL.OpCodes[4];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.MethodDef );
 
             curCode = physIL.OpCodes[8];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MethodDef );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MethodDef );
 
             curCode = physIL.OpCodes[12];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MethodDef );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MethodDef );
          }
       }
 
@@ -237,26 +237,26 @@ namespace CILAssemblyManipulator.Tests.Logical
             var physIL = phys.MethodDefinitions.TableContents[0].IL;
 
             var curCode = physIL.OpCodes[0];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            var token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            var token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.MethodDef );
 
             curCode = physIL.OpCodes[4];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.MethodSpec );
             token = phys.MethodSpecifications.TableContents[token.Index].Method;
             Assert.IsTrue( token.Table == Tables.MethodDef );
 
             curCode = physIL.OpCodes[8];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MemberRef );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MemberRef );
 
             curCode = physIL.OpCodes[12];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
-            Assert.IsTrue( ( (OpCodeInfoWithTableIndex) curCode ).Operand.Table == Tables.MethodSpec );
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
+            Assert.IsTrue( ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand.Table == Tables.MethodSpec );
             token = phys.MethodSpecifications.TableContents[token.Index].Method;
             Assert.IsTrue( token.Table == Tables.MemberRef );
          }
@@ -294,33 +294,33 @@ namespace CILAssemblyManipulator.Tests.Logical
             var physIL = phys.MethodDefinitions.TableContents[0].IL;
 
             var curCode = physIL.OpCodes[0];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            var token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            var token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.TypeDef );
 
             curCode = physIL.OpCodes[2];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.TypeSpec );
 
             curCode = physIL.OpCodes[4];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.TypeRef );
 
             curCode = physIL.OpCodes[6];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.TypeRef );
 
             curCode = physIL.OpCodes[8];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.TypeSpec );
 
             curCode = physIL.OpCodes[10];
-            Assert.IsInstanceOf<OpCodeInfoWithTableIndex>( curCode );
-            token = ( (OpCodeInfoWithTableIndex) curCode ).Operand;
+            Assert.IsInstanceOf<OpCodeInfoWithOperand<TableIndex>>( curCode );
+            token = ( (OpCodeInfoWithOperand<TableIndex>) curCode ).Operand;
             Assert.IsTrue( token.Table == Tables.TypeSpec );
 
          }

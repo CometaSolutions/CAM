@@ -64,7 +64,7 @@ namespace UtilPack.Visiting.Implementation
       internal AbstractAutomaticAcceptor( AutomaticTypeBasedVisitor<TElement, TEdgeInfo> visitor )
          : base( visitor )
       {
-         this._edgeAcceptors = new List<TEdgeDelegateInfo>().ToListProxy();
+         this._edgeAcceptors = new List<TEdgeDelegateInfo>().AsListProxy();
       }
 
       protected ListQuery<TEdgeDelegateInfo> EdgeAcceptors
@@ -347,7 +347,7 @@ namespace UtilPack.Visiting.Implementation
 
    }
 
-   internal sealed class ManualTransitionAcceptor_WithContextAndReturnValueImpl<TElement, TContext, TResult> : AbstractManualAcceptor<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>>, ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, TContext, TResult>
+   internal sealed class ManualTransitionAcceptor_WithContextAndReturnValueImpl<TElement, TContext, TResult> : AbstractManualAcceptor<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>>, ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, TResult, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>>
    {
       private sealed class AcceptorImpl : AcceptorWithContextAndReturnValue<TElement, TContext, TResult>
       {
@@ -375,6 +375,42 @@ namespace UtilPack.Visiting.Implementation
          : base( visitor )
       {
          this._acceptor = new AcceptorImpl( visitor, new ExplicitAcceptorInformationWithResult<TElement, TContext, TResult>( this.VertexAcceptors ) );
+      }
+
+      public override AcceptorWithContextAndReturnValue<TElement, TContext, TResult> Acceptor
+      {
+         get
+         {
+            return this._acceptor;
+         }
+      }
+   }
+
+   internal sealed class ManualTransitionAcceptor_WithContextAndReturnValueImpl_ContextForCallback<TElement, TContext, TResult> : AbstractManualAcceptor<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, AcceptVertexExplicitWithContextAndResultDelegate<TElement, TContext, TResult>>, ManualTransitionAcceptor_WithContextAndReturnValue<AcceptorWithContextAndReturnValue<TElement, TContext, TResult>, TElement, TResult, AcceptVertexExplicitWithContextAndResultDelegate<TElement, TContext, TResult>>
+   {
+      private sealed class AcceptorImpl : AcceptorWithContextAndReturnValue<TElement, TContext, TResult>
+      {
+         private readonly ManualTypeBasedVisitor<TElement> _visitor;
+         private readonly ManualVisitorInformationWithResultAndContext<TElement, TContext, TResult> _visitorInfo;
+
+         public AcceptorImpl( ManualTypeBasedVisitor<TElement> visitor, ManualVisitorInformationWithResultAndContext<TElement, TContext, TResult> visitorInfo )
+         {
+            this._visitor = ArgumentValidator.ValidateNotNull( "Visitor", visitor );
+            this._visitorInfo = ArgumentValidator.ValidateNotNull( "Visitor info", visitorInfo );
+         }
+
+         public TResult Accept( TElement element, TContext context, out Boolean success )
+         {
+            return this._visitor.VisitExplicit( element, context, this._visitorInfo, out success );
+         }
+      }
+
+      private readonly AcceptorImpl _acceptor;
+
+      public ManualTransitionAcceptor_WithContextAndReturnValueImpl_ContextForCallback( ManualTypeBasedVisitor<TElement> visitor )
+         : base( visitor )
+      {
+         this._acceptor = new AcceptorImpl( visitor, visitor.CreateExplicitVisitorInfo( new ExplicitAcceptorInformationWithResultAndContext<TElement, TContext, TResult>( this.VertexAcceptors ) ) );
       }
 
       public override AcceptorWithContextAndReturnValue<TElement, TContext, TResult> Acceptor
@@ -523,6 +559,16 @@ namespace UtilPack.Visiting.Implementation
    {
       public ExplicitAcceptorInformationWithResult(
          DictionaryQuery<Type, AcceptVertexExplicitWithResultDelegate<TElement, TContext, TResult>> vertexAcceptors
+         ) : base( vertexAcceptors )
+      {
+
+      }
+   }
+
+   internal class ExplicitAcceptorInformationWithResultAndContext<TElement, TContext, TResult> : AbstractAcceptorInformation<AcceptVertexExplicitWithContextAndResultDelegate<TElement, TContext, TResult>>
+   {
+      public ExplicitAcceptorInformationWithResultAndContext(
+         DictionaryQuery<Type, AcceptVertexExplicitWithContextAndResultDelegate<TElement, TContext, TResult>> vertexAcceptors
          ) : base( vertexAcceptors )
       {
 
